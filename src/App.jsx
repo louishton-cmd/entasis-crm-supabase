@@ -242,62 +242,124 @@ function TabNav({ activeTab, setActiveTab, profile }) {
 function CurvePanel({ title, actual, projected, target, note }) {
   const safeProjected = Math.max(projected, actual)
   const maxValue = Math.max(target || 0, safeProjected || 0, actual || 0, 1)
-  const points = [
-    { x: 12, value: 0 },
-    { x: 110, value: actual },
-    { x: 225, value: safeProjected },
-    { x: 340, value: target || 0 },
+
+  const W = 360
+  const H = 150
+  const PAD_TOP = 18
+  const PAD_BOTTOM = 18
+  const BASE_Y = H - PAD_BOTTOM
+
+  const pts = [
+    { x: 18, v: 0 },
+    { x: 120, v: actual },
+    { x: 240, v: safeProjected },
+    { x: 342, v: target || 0 },
   ]
 
-  const toY = (value) => {
-    const h = 120
-    const top = 16
-    const ratio = Math.max(0, Math.min(1, value / maxValue))
-    return h - ratio * (h - top)
+  const toY = (v) => {
+    const ratio = Math.max(0, Math.min(1, v / maxValue))
+    return BASE_Y - ratio * (BASE_Y - PAD_TOP)
   }
 
-  const line = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${toY(point.value)}`).join(' ')
-  const fill = `${line} L 340 132 L 12 132 Z`
-  const actualRatio = maxValue > 0 ? Math.round((actual / maxValue) * 100) : 0
-  const projectedRatio = maxValue > 0 ? Math.round((safeProjected / maxValue) * 100) : 0
+  // Catmull-Rom -> Bezier for a smoother, premium curve
+  const catmull = (p0, p1, p2, p3) => {
+    const t = 0.5
+    return [
+      { x: p1.x + (p2.x - p0.x) / 6 * t, y: p1.y + (p2.y - p0.y) / 6 * t },
+      { x: p2.x - (p3.x - p1.x) / 6 * t, y: p2.y - (p3.y - p1.y) / 6 * t },
+      { x: p2.x, y: p2.y },
+    ]
+  }
+
+  const p = pts.map((pt) => ({ x: pt.x, y: toY(pt.v) }))
+  const pExt = [p[0], ...p, p[p.length - 1]]
+  let d = `M ${p[0].x} ${p[0].y}`
+  for (let i = 1; i < p.length; i++) {
+    const [c1, c2, p2] = catmull(pExt[i - 1], pExt[i], pExt[i + 1], pExt[i + 2])
+    d += ` C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${p2.x} ${p2.y}`
+  }
+  const fillD = `${d} L ${p[p.length - 1].x} ${BASE_Y} L ${p[0].x} ${BASE_Y} Z`
+
+  const pctSigned = target ? Math.round((actual / target) * 100) : Math.round((actual / maxValue) * 100)
+  const pctProjected = target ? Math.round((safeProjected / target) * 100) : Math.round((safeProjected / maxValue) * 100)
 
   return (
     <div className="curve-card">
-      <div className="panel-head curve-head">
+      <div className="curve-head">
         <div>
-          <h3>{title}</h3>
+          <div className="curve-title">{title}</div>
           {note ? <div className="muted small">{note}</div> : null}
         </div>
-        <div className="curve-target">Objectif {euro(target)}</div>
+        <div className="curve-target">
+          <div className="muted small">Objectif</div>
+          <div className="curve-target-value">{formatMoney(target || 0)}</div>
+        </div>
       </div>
 
-      <svg viewBox="0 0 352 142" className="curve-svg" role="img" aria-label={title}>
-        <defs>
-          <linearGradient id={`${title}-fill`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(157,122,51,0.26)" />
-            <stop offset="100%" stopColor="rgba(157,122,51,0.02)" />
-          </linearGradient>
-        </defs>
-        <line x1="12" y1="132" x2="340" y2="132" className="curve-axis" />
-        <path d={fill} fill={`url(#${title}-fill)`} />
-        <path d={line} className="curve-line" />
-        {points.slice(1).map((point, index) => (
-          <circle key={`${title}-${index}`} cx={point.x} cy={toY(point.value)} r="4.5" className="curve-point" />
-        ))}
-      </svg>
+      <div className="curve-wrap">
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="curve-svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="entasisArea" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.22" />
+              <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.02" />
+            </linearGradient>
+            <linearGradient id="entasisLineGlow" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.0" />
+              <stop offset="40%" stopColor="var(--accent)" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.0" />
+            </linearGradient>
+            <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="6" result="blur" />
+              <feColorMatrix
+                in="blur"
+                type="matrix"
+                values="0 0 0 0 0.2  0 0 0 0 0.14  0 0 0 0 0.06  0 0 0 0.35 0"
+              />
+              <feMerge>
+                <feMergeNode />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
 
-      <div className="curve-legend">
-        <div>
-          <span className="muted tiny">Réalisé</span>
-          <strong>{euro(actual)}</strong>
-        </div>
-        <div>
-          <span className="muted tiny">Prévisionnel</span>
-          <strong>{euro(safeProjected)}</strong>
-        </div>
-        <div>
-          <span className="muted tiny">Avancement</span>
-          <strong>{actualRatio}% signé • {projectedRatio}% projeté</strong>
+          {/* subtle baseline */}
+          <line x1="14" y1={BASE_Y} x2={W - 14} y2={BASE_Y} stroke="var(--border)" strokeWidth="1" />
+
+          {/* target marker */}
+          {target ? (
+            <g>
+              <line
+                x1="14"
+                y1={toY(target)}
+                x2={W - 14}
+                y2={toY(target)}
+                stroke="var(--border)"
+                strokeWidth="1"
+                strokeDasharray="4 6"
+              />
+            </g>
+          ) : null}
+
+          <path d={fillD} fill="url(#entasisArea)" />
+          <path d={d} fill="none" stroke="var(--accent)" strokeWidth="3.5" strokeLinecap="round" filter="url(#softShadow)" />
+
+          {/* end cap */}
+          <circle cx={p[p.length - 1].x} cy={p[p.length - 1].y} r="6" fill="var(--panel)" stroke="var(--accent)" strokeWidth="3" />
+        </svg>
+
+        <div className="curve-foot">
+          <div>
+            <div className="muted small">Réalisé</div>
+            <div className="kpi">{formatMoney(actual)}</div>
+          </div>
+          <div>
+            <div className="muted small">Prévisionnel</div>
+            <div className="kpi">{formatMoney(safeProjected)}</div>
+          </div>
+          <div>
+            <div className="muted small">Avancement</div>
+            <div className="kpi">{pctSigned}% signé • {pctProjected}% projeté</div>
+          </div>
         </div>
       </div>
     </div>
@@ -435,97 +497,6 @@ function DealsTable({ deals, month, profile, onEdit, onDelete, onRefresh }) {
 function ObjectifsPanel({ objectifs, month, canEdit, onSave, profile }) {
   const [form, setForm] = useState({ pp_target: '', pu_target: '' })
 
-  useEffect(() => {
-    const row = objectifs[month] || { pp_target: 0, pu_target: 0 }
-    setForm({ pp_target: row.pp_target || 0, pu_target: row.pu_target || 0 })
-  }, [objectifs, month])
-
-  async function submit(e) {
-    e.preventDefault()
-    await onSave({ month, pp_target: Number(form.pp_target || 0), pu_target: Number(form.pu_target || 0) })
-  }
-
-  if (!canEdit) {
-    return (
-      <section className="panel">
-        <div className="panel-head">
-          <div>
-            <h2>Objectifs du cabinet</h2>
-            <div className="muted small">Lecture seule pour les conseillers</div>
-          </div>
-          <div className="muted small">{profile?.advisor_code ? `Espace ${profile.advisor_code}` : 'Espace conseiller'}</div>
-        </div>
-        <div className="grid grid-2">
-          <div className="metric-card">
-            <div className="metric-label">PP annualisée cible</div>
-            <div className="metric-value">{euro(form.pp_target)}</div>
-          </div>
-          <div className="metric-card">
-            <div className="metric-label">PU cible</div>
-            <div className="metric-value">{euro(form.pu_target)}</div>
-          </div>
-        </div>
-      </section>
-    )
-  }
-
-  return (
-    <section className="panel">
-      <div className="panel-head">
-        <h2>Objectifs mensuels cabinet</h2>
-        <div className="muted small">Modifiables par la direction</div>
-      </div>
-      <form className="grid grid-3" onSubmit={submit}>
-        <label>
-          PP annualisée cible
-          <input type="number" value={form.pp_target} onChange={(e) => setForm((prev) => ({ ...prev, pp_target: e.target.value }))} />
-        </label>
-        <label>
-          PU cible
-          <input type="number" value={form.pu_target} onChange={(e) => setForm((prev) => ({ ...prev, pu_target: e.target.value }))} />
-        </label>
-        <div className="align-end">
-          <button className="btn btn-primary full-width" type="submit">Enregistrer</button>
-        </div>
-      </form>
-    </section>
-  )
-}
-
-function ForecastPanel({ month, profile, teamProfiles, signatures, deals, onSave }) {
-  const [drafts, setDrafts] = useState({})
-  const [savingCode, setSavingCode] = useState('')
-
-  const visibleProfiles = useMemo(() => {
-    const rows = (teamProfiles || []).filter((item) => item?.is_active && item?.advisor_code && item.role !== 'manager')
-    if (!rows.length && profile?.advisor_code && profile?.role !== 'manager') return [profile]
-    if (profile?.role === 'manager') return rows
-    return rows.filter((item) => item.id === profile?.id)
-  }, [teamProfiles, profile])
-
-  useEffect(() => {
-    const next = {}
-    visibleProfiles.forEach((item) => {
-      const row = getForecastRow(signatures, month, item.advisor_code)
-      next[item.advisor_code] = {
-        planned_pp: row?.planned_pp ?? 0,
-        planned_pu: row?.planned_pu ?? 0,
-      }
-    })
-    setDrafts(next)
-  }, [visibleProfiles, signatures, month])
-
-  async function saveRow(advisorCode) {
-    setSavingCode(advisorCode)
-    await onSave({
-      month,
-      advisor_code: advisorCode,
-      planned_pp: Number(drafts[advisorCode]?.planned_pp || 0),
-      planned_pu: Number(drafts[advisorCode]?.planned_pu || 0),
-    })
-    setSavingCode('')
-  }
-
   const title = profile?.role === 'manager' ? 'Prévisionnels équipe' : 'Suivi de mes signatures'
   const subtitle = profile?.role === 'manager'
     ? 'Saisie facile des PP / PU prévues par conseiller, avec lecture immédiate face au CRM.'
@@ -544,9 +515,8 @@ function ForecastPanel({ month, profile, teamProfiles, signatures, deals, onSave
         {visibleProfiles.map((item) => {
           const advisorCode = item.advisor_code
           const metrics = advisorDealMetrics(deals, month, advisorCode)
-          const draft = drafts[advisorCode] || { planned_pp: 0, planned_pu: 0 }
-          const ppProjection = Number(draft.planned_pp || 0) > 0 ? Number(draft.planned_pp || 0) : metrics.ppSigned + metrics.ppPipeline
-          const puProjection = Number(draft.planned_pu || 0) > 0 ? Number(draft.planned_pu || 0) : metrics.puSigned + metrics.puPipeline
+          const ppProjection = metrics.ppSigned + metrics.ppPipeline
+          const puProjection = metrics.puSigned + metrics.puPipeline
 
           return (
             <div key={advisorCode} className="signature-row-card">
@@ -555,48 +525,11 @@ function ForecastPanel({ month, profile, teamProfiles, signatures, deals, onSave
                   <div className="cell-title">{item.full_name || advisorCode}</div>
                   <div className="muted tiny">{advisorCode}{item.role === 'manager' ? ' • direction' : ' • conseiller'}</div>
                 </div>
-                <div className="mini-stats">
-                  <span className="mini-chip">CRM signé PP {euro(metrics.ppSigned)}</span>
-                  <span className="mini-chip">CRM en cours PP {euro(metrics.ppPipeline)}</span>
-                  <span className="mini-chip">CRM signé PU {euro(metrics.puSigned)}</span>
-                </div>
-              </div>
-
-              <div className="grid grid-signatures forecast-grid">
-                <label>
-                  PP prévisionnelle annualisée
-                  <input
-                    type="number"
-                    min="0"
-                    value={draft.planned_pp}
-                    onChange={(e) => setDrafts((prev) => ({
-                      ...prev,
-                      [advisorCode]: { ...prev[advisorCode], planned_pp: e.target.value },
-                    }))}
-                  />
-                </label>
-                <label>
-                  PU prévisionnelle
-                  <input
-                    type="number"
-                    min="0"
-                    value={draft.planned_pu}
-                    onChange={(e) => setDrafts((prev) => ({
-                      ...prev,
-                      [advisorCode]: { ...prev[advisorCode], planned_pu: e.target.value },
-                    }))}
-                  />
-                </label>
-                <div className="align-end">
-                  <button className="btn btn-primary full-width" type="button" onClick={() => saveRow(advisorCode)} disabled={savingCode === advisorCode}>
-                    {savingCode === advisorCode ? 'Enregistrement…' : 'Enregistrer'}
-                  </button>
-                </div>
               </div>
 
               <div className="grid grid-2 top-margin">
-                <CurvePanel title={`PP ${advisorCode}`} actual={metrics.ppSigned} projected={ppProjection} target={Math.max(ppProjection, metrics.ppSigned + metrics.ppPipeline, 1)} note="Ta saisie prévaut, sinon le CRM prend le relais." />
-                <CurvePanel title={`PU ${advisorCode}`} actual={metrics.puSigned} projected={puProjection} target={Math.max(puProjection, metrics.puSigned + metrics.puPipeline, 1)} note="Signé = réalisé • En cours / Prévu = projeté CRM" />
+                <CurvePanel title="PP annualisée" actual={metrics.ppSigned} projected={ppProjection} target={objectifs?.[month]?.pp_target || 0} note="Signé = réalisé • En cours / Prévu = projeté" />
+                <CurvePanel title="PU" actual={metrics.puSigned} projected={puProjection} target={objectifs?.[month]?.pu_target || 0} note="Signé = réalisé • En cours / Prévu = projeté" />
               </div>
             </div>
           )
@@ -669,7 +602,7 @@ function DealModal({ open, initialDeal, profile, onClose, onSave }) {
 
           <div className="grid grid-3">
             <label>
-              PP mensuel
+              PP mensuel (x12 = PP annualisée)
               <input type="number" value={deal.pp_m || 0} onChange={(e) => setField('pp_m', e.target.value)} />
               <span className="muted tiny">Le CRM affichera automatiquement la PP annualisée.</span>
             </label>
@@ -917,7 +850,7 @@ export default function App() {
 
         {activeTab === 'previsionnel' ? (
           <div className="grid grid-main">
-            <ForecastPanel month={month} profile={profile} teamProfiles={teamProfiles} signatures={signatures} deals={deals} onSave={saveSignature} />
+            <ForecastPanel month={month} profile={profile} teamProfiles={teamProfiles} deals={deals} />
             <ObjectifsPanel objectifs={objectifs} month={month} canEdit={profile?.role === 'manager'} onSave={saveObjectif} profile={profile} />
           </div>
         ) : null}
