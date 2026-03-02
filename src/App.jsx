@@ -12,21 +12,6 @@ const EMPTY_OBJECTIFS = MONTHS.reduce((acc, month) => {
   return acc
 }, {})
 
-const theme = {
-  bg: '#f6f1e8',
-  panel: '#fffdf9',
-  panelAlt: '#f0e7d9',
-  border: '#e5d7c6',
-  text: '#171411',
-  muted: '#6f6457',
-  accent: '#9d7a33',
-  accentSoft: 'rgba(157,122,51,0.10)',
-  green: '#4e8e66',
-  amber: '#b67a2f',
-  red: '#b25f5b',
-  blue: '#6d86ae',
-}
-
 function euro(value) {
   const n = Number(value || 0)
   return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
@@ -79,10 +64,45 @@ function normalizeDeal(deal) {
 }
 
 function statColor(status) {
-  if (status === 'Signé') return theme.green
-  if (status === 'Prévu') return theme.blue
-  if (status === 'Annulé') return theme.red
-  return theme.amber
+  if (status === 'Signé') return '#4e8e66'
+  if (status === 'Prévu') return '#6d86ae'
+  if (status === 'Annulé') return '#b25f5b'
+  return '#b67a2f'
+}
+
+function dealMatchesAdvisor(deal, advisorCode) {
+  if (!advisorCode) return false
+  return deal.advisor_code === advisorCode || deal.co_advisor_code === advisorCode
+}
+
+function isPipelineStatus(status) {
+  return status === 'En cours' || status === 'Prévu'
+}
+
+function sumAnnualPp(deals) {
+  return deals.reduce((sum, deal) => sum + annualize(deal.pp_m), 0)
+}
+
+function sumPu(deals) {
+  return deals.reduce((sum, deal) => sum + Number(deal.pu || 0), 0)
+}
+
+function getForecastRow(signatures, month, advisorCode) {
+  return signatures.find((entry) => entry.month === month && entry.advisor_code === advisorCode)
+}
+
+function advisorDealMetrics(deals, month, advisorCode) {
+  const scoped = deals.filter((deal) => deal.month === month && dealMatchesAdvisor(deal, advisorCode))
+  const signed = scoped.filter((deal) => deal.status === 'Signé')
+  const pipeline = scoped.filter((deal) => isPipelineStatus(deal.status))
+  return {
+    signedDeals: signed.length,
+    pipelineDeals: pipeline.length,
+    ppSigned: sumAnnualPp(signed),
+    puSigned: sumPu(signed),
+    ppPipeline: sumAnnualPp(pipeline),
+    puPipeline: sumPu(pipeline),
+  }
 }
 
 function ConfigMissing() {
@@ -196,52 +216,131 @@ function Header({ profile, month, setMonth, onNewDeal, onSignOut }) {
   )
 }
 
-function Dashboard({ deals, objectifs, month, signatures }) {
+function TabNav({ activeTab, setActiveTab, profile }) {
+  const tabs = [
+    { key: 'vue', label: 'Vue mensuelle' },
+    { key: 'dossiers', label: 'Dossiers' },
+    { key: 'previsionnel', label: profile?.role === 'manager' ? 'Prévisionnels équipe' : 'Mon prévisionnel' },
+  ]
+
+  return (
+    <div className="tabbar">
+      {tabs.map((tab) => (
+        <button
+          key={tab.key}
+          type="button"
+          className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
+          onClick={() => setActiveTab(tab.key)}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function CurvePanel({ title, actual, projected, target, note }) {
+  const safeProjected = Math.max(projected, actual)
+  const maxValue = Math.max(target || 0, safeProjected || 0, actual || 0, 1)
+  const points = [
+    { x: 12, value: 0 },
+    { x: 110, value: actual },
+    { x: 225, value: safeProjected },
+    { x: 340, value: target || 0 },
+  ]
+
+  const toY = (value) => {
+    const h = 120
+    const top = 16
+    const ratio = Math.max(0, Math.min(1, value / maxValue))
+    return h - ratio * (h - top)
+  }
+
+  const line = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${toY(point.value)}`).join(' ')
+  const fill = `${line} L 340 132 L 12 132 Z`
+  const actualRatio = maxValue > 0 ? Math.round((actual / maxValue) * 100) : 0
+  const projectedRatio = maxValue > 0 ? Math.round((safeProjected / maxValue) * 100) : 0
+
+  return (
+    <div className="curve-card">
+      <div className="panel-head curve-head">
+        <div>
+          <h3>{title}</h3>
+          {note ? <div className="muted small">{note}</div> : null}
+        </div>
+        <div className="curve-target">Objectif {euro(target)}</div>
+      </div>
+
+      <svg viewBox="0 0 352 142" className="curve-svg" role="img" aria-label={title}>
+        <defs>
+          <linearGradient id={`${title}-fill`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(157,122,51,0.26)" />
+            <stop offset="100%" stopColor="rgba(157,122,51,0.02)" />
+          </linearGradient>
+        </defs>
+        <line x1="12" y1="132" x2="340" y2="132" className="curve-axis" />
+        <path d={fill} fill={`url(#${title}-fill)`} />
+        <path d={line} className="curve-line" />
+        {points.slice(1).map((point, index) => (
+          <circle key={`${title}-${index}`} cx={point.x} cy={toY(point.value)} r="4.5" className="curve-point" />
+        ))}
+      </svg>
+
+      <div className="curve-legend">
+        <div>
+          <span className="muted tiny">Réalisé</span>
+          <strong>{euro(actual)}</strong>
+        </div>
+        <div>
+          <span className="muted tiny">Prévisionnel</span>
+          <strong>{euro(safeProjected)}</strong>
+        </div>
+        <div>
+          <span className="muted tiny">Avancement</span>
+          <strong>{actualRatio}% signé • {projectedRatio}% projeté</strong>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Dashboard({ deals, objectifs, month, profile }) {
   const monthDeals = deals.filter((deal) => deal.month === month)
   const signed = monthDeals.filter((deal) => deal.status === 'Signé')
-  const inProgress = monthDeals.filter((deal) => deal.status === 'En cours')
-  const ppSigned = signed.reduce((sum, deal) => sum + annualize(deal.pp_m), 0)
-  const puSigned = signed.reduce((sum, deal) => sum + Number(deal.pu || 0), 0)
+  const pipeline = monthDeals.filter((deal) => isPipelineStatus(deal.status))
+  const ppSigned = sumAnnualPp(signed)
+  const puSigned = sumPu(signed)
+  const ppProjected = ppSigned + sumAnnualPp(pipeline)
+  const puProjected = puSigned + sumPu(pipeline)
   const monthlyTargets = objectifs[month] || { pp_target: 0, pu_target: 0 }
-  const monthSignatureRows = signatures.filter((row) => row.month === month)
-  const plannedSignatures = monthSignatureRows.reduce((sum, row) => sum + Number(row.planned_signatures || 0), 0)
-  const signedSignatures = monthSignatureRows.reduce((sum, row) => sum + Number(row.signed_signatures || 0), 0)
+  const title = 'Objectifs du mois en cours'
+  const intro = profile?.role === 'manager'
+    ? 'La courbe objectif intègre les dossiers signés. Les dossiers en cours et prévus alimentent la courbe prévisionnelle du cabinet.'
+    : 'Tes dossiers signés alimentent l’objectif du cabinet. Tes dossiers en cours et prévus alimentent automatiquement le prévisionnel.'
 
   return (
     <section className="stack gap-lg">
       <div className="grid grid-4">
-        <KpiCard label="Dossiers du mois" value={String(monthDeals.length)} hint={`${signed.length} signés • ${inProgress.length} en cours`} />
-        <KpiCard label="PP signé annualisé" value={euro(ppSigned)} hint={`Objectif ${euro(monthlyTargets.pp_target)}`} />
-        <KpiCard label="PU signé" value={euro(puSigned)} hint={`Objectif ${euro(monthlyTargets.pu_target)}`} />
-        <KpiCard label="Signatures équipe" value={`${signedSignatures}`} hint={`${plannedSignatures} prévues sur ${month}`} />
+        <KpiCard label="Dossiers du mois" value={String(monthDeals.length)} hint={`${signed.length} signés • ${pipeline.length} en cours / prévus`} />
+        <KpiCard label="PP signée annualisée" value={euro(ppSigned)} hint="Statut Signé" />
+        <KpiCard label="PP prévisionnelle" value={euro(ppProjected)} hint="Signé + En cours + Prévu" />
+        <KpiCard label="PU prévisionnelle" value={euro(puProjected)} hint="Signé + En cours + Prévu" />
       </div>
 
-      <div className="panel">
-        <div className="panel-head">
-          <h2>Vue manager du mois</h2>
-          <div className="muted small">Lecture filtrée automatiquement par rôle et par RLS.</div>
+      <div className="panel stack gap-lg">
+        <div className="panel-head curve-intro-head">
+          <div>
+            <h2>{title}</h2>
+            <div className="muted small">{intro}</div>
+          </div>
+          <div className="muted small">Mois affiché : <strong>{month}</strong></div>
         </div>
-        <div className="progress-group">
-          <ProgressBar label="Objectif PP" value={ppSigned} max={monthlyTargets.pp_target} />
-          <ProgressBar label="Objectif PU" value={puSigned} max={monthlyTargets.pu_target} />
+        <div className="grid grid-2">
+          <CurvePanel title="PP annualisée" actual={ppSigned} projected={ppProjected} target={Number(monthlyTargets.pp_target || 0)} note="Signé = réalisé • En cours / Prévu = projeté" />
+          <CurvePanel title="PU" actual={puSigned} projected={puProjected} target={Number(monthlyTargets.pu_target || 0)} note="Impact automatique des dossiers sur la courbe cabinet" />
         </div>
       </div>
     </section>
-  )
-}
-
-function ProgressBar({ label, value, max }) {
-  const ratio = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0
-  return (
-    <div className="stack gap-sm">
-      <div className="progress-row">
-        <span>{label}</span>
-        <span>{euro(value)} / {euro(max)}</span>
-      </div>
-      <div className="progress-track">
-        <div className="progress-fill" style={{ width: `${ratio}%` }} />
-      </div>
-    </div>
   )
 }
 
@@ -282,7 +381,7 @@ function DealsTable({ deals, month, profile, onEdit, onDelete, onRefresh }) {
             <tr>
               <th>Client</th>
               <th>Produit</th>
-              <th>PP mensuel</th>
+              <th>PP annualisée</th>
               <th>PU</th>
               <th>Conseiller</th>
               <th>Statut</th>
@@ -298,7 +397,10 @@ function DealsTable({ deals, month, profile, onEdit, onDelete, onRefresh }) {
                   <div className="muted tiny">{deal.source || '—'}</div>
                 </td>
                 <td>{deal.product}</td>
-                <td>{euro(annualize(deal.pp_m))}</td>
+                <td>
+                  <strong>{euro(annualize(deal.pp_m))}</strong>
+                  <div className="muted tiny">saisi {euro(deal.pp_m)} / mois</div>
+                </td>
                 <td>{euro(deal.pu)}</td>
                 <td>
                   {deal.advisor_code}
@@ -330,7 +432,7 @@ function DealsTable({ deals, month, profile, onEdit, onDelete, onRefresh }) {
   )
 }
 
-function ObjectifsPanel({ objectifs, month, canEdit, onSave }) {
+function ObjectifsPanel({ objectifs, month, canEdit, onSave, profile }) {
   const [form, setForm] = useState({ pp_target: '', pu_target: '' })
 
   useEffect(() => {
@@ -343,36 +445,60 @@ function ObjectifsPanel({ objectifs, month, canEdit, onSave }) {
     await onSave({ month, pp_target: Number(form.pp_target || 0), pu_target: Number(form.pu_target || 0) })
   }
 
+  if (!canEdit) {
+    return (
+      <section className="panel">
+        <div className="panel-head">
+          <div>
+            <h2>Objectifs du cabinet</h2>
+            <div className="muted small">Lecture seule pour les conseillers</div>
+          </div>
+          <div className="muted small">{profile?.advisor_code ? `Espace ${profile.advisor_code}` : 'Espace conseiller'}</div>
+        </div>
+        <div className="grid grid-2">
+          <div className="metric-card">
+            <div className="metric-label">PP annualisée cible</div>
+            <div className="metric-value">{euro(form.pp_target)}</div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-label">PU cible</div>
+            <div className="metric-value">{euro(form.pu_target)}</div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2>Objectifs mensuels</h2>
-        <div className="muted small">{canEdit ? 'Modifiables par la direction' : 'Lecture seule pour les conseillers'}</div>
+        <h2>Objectifs mensuels cabinet</h2>
+        <div className="muted small">Modifiables par la direction</div>
       </div>
       <form className="grid grid-3" onSubmit={submit}>
         <label>
-          PP annualisé cible
-          <input type="number" value={form.pp_target} onChange={(e) => setForm((prev) => ({ ...prev, pp_target: e.target.value }))} disabled={!canEdit} />
+          PP annualisée cible
+          <input type="number" value={form.pp_target} onChange={(e) => setForm((prev) => ({ ...prev, pp_target: e.target.value }))} />
         </label>
         <label>
           PU cible
-          <input type="number" value={form.pu_target} onChange={(e) => setForm((prev) => ({ ...prev, pu_target: e.target.value }))} disabled={!canEdit} />
+          <input type="number" value={form.pu_target} onChange={(e) => setForm((prev) => ({ ...prev, pu_target: e.target.value }))} />
         </label>
         <div className="align-end">
-          <button className="btn btn-primary full-width" type="submit" disabled={!canEdit}>Enregistrer</button>
+          <button className="btn btn-primary full-width" type="submit">Enregistrer</button>
         </div>
       </form>
     </section>
   )
 }
 
-function AdvisorSignaturesPanel({ month, profile, teamProfiles, signatures, deals, onSave }) {
+function ForecastPanel({ month, profile, teamProfiles, signatures, deals, onSave }) {
   const [drafts, setDrafts] = useState({})
   const [savingCode, setSavingCode] = useState('')
 
   const visibleProfiles = useMemo(() => {
-    const rows = (teamProfiles || []).filter((item) => item?.is_active && item?.advisor_code)
-    if (!rows.length && profile?.advisor_code) return [profile]
+    const rows = (teamProfiles || []).filter((item) => item?.is_active && item?.advisor_code && item.role !== 'manager')
+    if (!rows.length && profile?.advisor_code && profile?.role !== 'manager') return [profile]
     if (profile?.role === 'manager') return rows
     return rows.filter((item) => item.id === profile?.id)
   }, [teamProfiles, profile])
@@ -380,10 +506,10 @@ function AdvisorSignaturesPanel({ month, profile, teamProfiles, signatures, deal
   useEffect(() => {
     const next = {}
     visibleProfiles.forEach((item) => {
-      const row = signatures.find((entry) => entry.month === month && entry.advisor_code === item.advisor_code)
+      const row = getForecastRow(signatures, month, item.advisor_code)
       next[item.advisor_code] = {
-        planned_signatures: row?.planned_signatures ?? 0,
-        signed_signatures: row?.signed_signatures ?? 0,
+        planned_pp: row?.planned_pp ?? 0,
+        planned_pu: row?.planned_pu ?? 0,
       }
     })
     setDrafts(next)
@@ -394,34 +520,34 @@ function AdvisorSignaturesPanel({ month, profile, teamProfiles, signatures, deal
     await onSave({
       month,
       advisor_code: advisorCode,
-      planned_signatures: Number(drafts[advisorCode]?.planned_signatures || 0),
-      signed_signatures: Number(drafts[advisorCode]?.signed_signatures || 0),
+      planned_pp: Number(drafts[advisorCode]?.planned_pp || 0),
+      planned_pu: Number(drafts[advisorCode]?.planned_pu || 0),
     })
     setSavingCode('')
   }
 
-  const totalPlanned = visibleProfiles.reduce((sum, item) => sum + Number(drafts[item.advisor_code]?.planned_signatures || 0), 0)
-  const totalSigned = visibleProfiles.reduce((sum, item) => sum + Number(drafts[item.advisor_code]?.signed_signatures || 0), 0)
+  const title = profile?.role === 'manager' ? 'Prévisionnels équipe' : 'Suivi de mes signatures'
+  const subtitle = profile?.role === 'manager'
+    ? 'Saisie facile des PP / PU prévues par conseiller, avec lecture immédiate face au CRM.'
+    : 'Renseigne ta PP et ta PU prévisionnelles. Les dossiers signés et en cours remontent automatiquement dans les courbes du cabinet.'
 
   return (
     <section className="panel">
-      <div className="panel-head wrap align-start">
+      <div className="panel-head align-start wrap">
         <div>
-          <h2>Suivi signatures</h2>
-          <div className="muted small">
-            Chaque conseiller peut renseigner ses signatures prévues et signées sur le mois.
-          </div>
-        </div>
-        <div className="muted small signature-summary">
-          {totalPlanned} prévues • {totalSigned} signées
+          <h2>{title}</h2>
+          <div className="muted small">{subtitle}</div>
         </div>
       </div>
 
       <div className="stack gap-md">
         {visibleProfiles.map((item) => {
           const advisorCode = item.advisor_code
-          const signedInCrm = deals.filter((deal) => deal.month === month && deal.status === 'Signé' && (deal.advisor_code === advisorCode || deal.co_advisor_code === advisorCode)).length
-          const draft = drafts[advisorCode] || { planned_signatures: 0, signed_signatures: 0 }
+          const metrics = advisorDealMetrics(deals, month, advisorCode)
+          const draft = drafts[advisorCode] || { planned_pp: 0, planned_pu: 0 }
+          const ppProjection = Number(draft.planned_pp || 0) > 0 ? Number(draft.planned_pp || 0) : metrics.ppSigned + metrics.ppPipeline
+          const puProjection = Number(draft.planned_pu || 0) > 0 ? Number(draft.planned_pu || 0) : metrics.puSigned + metrics.puPipeline
+
           return (
             <div key={advisorCode} className="signature-row-card">
               <div className="signature-row-head">
@@ -429,30 +555,35 @@ function AdvisorSignaturesPanel({ month, profile, teamProfiles, signatures, deal
                   <div className="cell-title">{item.full_name || advisorCode}</div>
                   <div className="muted tiny">{advisorCode}{item.role === 'manager' ? ' • direction' : ' • conseiller'}</div>
                 </div>
-                <div className="muted tiny">CRM : {signedInCrm} signé{signedInCrm > 1 ? 's' : ''}</div>
+                <div className="mini-stats">
+                  <span className="mini-chip">CRM signé PP {euro(metrics.ppSigned)}</span>
+                  <span className="mini-chip">CRM en cours PP {euro(metrics.ppPipeline)}</span>
+                  <span className="mini-chip">CRM signé PU {euro(metrics.puSigned)}</span>
+                </div>
               </div>
-              <div className="grid grid-signatures">
+
+              <div className="grid grid-signatures forecast-grid">
                 <label>
-                  Signatures prévues
+                  PP prévisionnelle annualisée
                   <input
                     type="number"
                     min="0"
-                    value={draft.planned_signatures}
+                    value={draft.planned_pp}
                     onChange={(e) => setDrafts((prev) => ({
                       ...prev,
-                      [advisorCode]: { ...prev[advisorCode], planned_signatures: e.target.value },
+                      [advisorCode]: { ...prev[advisorCode], planned_pp: e.target.value },
                     }))}
                   />
                 </label>
                 <label>
-                  Signatures signées
+                  PU prévisionnelle
                   <input
                     type="number"
                     min="0"
-                    value={draft.signed_signatures}
+                    value={draft.planned_pu}
                     onChange={(e) => setDrafts((prev) => ({
                       ...prev,
-                      [advisorCode]: { ...prev[advisorCode], signed_signatures: e.target.value },
+                      [advisorCode]: { ...prev[advisorCode], planned_pu: e.target.value },
                     }))}
                   />
                 </label>
@@ -461,6 +592,11 @@ function AdvisorSignaturesPanel({ month, profile, teamProfiles, signatures, deal
                     {savingCode === advisorCode ? 'Enregistrement…' : 'Enregistrer'}
                   </button>
                 </div>
+              </div>
+
+              <div className="grid grid-2 top-margin">
+                <CurvePanel title={`PP ${advisorCode}`} actual={metrics.ppSigned} projected={ppProjection} target={Math.max(ppProjection, metrics.ppSigned + metrics.ppPipeline, 1)} note="Ta saisie prévaut, sinon le CRM prend le relais." />
+                <CurvePanel title={`PU ${advisorCode}`} actual={metrics.puSigned} projected={puProjection} target={Math.max(puProjection, metrics.puSigned + metrics.puPipeline, 1)} note="Signé = réalisé • En cours / Prévu = projeté CRM" />
               </div>
             </div>
           )
@@ -535,6 +671,7 @@ function DealModal({ open, initialDeal, profile, onClose, onSave }) {
             <label>
               PP mensuel
               <input type="number" value={deal.pp_m || 0} onChange={(e) => setField('pp_m', e.target.value)} />
+              <span className="muted tiny">Le CRM affichera automatiquement la PP annualisée.</span>
             </label>
             <label>
               PU
@@ -616,6 +753,7 @@ export default function App() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingDeal, setEditingDeal] = useState(null)
   const [error, setError] = useState('')
+  const [activeTab, setActiveTab] = useState('vue')
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
@@ -768,14 +906,21 @@ export default function App() {
             Ton profil n'existe pas encore dans <code>public.profiles</code> ou n'est pas lisible. Vérifie la table <strong>profiles</strong> dans Supabase.
           </div>
         ) : null}
-        <Dashboard deals={deals} objectifs={objectifs} month={month} signatures={signatures} />
-        <div className="grid grid-main">
+
+        <TabNav activeTab={activeTab} setActiveTab={setActiveTab} profile={profile} />
+
+        {activeTab === 'vue' ? <Dashboard deals={deals} objectifs={objectifs} month={month} profile={profile} /> : null}
+
+        {activeTab === 'dossiers' ? (
           <DealsTable deals={deals} month={month} profile={profile} onEdit={startEdit} onDelete={deleteDeal} onRefresh={loadEverything} />
-          <div className="stack gap-lg">
-            <ObjectifsPanel objectifs={objectifs} month={month} canEdit={profile?.role === 'manager'} onSave={saveObjectif} />
-            <AdvisorSignaturesPanel month={month} profile={profile} teamProfiles={teamProfiles} signatures={signatures} deals={deals} onSave={saveSignature} />
+        ) : null}
+
+        {activeTab === 'previsionnel' ? (
+          <div className="grid grid-main">
+            <ForecastPanel month={month} profile={profile} teamProfiles={teamProfiles} signatures={signatures} deals={deals} onSave={saveSignature} />
+            <ObjectifsPanel objectifs={objectifs} month={month} canEdit={profile?.role === 'manager'} onSave={saveObjectif} profile={profile} />
           </div>
-        </div>
+        ) : null}
       </main>
       <DealModal open={modalOpen} initialDeal={editingDeal} profile={profile} onClose={() => { setModalOpen(false); setEditingDeal(null) }} onSave={saveDeal} />
     </div>
