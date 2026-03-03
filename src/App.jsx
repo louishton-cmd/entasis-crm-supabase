@@ -208,81 +208,50 @@ function ConfigMissing() {
    AUTH SCREEN
 ───────────────────────────────────────────────────────────────────────────── */
 function AuthScreen() {
-  const [email,setEmail]=useState('')
-  const [password,setPassword]=useState('')
-  const [msg,setMsg]=useState('')
   const [loading,setLoading]=useState(false)
+  const [msg,setMsg]=useState('')
 
-  async function signIn(e){
-    e.preventDefault();setLoading(true);setMsg('')
-    const{error}=await supabase.auth.signInWithPassword({email,password})
-    setLoading(false);if(error)setMsg(error.message)
-  }
-  async function signUp(){
-    setLoading(true);setMsg('')
-    const{error}=await supabase.auth.signUp({email,password})
-    setLoading(false)
-    if(error)setMsg(error.message)
-    else setMsg('Compte créé. Vérifie ton email si la confirmation est activée.')
-  }
-  async function magicLink(){
-    if(!email)return
-    setLoading(true);setMsg('')
-    const redirectTo=typeof window!=='undefined'?window.location.origin:undefined
-    const{error}=await supabase.auth.signInWithOtp({email,options:{emailRedirectTo:redirectTo}})
-    setLoading(false)
-    if(error)setMsg(error.message)
-    else setMsg('Lien de connexion envoyé à '+email)
-  }
   async function signInGoogle(){
-    setLoading(true)
-    await supabase.auth.signInWithOAuth({
+    setLoading(true);setMsg('')
+    const{error}=await supabase.auth.signInWithOAuth({
       provider:'google',
       options:{
-        scopes:GCAL_SCOPES,
-        redirectTo:window.location.href,
-        queryParams:{access_type:'offline',prompt:'consent'},
+        scopes:'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events',
+        redirectTo:window.location.origin,
+        queryParams:{access_type:'offline',prompt:'consent',hd:'entasis-conseil.fr'},
       }
     })
-    setLoading(false)
+    if(error){setMsg(error.message);setLoading(false)}
   }
 
   return (
     <div className="auth-shell">
-      <div className="auth-card">
+      <div className="auth-card" style={{textAlign:'center'}}>
         <div className="auth-brand">ENTASIS</div>
         <div className="auth-brand-sub">CRM Patrimonial · Équipe interne</div>
-
-        {/* Google sign-in — principal pour l'agenda */}
-        <button className="btn btn-outline w-full" style={{gap:10,justifyContent:'center',marginBottom:4}} disabled={loading} onClick={signInGoogle}>
-          <svg width="16" height="16" viewBox="0 0 16 16"><path d="M15.68 8.18c0-.57-.05-1.11-.14-1.64H8v3.1h4.31a3.68 3.68 0 01-1.6 2.42v2h2.58c1.51-1.39 2.39-3.44 2.39-5.88z" fill="#4285F4"/><path d="M8 16c2.16 0 3.97-.72 5.3-1.94l-2.58-2a4.8 4.8 0 01-7.15-2.52H.96v2.07A8 8 0 008 16z" fill="#34A853"/><path d="M3.57 9.54A4.8 4.8 0 013.32 8c0-.54.09-1.06.25-1.54V4.39H.96A8 8 0 000 8c0 1.29.31 2.51.96 3.61l2.61-2.07z" fill="#FBBC05"/><path d="M8 3.18c1.22 0 2.31.42 3.17 1.24l2.37-2.37A8 8 0 00.96 4.39L3.57 6.46A4.8 4.8 0 018 3.18z" fill="#EA4335"/></svg>
-          Se connecter avec Google
+        <div style={{margin:'28px 0 24px',fontSize:14,color:'var(--t2)',lineHeight:1.6}}>
+          Connecte-toi avec ton compte<br/>
+          <strong style={{color:'var(--t1)'}}>@entasis-conseil.fr</strong>
+        </div>
+        <button
+          className="btn btn-primary w-full"
+          style={{gap:12,justifyContent:'center',padding:'12px 20px',fontSize:14}}
+          disabled={loading}
+          onClick={signInGoogle}
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18">
+            <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+            <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+            <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+            <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+          </svg>
+          {loading?'Redirection…':'Se connecter avec Google'}
         </button>
-        <div style={{fontSize:11,color:'var(--t3)',textAlign:'center',marginBottom:12}}>
-          Recommandé — active automatiquement Google Agenda
+        {msg&&<div className="auth-notice" style={{marginTop:16}}>{msg}</div>}
+        <div style={{marginTop:16,fontSize:11.5,color:'var(--t3)',lineHeight:1.6}}>
+          Accès réservé aux comptes @entasis-conseil.fr<br/>
+          Google Agenda sera automatiquement connecté
         </div>
-
-        <div className="auth-divider">ou email / mot de passe</div>
-
-        <form onSubmit={signIn} className="flex-col gap-12">
-          <div className="form-group">
-            <label className="form-label">Email professionnel</label>
-            <input className="form-input" value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="prenom.nom@entasis-conseil.fr" required/>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Mot de passe</label>
-            <input className="form-input" value={password} onChange={e=>setPassword(e.target.value)} type="password" placeholder="••••••••" required/>
-          </div>
-          <button className="btn btn-primary w-full" style={{marginTop:4}} disabled={loading} type="submit">
-            {loading?'Connexion en cours…':'Se connecter'}
-          </button>
-        </form>
-        <div className="auth-divider">ou</div>
-        <div className="flex-col gap-8">
-          <button className="btn btn-outline w-full" disabled={loading} onClick={signUp}>Créer un compte</button>
-          <button className="btn btn-ghost w-full" disabled={loading||!email} onClick={magicLink}>Recevoir un lien magique</button>
-        </div>
-        {msg&&<div className="auth-notice">{msg}</div>}
       </div>
     </div>
   )
@@ -1301,41 +1270,70 @@ function ForecastView({deals,objectifs,month,profile,teamProfiles,canEditObjecti
 }
 
 
+
 /* ─────────────────────────────────────────────────────────────────────────────
-   AGENDA VIEW — Google Calendar integration
+   AGENDA VIEW — Google Calendar URL approach (no OAuth required)
 ───────────────────────────────────────────────────────────────────────────── */
-const GCAL_BASE = 'https://www.googleapis.com/calendar/v3'
-const GCAL_SCOPES = 'https://www.googleapis.com/auth/calendar'
-
-function formatGDate(d){ return d.toISOString() }
-function parseGDate(s){ return s?.dateTime ? new Date(s.dateTime) : s?.date ? new Date(s.date+'T00:00:00') : null }
-function fmtTime(d){ if(!d)return ''; return d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) }
 function fmtDay(d){ return d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}) }
+function fmtTime(d){ if(!d)return ''; return d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) }
 function isToday(d){ const t=new Date(); return d.getDate()===t.getDate()&&d.getMonth()===t.getMonth()&&d.getFullYear()===t.getFullYear() }
-function isSameDay(a,b){ return a.getDate()===b.getDate()&&a.getMonth()===b.getMonth()&&a.getFullYear()===b.getFullYear() }
 
-function RelanceModal({open,onClose,onSave,deals,defaultDate}){
+// Format date for Google Calendar URL: YYYYMMDDTHHMMSS
+function toGCalDate(date){ return date.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'').slice(0,15)+'Z' }
+
+// Opens Google Calendar "new event" page pre-filled with data
+function openGCalEvent({title, startDate, startTime, durationMin, description}){
+  const start = new Date(`${startDate}T${startTime}:00`)
+  const end = new Date(start.getTime() + durationMin*60000)
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: title,
+    dates: `${toGCalDate(start)}/${toGCalDate(end)}`,
+    details: description||'',
+    trp: 'false',
+  })
+  window.open(`https://calendar.google.com/calendar/r/eventedit?${params}`, '_blank')
+}
+
+// Opens Google Calendar week view
+function openGCal(){ window.open('https://calendar.google.com/calendar/r/week','_blank') }
+
+function RelanceModal({open, onClose, deals}){
   const [title,setTitle]=useState('')
-  const [date,setDate]=useState(defaultDate||new Date().toISOString().slice(0,10))
+  const [date,setDate]=useState(new Date().toISOString().slice(0,10))
   const [time,setTime]=useState('10:00')
   const [duration,setDuration]=useState('60')
   const [dealId,setDealId]=useState('')
   const [notes,setNotes]=useState('')
+
   const activePipeline=deals.filter(d=>isPipeline(d.status))
 
   useEffect(()=>{
     if(open){
-      setTitle('');setDate(defaultDate||new Date().toISOString().slice(0,10))
+      setTitle('');setDate(new Date().toISOString().slice(0,10))
       setTime('10:00');setDuration('60');setDealId('');setNotes('')
     }
-  },[open,defaultDate])
+  },[open])
 
   useEffect(()=>{
     const d=activePipeline.find(d=>d.id===dealId)
-    if(d)setTitle(`Relance — ${d.client} (${d.product})`)
+    if(d) setTitle(`Relance — ${d.client} (${d.product})`)
   },[dealId])
 
   if(!open)return null
+
+  function handleCreate(){
+    if(!title||!date)return
+    const deal=deals.find(d=>d.id===dealId)
+    const description=[
+      notes||'',
+      deal?`\n📎 Dossier : ${deal.client} — ${deal.product} — ${deal.advisor_code}\nPP : ${euro(annualize(deal.pp_m))} | Statut : ${deal.status}`:''
+    ].filter(Boolean).join('\n').trim()
+
+    openGCalEvent({title, startDate:date, startTime:time, durationMin:Number(duration), description})
+    onClose()
+  }
+
   return (
     <div className="modal-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
       <div className="modal-panel" style={{maxWidth:520}}>
@@ -1352,7 +1350,7 @@ function RelanceModal({open,onClose,onSave,deals,defaultDate}){
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Titre de l'événement</label>
+            <label className="form-label">Titre</label>
             <input className="form-input" value={title} onChange={e=>setTitle(e.target.value)} placeholder="Ex. Relance signature PER — Dupont"/>
           </div>
           <div className="form-row form-row-2">
@@ -1372,27 +1370,14 @@ function RelanceModal({open,onClose,onSave,deals,defaultDate}){
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Notes / description</label>
-            <textarea className="form-textarea" rows={3} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Contexte, objectif de l'appel, points à aborder…"/>
+            <label className="form-label">Notes</label>
+            <textarea className="form-textarea" rows={3} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Contexte, objectif, points à aborder…"/>
           </div>
         </div>
         <div className="modal-foot">
           <button className="btn btn-outline" onClick={onClose}>Annuler</button>
-          <button className="btn btn-gold" onClick={()=>{
-            if(!title||!date)return
-            const start=new Date(`${date}T${time}:00`)
-            const end=new Date(start.getTime()+Number(duration)*60000)
-            const deal=deals.find(d=>d.id===dealId)
-            onSave({
-              summary:title,
-              start:{dateTime:formatGDate(start),timeZone:'Europe/Paris'},
-              end:{dateTime:formatGDate(end),timeZone:'Europe/Paris'},
-              description:`${notes||''}${deal?`\n\n📎 Dossier CRM : ${deal.client} — ${deal.product} — ${deal.advisor_code}\nPP : ${euro(annualize(deal.pp_m))} | Statut : ${deal.status}`:''}`.trim(),
-              colorId:deal?'5':'1',
-              extendedProperties:{private:{entasisDealId:dealId||'',entasisCrm:'true'}},
-            })
-          }}>
-            <Icon.CalPlus/> Créer dans Google Agenda
+          <button className="btn btn-gold" onClick={handleCreate} disabled={!title||!date}>
+            <Icon.CalPlus/> Ouvrir dans Google Agenda
           </button>
         </div>
       </div>
@@ -1400,7 +1385,10 @@ function RelanceModal({open,onClose,onSave,deals,defaultDate}){
   )
 }
 
-function AgendaView({providerToken,session,deals,profile}){
+function AgendaView({deals, profile}){
+  const token = profile?.gcal_token
+  const isGoogleConnected = !!token
+
   const [events,setEvents]=useState([])
   const [loading,setLoading]=useState(false)
   const [error,setError]=useState('')
@@ -1408,8 +1396,13 @@ function AgendaView({providerToken,session,deals,profile}){
   const [relanceDate,setRelanceDate]=useState('')
   const [viewDays,setViewDays]=useState(7)
 
-  const token=providerToken||sessionStorage.getItem('gcal_token')||session?.provider_token
-  const isGoogleConnected=!!token
+  const GCAL='https://www.googleapis.com/calendar/v3'
+
+  function fmtDayLabel(d){ return d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}) }
+  function fmtHour(d){ return d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) }
+  function isTodayFn(d){ const t=new Date(); return d.getDate()===t.getDate()&&d.getMonth()===t.getMonth()&&d.getFullYear()===t.getFullYear() }
+  function isSameDayFn(a,b){ return a.getDate()===b.getDate()&&a.getMonth()===b.getMonth()&&a.getFullYear()===b.getFullYear() }
+  function parseEvtDate(s){ return s?.dateTime?new Date(s.dateTime):s?.date?new Date(s.date+'T00:00:00'):null }
 
   const today=new Date(); today.setHours(0,0,0,0)
   const endDate=new Date(today); endDate.setDate(today.getDate()+viewDays)
@@ -1419,19 +1412,20 @@ function AgendaView({providerToken,session,deals,profile}){
     setLoading(true);setError('')
     try{
       const params=new URLSearchParams({
-        timeMin:formatGDate(today),timeMax:formatGDate(endDate),
-        singleEvents:'true',orderBy:'startTime',maxResults:'100',
+        timeMin:today.toISOString(),
+        timeMax:endDate.toISOString(),
+        singleEvents:'true',
+        orderBy:'startTime',
+        maxResults:'100',
       })
-      const r=await fetch(`${GCAL_BASE}/calendars/primary/events?${params}`,{
+      const r=await fetch(`${GCAL}/calendars/primary/events?${params}`,{
         headers:{Authorization:`Bearer ${token}`}
       })
+      const d=await r.json()
       if(!r.ok){
-        const e=await r.json()
-        if(e.error?.code===401)setError('Session Google expirée — clique "Reconnecter".')
-        else setError(e.error?.message||'Erreur Google Calendar')
+        setError(d.error?.code===401?'Token expiré — reconnecte-toi avec Google.':d.error?.message||'Erreur Google Calendar')
         setLoading(false);return
       }
-      const d=await r.json()
       setEvents(d.items||[])
     }catch(e){setError('Erreur réseau : '+e.message)}
     setLoading(false)
@@ -1439,86 +1433,57 @@ function AgendaView({providerToken,session,deals,profile}){
 
   async function createEvent(payload){
     if(!token)return
-    try{
-      const r=await fetch(`${GCAL_BASE}/calendars/primary/events`,{
-        method:'POST',
-        headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
-        body:JSON.stringify(payload)
-      })
-      if(!r.ok){const e=await r.json();alert(e.error?.message||'Erreur création');return}
-      setRelanceOpen(false)
-      await fetchEvents()
-    }catch(e){alert(e.message)}
+    const r=await fetch(`${GCAL}/calendars/primary/events`,{
+      method:'POST',
+      headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    })
+    if(!r.ok){const d=await r.json();alert(d.error?.message||'Erreur création');return}
+    setRelanceOpen(false)
+    await fetchEvents()
   }
 
-  async function deleteEvent(eventId){
+  async function deleteEvent(id){
     if(!token||!window.confirm('Supprimer cet événement de Google Agenda ?'))return
-    await fetch(`${GCAL_BASE}/calendars/primary/events/${eventId}`,{
+    await fetch(`${GCAL}/calendars/primary/events/${id}`,{
       method:'DELETE',headers:{Authorization:`Bearer ${token}`}
     })
-    setEvents(prev=>prev.filter(e=>e.id!==eventId))
+    setEvents(prev=>prev.filter(e=>e.id!==id))
   }
 
   useEffect(()=>{if(isGoogleConnected)fetchEvents()},[token,viewDays])
 
-  async function connectGoogle(){
-    // linkIdentity ajoute Google à la session existante sans déconnecter
-    const {error} = await supabase.auth.linkIdentity({
-      provider:'google',
-      options:{
-        scopes:GCAL_SCOPES,
-        redirectTo:window.location.href,
-        queryParams:{access_type:'offline',prompt:'consent'},
-      }
-    })
-    // Fallback si linkIdentity non supporté (Supabase < 2.39)
-    if(error){
-      await supabase.auth.signInWithOAuth({
-        provider:'google',
-        options:{
-          scopes:GCAL_SCOPES,
-          redirectTo:window.location.href,
-          queryParams:{access_type:'offline',prompt:'consent'},
-        }
-      })
-    }
-  }
-
+  // Group by day
   const days=[]
   for(let i=0;i<viewDays;i++){
     const d=new Date(today); d.setDate(today.getDate()+i)
-    const dayEvts=events.filter(e=>{const s=parseGDate(e.start);return s&&isSameDay(s,d)})
+    const dayEvts=events.filter(e=>{const s=parseEvtDate(e.start);return s&&isSameDayFn(s,d)})
     days.push({date:d,events:dayEvts})
   }
-  const crmEvents=events.filter(e=>e.extendedProperties?.private?.entasisCrm==='true').length
+  const crmCount=events.filter(e=>e.extendedProperties?.private?.entasisCrm==='true').length
 
+  // Not connected
   if(!isGoogleConnected) return (
     <div>
       <div className="section-header">
         <div>
-          <div className="section-kicker">Intégration</div>
+          <div className="section-kicker">Google Agenda</div>
           <div className="section-title">Agenda & Relances</div>
-          <div className="section-sub">Connecte Google Agenda pour voir tes RDV et planifier des relances</div>
         </div>
       </div>
-      <div className="card" style={{maxWidth:480,margin:'40px auto',textAlign:'center',padding:'40px 32px'}}>
-        <div style={{fontSize:40,marginBottom:16}}>📅</div>
-        <div style={{fontFamily:'var(--font-serif)',fontSize:20,fontWeight:500,color:'var(--t1)',marginBottom:8}}>Connecter Google Agenda</div>
-        <div style={{fontSize:14,color:'var(--t2)',lineHeight:1.6,marginBottom:24}}>
-          Visualise tes RDV clients, planifie des relances depuis tes dossiers CRM et retrouve tout dans ton Google Agenda.
+      <div className="card" style={{maxWidth:460,margin:'48px auto',textAlign:'center',padding:'40px 32px'}}>
+        <div style={{fontSize:42,marginBottom:16}}>📅</div>
+        <div style={{fontFamily:'var(--font-serif)',fontSize:20,fontWeight:500,color:'var(--t1)',marginBottom:10}}>
+          Google Agenda non connecté
         </div>
-        <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:28,textAlign:'left'}}>
-          {['Voir tes événements des 7 prochains jours','Créer une relance liée à un dossier en 1 clic','Relances visibles directement dans Google Agenda','Suppression depuis le CRM'].map(f=>(
-            <div key={f} style={{display:'flex',gap:10,alignItems:'center',fontSize:13,color:'var(--t2)'}}>
-              <span style={{color:'var(--signed)',fontWeight:700}}>✓</span>{f}
-            </div>
-          ))}
+        <div style={{fontSize:13.5,color:'var(--t2)',lineHeight:1.7,marginBottom:24}}>
+          Pour activer l'intégration, déconnecte-toi puis reconnecte-toi avec ton compte Google — le token Calendar sera capturé automatiquement.
         </div>
-        <button className="btn btn-gold" style={{width:'100%',justifyContent:'center',gap:8,fontSize:14,padding:'10px 20px'}} onClick={connectGoogle}>
-          <Icon.Link/> Connecter mon Google Agenda
-        </button>
-        <div style={{marginTop:12,fontSize:11.5,color:'var(--t3)'}}>
-          Tu seras redirigé vers Google pour autoriser l'accès. Ton agenda est uniquement visible par toi.
+        <div style={{fontSize:12,color:'var(--t3)',padding:'10px 14px',background:'var(--bg)',borderRadius:'var(--rad)',border:'1px solid var(--bd)',lineHeight:1.7}}>
+          ① Clique <strong style={{color:'var(--t1)'}}>Se déconnecter</strong> en bas du menu<br/>
+          ② Clique <strong style={{color:'var(--t1)'}}>Se connecter avec Google</strong><br/>
+          ③ Autorise l'accès à Google Agenda<br/>
+          ④ L'Agenda s'affiche automatiquement ✓
         </div>
       </div>
     </div>
@@ -1526,11 +1491,14 @@ function AgendaView({providerToken,session,deals,profile}){
 
   return (
     <div>
+      {/* Header */}
       <div className="section-header">
         <div>
           <div className="section-kicker">Google Agenda · synchronisé</div>
           <div className="section-title">Agenda & Relances</div>
-          <div className="section-sub">{events.length} événement{events.length!==1?'s':''} · {crmEvents} relance{crmEvents!==1?'s':''} CRM</div>
+          <div className="section-sub">
+            {events.length} événement{events.length!==1?'s':''} · {crmCount} relance{crmCount!==1?'s':''} CRM
+          </div>
         </div>
         <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
           <select className="filter-select" value={viewDays} onChange={e=>setViewDays(Number(e.target.value))}>
@@ -1547,32 +1515,40 @@ function AgendaView({providerToken,session,deals,profile}){
         </div>
       </div>
 
-      {error&&<div className="notice notice-error" style={{marginBottom:16}}>{error} <button className="btn btn-ghost btn-sm" style={{marginLeft:8}} onClick={connectGoogle}>Reconnecter</button></div>}
+      {error&&(
+        <div className="notice notice-error" style={{marginBottom:16,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <span>{error}</span>
+          <span style={{fontSize:11.5,color:'var(--t3)'}}>Déconnecte-toi et reconnecte-toi avec Google pour rafraîchir le token.</span>
+        </div>
+      )}
 
+      {/* Connected indicator */}
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:20}}>
         <div style={{width:8,height:8,borderRadius:'50%',background:'var(--signed)'}}/>
-        <span style={{fontSize:12,color:'var(--t3)'}}>Google Agenda connecté · {profile?.email||''}</span>
-        <button className="btn btn-ghost btn-sm" style={{marginLeft:'auto',fontSize:11}} onClick={connectGoogle}>Reconnecter</button>
+        <span style={{fontSize:12,color:'var(--t3)'}}>Connecté en tant que {profile?.email||profile?.full_name}</span>
       </div>
 
+      {/* Days */}
       <div style={{display:'flex',flexDirection:'column',gap:10}}>
         {days.map(({date,events:dayEvts})=>{
-          const todayFlag=isToday(date)
+          const isT=isTodayFn(date)
           return (
             <div key={date.toISOString()} style={{
-              border:`1px solid ${todayFlag?'var(--gold-line)':'var(--bd)'}`,
+              border:`1px solid ${isT?'var(--gold-line)':'var(--bd)'}`,
               borderRadius:'var(--rad-lg)',
-              background:todayFlag?'var(--gold-subtle)':'var(--card)',
+              background:isT?'rgba(192,155,90,0.04)':'var(--card)',
               overflow:'hidden',
             }}>
+              {/* Day header */}
               <div style={{
                 padding:'10px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',
-                borderBottom:dayEvts.length>0?`1px solid ${todayFlag?'var(--gold-line)':'var(--bd)'}`:'none',
+                borderBottom:dayEvts.length>0?`1px solid ${isT?'var(--gold-line)':'var(--bd)'}`:'none',
+                background:isT?'rgba(192,155,90,0.06)':'transparent',
               }}>
                 <div style={{display:'flex',alignItems:'center',gap:10}}>
-                  {todayFlag&&<span style={{background:'var(--gold)',color:'white',fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:4,letterSpacing:'0.04em'}}>AUJOURD'HUI</span>}
-                  <span style={{fontSize:13,fontWeight:todayFlag?700:500,color:todayFlag?'var(--t1)':'var(--t2)',textTransform:'capitalize'}}>
-                    {fmtDay(date)}
+                  {isT&&<span style={{background:'var(--gold)',color:'white',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:4,letterSpacing:'0.04em'}}>AUJOURD'HUI</span>}
+                  <span style={{fontSize:13,fontWeight:isT?700:500,color:isT?'var(--t1)':'var(--t2)',textTransform:'capitalize'}}>
+                    {fmtDayLabel(date)}
                   </span>
                   {dayEvts.length>0&&<span style={{fontSize:11,color:'var(--t3)'}}>{dayEvts.length} événement{dayEvts.length>1?'s':''}</span>}
                 </div>
@@ -1582,15 +1558,16 @@ function AgendaView({providerToken,session,deals,profile}){
                 </button>
               </div>
 
+              {/* Events list */}
               {dayEvts.length>0?(
                 <div style={{padding:'8px 12px',display:'flex',flexDirection:'column',gap:6}}>
                   {dayEvts.map(evt=>{
-                    const start=parseGDate(evt.start)
-                    const end=parseGDate(evt.end)
+                    const start=parseEvtDate(evt.start)
+                    const end=parseEvtDate(evt.end)
                     const isCrm=evt.extendedProperties?.private?.entasisCrm==='true'
                     const dealId=evt.extendedProperties?.private?.entasisDealId
-                    const linkedDeal=dealId?deals.find(d=>d.id===dealId):null
-                    const isAllDay=!!evt.start?.date&&!evt.start?.dateTime
+                    const linked=dealId?deals.find(d=>d.id===dealId):null
+                    const allDay=!!evt.start?.date&&!evt.start?.dateTime
                     return (
                       <div key={evt.id} style={{
                         display:'flex',alignItems:'flex-start',gap:12,padding:'10px 12px',
@@ -1598,39 +1575,36 @@ function AgendaView({providerToken,session,deals,profile}){
                         background:isCrm?'rgba(192,155,90,0.06)':'white',
                         border:`1px solid ${isCrm?'var(--gold-line)':'var(--bd)'}`,
                       }}>
-                        <div style={{minWidth:50,textAlign:'right',flexShrink:0}}>
-                          {isAllDay?<span style={{fontSize:10,fontWeight:600,color:'var(--t3)',textTransform:'uppercase'}}>Jour</span>:(
-                            <>
-                              <div style={{fontSize:12,fontWeight:600,color:isCrm?'var(--gold)':'var(--t2)'}}>{fmtTime(start)}</div>
-                              {end&&<div style={{fontSize:10,color:'var(--t3)'}}>{fmtTime(end)}</div>}
-                            </>
-                          )}
+                        {/* Time */}
+                        <div style={{minWidth:48,textAlign:'right',flexShrink:0,paddingTop:1}}>
+                          {allDay
+                            ?<span style={{fontSize:10,fontWeight:600,color:'var(--t3)',textTransform:'uppercase'}}>Journée</span>
+                            :<><div style={{fontSize:12,fontWeight:700,color:isCrm?'var(--gold)':'var(--t2)'}}>{fmtHour(start)}</div>
+                               {end&&<div style={{fontSize:10,color:'var(--t3)'}}>{fmtHour(end)}</div>}</>
+                          }
                         </div>
+                        {/* Bar */}
                         <div style={{width:3,alignSelf:'stretch',borderRadius:2,background:isCrm?'var(--gold)':'var(--progress)',flexShrink:0,minHeight:20}}/>
+                        {/* Content */}
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{fontWeight:600,fontSize:13,color:'var(--t1)',display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
                             {evt.summary||'(sans titre)'}
                             {isCrm&&<span style={{fontSize:10,fontWeight:700,color:'var(--gold)',background:'rgba(192,155,90,0.12)',border:'1px solid var(--gold-line)',borderRadius:3,padding:'1px 5px',letterSpacing:'0.04em'}}>CRM</span>}
                           </div>
-                          {linkedDeal&&(
-                            <div style={{marginTop:4,display:'flex',alignItems:'center',gap:6,fontSize:12,color:'var(--t2)',flexWrap:'wrap'}}>
+                          {linked&&(
+                            <div style={{marginTop:4,display:'flex',gap:6,alignItems:'center',fontSize:12,color:'var(--t2)',flexWrap:'wrap'}}>
                               <Icon.Link/>
-                              <span>{linkedDeal.client} · {linkedDeal.product}</span>
-                              <span className={STATUS_CLASS[linkedDeal.status]||'badge'}>{linkedDeal.status}</span>
-                              <strong style={{color:'var(--t1)'}}>{euro(annualize(linkedDeal.pp_m))}</strong>
-                            </div>
-                          )}
-                          {evt.description&&!linkedDeal&&(
-                            <div style={{fontSize:12,color:'var(--t3)',marginTop:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:400}}>
-                              {evt.description.split('\n')[0]}
+                              <span>{linked.client} · {linked.product}</span>
+                              <span className={STATUS_CLASS[linked.status]||'badge'}>{linked.status}</span>
+                              <strong>{euro(annualize(linked.pp_m))}</strong>
                             </div>
                           )}
                           {evt.location&&<div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>📍 {evt.location}</div>}
                         </div>
                         {isCrm&&(
                           <button onClick={()=>deleteEvent(evt.id)}
-                            style={{background:'none',border:'none',cursor:'pointer',color:'var(--t3)',padding:4,borderRadius:4,flexShrink:0,opacity:.7}}
-                            title="Supprimer cette relance">
+                            style={{background:'none',border:'none',cursor:'pointer',color:'var(--t3)',padding:4,flexShrink:0,opacity:.7}}
+                            title="Supprimer">
                             <Icon.Trash/>
                           </button>
                         )}
@@ -1652,12 +1626,18 @@ function AgendaView({providerToken,session,deals,profile}){
         })}
       </div>
 
-      <RelanceModal open={relanceOpen} onClose={()=>setRelanceOpen(false)} onSave={createEvent} deals={deals} defaultDate={relanceDate}/>
+      <RelanceModal
+        open={relanceOpen}
+        onClose={()=>setRelanceOpen(false)}
+        onSave={createEvent}
+        deals={deals}
+        defaultDate={relanceDate}
+      />
     </div>
   )
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
+
    TEAM VIEW (manager only)
 ───────────────────────────────────────────────────────────────────────────── */
 function TeamView({deals,objectifs,teamProfiles,month}){
@@ -1898,7 +1878,6 @@ function DealModal({open,initialDeal,profile,onClose,onSave}){
 ───────────────────────────────────────────────────────────────────────────── */
 export default function App(){
   const [session,setSession]=useState(null)
-  const [providerToken,setProviderToken]=useState(()=>sessionStorage.getItem('gcal_token')||null)
   const [profile,setProfile]=useState(null)
   const [teamProfiles,setTeamProfiles]=useState([])
   const [deals,setDeals]=useState([])
@@ -1917,25 +1896,17 @@ export default function App(){
       const{data}=await supabase.auth.getSession()
       if(!active)return
       setSession(data.session||null)
-      // Récupère le provider_token si présent dans la session (juste après OAuth callback)
-      if(data.session?.provider_token){
-        setProviderToken(data.session.provider_token)
-        sessionStorage.setItem('gcal_token',data.session.provider_token)
-      }
       setLoading(false)
     }
     boot()
-    const{data:listener}=supabase.auth.onAuthStateChange((event,s)=>{
+    const{data:listener}=supabase.auth.onAuthStateChange(async(event,s)=>{
+      if(!active)return
       setSession(s||null)
-      // Capture le token au moment du callback OAuth
-      if(s?.provider_token){
-        setProviderToken(s.provider_token)
-        sessionStorage.setItem('gcal_token',s.provider_token)
-      }
-      // Si déconnexion, efface le token
-      if(event==='SIGNED_OUT'){
-        setProviderToken(null)
-        sessionStorage.removeItem('gcal_token')
+      // Capture provider_token right after OAuth callback and persist it
+      if((event==='SIGNED_IN'||event==='TOKEN_REFRESHED')&&s?.provider_token&&s?.user?.id){
+        await supabase.from('profiles')
+          .update({gcal_token:s.provider_token})
+          .eq('id',s.user.id)
       }
     })
     return()=>{active=false;listener.subscription.unsubscribe()}
@@ -2042,7 +2013,7 @@ export default function App(){
             <ForecastView deals={deals} objectifs={objectifs} month={month} profile={profile} teamProfiles={teamProfiles} canEditObjectifs={isManager} onSaveObjectif={saveObjectif}/>
           )}
           {activeTab==='agenda'&&(
-            <AgendaView providerToken={providerToken} session={session} deals={deals} profile={profile}/>
+            <AgendaView deals={deals} profile={profile}/>
           )}
           {activeTab==='team'&&isManager&&(
             <TeamView deals={deals} objectifs={objectifs} teamProfiles={teamProfiles} month={month}/>
