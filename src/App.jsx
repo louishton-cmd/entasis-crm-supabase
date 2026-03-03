@@ -605,6 +605,14 @@ function AdvisorDashboard({deals,objectifs,month,profile}){
   const ppProjPct=pct(m.ppProjected,ppTarget)
   const landing=ppTarget>0?m.ppProjected-ppTarget:null
 
+  // M vs M-1
+  const prevIdx=MONTHS.indexOf(month)-1
+  const prevMonth=prevIdx>=0?MONTHS[prevIdx]:null
+  const prev=prevMonth?advisorMetrics(deals,prevMonth,code):{ppSigned:0,puSigned:0,ppPipeline:0,puPipeline:0}
+  const dPpSigned={raw:m.ppSigned-prev.ppSigned,label:euro(Math.abs(m.ppSigned-prev.ppSigned))}
+  const dPuSigned={raw:m.puSigned-prev.puSigned,label:euro(Math.abs(m.puSigned-prev.puSigned))}
+  const dPpPipeline={raw:m.ppPipeline-prev.ppPipeline,label:euro(Math.abs(m.ppPipeline-prev.ppPipeline))}
+
   const priorities=[...m.hotDeals].sort((a,b)=>{
     const p={'Urgente':0,'Haute':1,'Normale':2}
     return (p[a.priority]||2)-(p[b.priority]||2)
