@@ -95,6 +95,9 @@ const Icon = {
   Trash:     ()=><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1.5 3.5h10M5 3.5V2h3v1.5M3 3.5l.8 7.5h5.4l.8-7.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   Refresh:   ()=><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M11 6.5A4.5 4.5 0 012 6.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><path d="M11 3.5v3h-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   Clock:     ()=><svg width="11" height="11" viewBox="0 0 11 11" fill="none"><circle cx="5.5" cy="5.5" r="4.5" stroke="currentColor" strokeWidth="1.2"/><path d="M5.5 3v2.5l1.5 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+  Calendar:  ()=><svg className="nav-item-icon" viewBox="0 0 20 20" fill="none"><rect x="3" y="4" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="1.4" fill="none" opacity=".8"/><path d="M3 8h14" stroke="currentColor" strokeWidth="1.2" opacity=".5"/><path d="M7 2v3M13 2v3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity=".7"/><circle cx="7" cy="12" r="1" fill="currentColor" opacity=".6"/><circle cx="10" cy="12" r="1" fill="currentColor" opacity=".4"/><circle cx="13" cy="12" r="1" fill="currentColor" opacity=".4"/></svg>,
+  CalPlus:   ()=><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1.5" y="2.5" width="10" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M1.5 5.5h10M4.5 1v2M8.5 1v2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M6.5 7.5v2M5.5 8.5h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+  Link:      ()=><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M5 7L7.5 4.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M4 5.5l-1 1a2.121 2.121 0 003 3l1-1" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M8 6.5l1-1a2.121 2.121 0 00-3-3l-1 1" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -280,6 +283,7 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month}){
     {key:'pipeline',  label:'Pipeline',  Icon:Icon.Pipeline,  badge:isManager?pipelineCount:hotCount},
     {key:'dossiers',  label:'Dossiers',  Icon:Icon.Dossiers},
     {key:'forecast',  label:'Prévisionnel', Icon:Icon.Forecast},
+    {key:'agenda',    label:'Agenda',    Icon:Icon.Calendar},
     ...(isManager?[{key:'team', label:'Équipe', Icon:Icon.Team}]:[]),
   ]
 
@@ -316,7 +320,7 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month}){
 /* ─────────────────────────────────────────────────────────────────────────────
    TOP BAR
 ───────────────────────────────────────────────────────────────────────────── */
-const PAGE_TITLES={dashboard:'Vue d\'ensemble',pipeline:'Pipeline commercial',dossiers:'Dossiers clients',forecast:'Prévisionnel',team:'Équipe'}
+const PAGE_TITLES={dashboard:'Vue d\'ensemble',pipeline:'Pipeline commercial',dossiers:'Dossiers clients',forecast:'Prévisionnel',agenda:'Agenda & Relances',team:'Équipe'}
 
 function TopBar({activeTab,month,setMonth,onNewDeal,onRefresh}){
   return (
@@ -1272,6 +1276,351 @@ function ForecastView({deals,objectifs,month,profile,teamProfiles,canEditObjecti
   )
 }
 
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   AGENDA VIEW — Google Calendar integration
+───────────────────────────────────────────────────────────────────────────── */
+const GCAL_BASE = 'https://www.googleapis.com/calendar/v3'
+const GCAL_SCOPES = 'https://www.googleapis.com/auth/calendar'
+
+function formatGDate(d){ return d.toISOString() }
+function parseGDate(s){ return s?.dateTime ? new Date(s.dateTime) : s?.date ? new Date(s.date+'T00:00:00') : null }
+function fmtTime(d){ if(!d)return ''; return d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) }
+function fmtDay(d){ return d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}) }
+function isToday(d){ const t=new Date(); return d.getDate()===t.getDate()&&d.getMonth()===t.getMonth()&&d.getFullYear()===t.getFullYear() }
+function isSameDay(a,b){ return a.getDate()===b.getDate()&&a.getMonth()===b.getMonth()&&a.getFullYear()===b.getFullYear() }
+
+function RelanceModal({open,onClose,onSave,deals,defaultDate}){
+  const [title,setTitle]=useState('')
+  const [date,setDate]=useState(defaultDate||new Date().toISOString().slice(0,10))
+  const [time,setTime]=useState('10:00')
+  const [duration,setDuration]=useState('60')
+  const [dealId,setDealId]=useState('')
+  const [notes,setNotes]=useState('')
+  const activePipeline=deals.filter(d=>isPipeline(d.status))
+
+  useEffect(()=>{
+    if(open){
+      setTitle('');setDate(defaultDate||new Date().toISOString().slice(0,10))
+      setTime('10:00');setDuration('60');setDealId('');setNotes('')
+    }
+  },[open,defaultDate])
+
+  useEffect(()=>{
+    const d=activePipeline.find(d=>d.id===dealId)
+    if(d)setTitle(`Relance — ${d.client} (${d.product})`)
+  },[dealId])
+
+  if(!open)return null
+  return (
+    <div className="modal-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
+      <div className="modal-panel" style={{maxWidth:520}}>
+        <div className="modal-head">
+          <div className="modal-title">Planifier une relance</div>
+          <button className="modal-close" onClick={onClose}><Icon.Close/></button>
+        </div>
+        <div className="modal-body">
+          <div className="form-group">
+            <label className="form-label">Lier à un dossier (optionnel)</label>
+            <select className="form-select" value={dealId} onChange={e=>setDealId(e.target.value)}>
+              <option value="">— Aucun dossier lié —</option>
+              {activePipeline.map(d=><option key={d.id} value={d.id}>{d.client} · {d.product} · {d.advisor_code}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Titre de l'événement</label>
+            <input className="form-input" value={title} onChange={e=>setTitle(e.target.value)} placeholder="Ex. Relance signature PER — Dupont"/>
+          </div>
+          <div className="form-row form-row-2">
+            <div className="form-group">
+              <label className="form-label">Date</label>
+              <input className="form-input" type="date" value={date} onChange={e=>setDate(e.target.value)}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Heure</label>
+              <input className="form-input" type="time" value={time} onChange={e=>setTime(e.target.value)}/>
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Durée</label>
+            <select className="form-select" value={duration} onChange={e=>setDuration(e.target.value)}>
+              {['15','30','45','60','90','120'].map(d=><option key={d} value={d}>{d} min</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Notes / description</label>
+            <textarea className="form-textarea" rows={3} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Contexte, objectif de l'appel, points à aborder…"/>
+          </div>
+        </div>
+        <div className="modal-foot">
+          <button className="btn btn-outline" onClick={onClose}>Annuler</button>
+          <button className="btn btn-gold" onClick={()=>{
+            if(!title||!date)return
+            const start=new Date(`${date}T${time}:00`)
+            const end=new Date(start.getTime()+Number(duration)*60000)
+            const deal=deals.find(d=>d.id===dealId)
+            onSave({
+              summary:title,
+              start:{dateTime:formatGDate(start),timeZone:'Europe/Paris'},
+              end:{dateTime:formatGDate(end),timeZone:'Europe/Paris'},
+              description:`${notes||''}${deal?`\n\n📎 Dossier CRM : ${deal.client} — ${deal.product} — ${deal.advisor_code}\nPP : ${euro(annualize(deal.pp_m))} | Statut : ${deal.status}`:''}`.trim(),
+              colorId:deal?'5':'1',
+              extendedProperties:{private:{entasisDealId:dealId||'',entasisCrm:'true'}},
+            })
+          }}>
+            <Icon.CalPlus/> Créer dans Google Agenda
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AgendaView({session,deals,profile}){
+  const [events,setEvents]=useState([])
+  const [loading,setLoading]=useState(false)
+  const [error,setError]=useState('')
+  const [relanceOpen,setRelanceOpen]=useState(false)
+  const [relanceDate,setRelanceDate]=useState('')
+  const [viewDays,setViewDays]=useState(7)
+
+  const token=session?.provider_token
+  const isGoogleConnected=!!token
+
+  const today=new Date(); today.setHours(0,0,0,0)
+  const endDate=new Date(today); endDate.setDate(today.getDate()+viewDays)
+
+  async function fetchEvents(){
+    if(!token)return
+    setLoading(true);setError('')
+    try{
+      const params=new URLSearchParams({
+        timeMin:formatGDate(today),timeMax:formatGDate(endDate),
+        singleEvents:'true',orderBy:'startTime',maxResults:'100',
+      })
+      const r=await fetch(`${GCAL_BASE}/calendars/primary/events?${params}`,{
+        headers:{Authorization:`Bearer ${token}`}
+      })
+      if(!r.ok){
+        const e=await r.json()
+        if(e.error?.code===401)setError('Session Google expirée — clique "Reconnecter".')
+        else setError(e.error?.message||'Erreur Google Calendar')
+        setLoading(false);return
+      }
+      const d=await r.json()
+      setEvents(d.items||[])
+    }catch(e){setError('Erreur réseau : '+e.message)}
+    setLoading(false)
+  }
+
+  async function createEvent(payload){
+    if(!token)return
+    try{
+      const r=await fetch(`${GCAL_BASE}/calendars/primary/events`,{
+        method:'POST',
+        headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+        body:JSON.stringify(payload)
+      })
+      if(!r.ok){const e=await r.json();alert(e.error?.message||'Erreur création');return}
+      setRelanceOpen(false)
+      await fetchEvents()
+    }catch(e){alert(e.message)}
+  }
+
+  async function deleteEvent(eventId){
+    if(!token||!window.confirm('Supprimer cet événement de Google Agenda ?'))return
+    await fetch(`${GCAL_BASE}/calendars/primary/events/${eventId}`,{
+      method:'DELETE',headers:{Authorization:`Bearer ${token}`}
+    })
+    setEvents(prev=>prev.filter(e=>e.id!==eventId))
+  }
+
+  useEffect(()=>{if(isGoogleConnected)fetchEvents()},[token,viewDays])
+
+  async function connectGoogle(){
+    await supabase.auth.signInWithOAuth({
+      provider:'google',
+      options:{
+        scopes:GCAL_SCOPES,
+        redirectTo:window.location.href,
+        queryParams:{access_type:'offline',prompt:'consent'},
+      }
+    })
+  }
+
+  const days=[]
+  for(let i=0;i<viewDays;i++){
+    const d=new Date(today); d.setDate(today.getDate()+i)
+    const dayEvts=events.filter(e=>{const s=parseGDate(e.start);return s&&isSameDay(s,d)})
+    days.push({date:d,events:dayEvts})
+  }
+  const crmEvents=events.filter(e=>e.extendedProperties?.private?.entasisCrm==='true').length
+
+  if(!isGoogleConnected) return (
+    <div>
+      <div className="section-header">
+        <div>
+          <div className="section-kicker">Intégration</div>
+          <div className="section-title">Agenda & Relances</div>
+          <div className="section-sub">Connecte Google Agenda pour voir tes RDV et planifier des relances</div>
+        </div>
+      </div>
+      <div className="card" style={{maxWidth:480,margin:'40px auto',textAlign:'center',padding:'40px 32px'}}>
+        <div style={{fontSize:40,marginBottom:16}}>📅</div>
+        <div style={{fontFamily:'var(--font-serif)',fontSize:20,fontWeight:500,color:'var(--t1)',marginBottom:8}}>Connecter Google Agenda</div>
+        <div style={{fontSize:14,color:'var(--t2)',lineHeight:1.6,marginBottom:24}}>
+          Visualise tes RDV clients, planifie des relances depuis tes dossiers CRM et retrouve tout dans ton Google Agenda.
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:28,textAlign:'left'}}>
+          {['Voir tes événements des 7 prochains jours','Créer une relance liée à un dossier en 1 clic','Relances visibles directement dans Google Agenda','Suppression depuis le CRM'].map(f=>(
+            <div key={f} style={{display:'flex',gap:10,alignItems:'center',fontSize:13,color:'var(--t2)'}}>
+              <span style={{color:'var(--signed)',fontWeight:700}}>✓</span>{f}
+            </div>
+          ))}
+        </div>
+        <button className="btn btn-gold" style={{width:'100%',justifyContent:'center',gap:8,fontSize:14,padding:'10px 20px'}} onClick={connectGoogle}>
+          <Icon.Link/> Connecter mon Google Agenda
+        </button>
+        <div style={{marginTop:12,fontSize:11.5,color:'var(--t3)'}}>
+          Tu seras redirigé vers Google pour autoriser l'accès. Ton agenda est uniquement visible par toi.
+        </div>
+      </div>
+    </div>
+  )
+
+  return (
+    <div>
+      <div className="section-header">
+        <div>
+          <div className="section-kicker">Google Agenda · synchronisé</div>
+          <div className="section-title">Agenda & Relances</div>
+          <div className="section-sub">{events.length} événement{events.length!==1?'s':''} · {crmEvents} relance{crmEvents!==1?'s':''} CRM</div>
+        </div>
+        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+          <select className="filter-select" value={viewDays} onChange={e=>setViewDays(Number(e.target.value))}>
+            <option value={3}>3 jours</option>
+            <option value={7}>7 jours</option>
+            <option value={14}>14 jours</option>
+          </select>
+          <button className="btn btn-ghost btn-sm" onClick={fetchEvents} disabled={loading}>
+            <Icon.Refresh/>{loading?' Sync…':' Rafraîchir'}
+          </button>
+          <button className="btn btn-gold btn-sm" onClick={()=>{setRelanceDate(new Date().toISOString().slice(0,10));setRelanceOpen(true)}}>
+            <Icon.CalPlus/> Nouvelle relance
+          </button>
+        </div>
+      </div>
+
+      {error&&<div className="notice notice-error" style={{marginBottom:16}}>{error} <button className="btn btn-ghost btn-sm" style={{marginLeft:8}} onClick={connectGoogle}>Reconnecter</button></div>}
+
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:20}}>
+        <div style={{width:8,height:8,borderRadius:'50%',background:'var(--signed)'}}/>
+        <span style={{fontSize:12,color:'var(--t3)'}}>Google Agenda connecté · {profile?.email||''}</span>
+        <button className="btn btn-ghost btn-sm" style={{marginLeft:'auto',fontSize:11}} onClick={connectGoogle}>Reconnecter</button>
+      </div>
+
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        {days.map(({date,events:dayEvts})=>{
+          const todayFlag=isToday(date)
+          return (
+            <div key={date.toISOString()} style={{
+              border:`1px solid ${todayFlag?'var(--gold-line)':'var(--bd)'}`,
+              borderRadius:'var(--rad-lg)',
+              background:todayFlag?'var(--gold-subtle)':'var(--card)',
+              overflow:'hidden',
+            }}>
+              <div style={{
+                padding:'10px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',
+                borderBottom:dayEvts.length>0?`1px solid ${todayFlag?'var(--gold-line)':'var(--bd)'}`:'none',
+              }}>
+                <div style={{display:'flex',alignItems:'center',gap:10}}>
+                  {todayFlag&&<span style={{background:'var(--gold)',color:'white',fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:4,letterSpacing:'0.04em'}}>AUJOURD'HUI</span>}
+                  <span style={{fontSize:13,fontWeight:todayFlag?700:500,color:todayFlag?'var(--t1)':'var(--t2)',textTransform:'capitalize'}}>
+                    {fmtDay(date)}
+                  </span>
+                  {dayEvts.length>0&&<span style={{fontSize:11,color:'var(--t3)'}}>{dayEvts.length} événement{dayEvts.length>1?'s':''}</span>}
+                </div>
+                <button className="btn btn-ghost btn-sm" style={{fontSize:11,padding:'3px 8px'}}
+                  onClick={()=>{setRelanceDate(date.toISOString().slice(0,10));setRelanceOpen(true)}}>
+                  <Icon.CalPlus/> Relance
+                </button>
+              </div>
+
+              {dayEvts.length>0?(
+                <div style={{padding:'8px 12px',display:'flex',flexDirection:'column',gap:6}}>
+                  {dayEvts.map(evt=>{
+                    const start=parseGDate(evt.start)
+                    const end=parseGDate(evt.end)
+                    const isCrm=evt.extendedProperties?.private?.entasisCrm==='true'
+                    const dealId=evt.extendedProperties?.private?.entasisDealId
+                    const linkedDeal=dealId?deals.find(d=>d.id===dealId):null
+                    const isAllDay=!!evt.start?.date&&!evt.start?.dateTime
+                    return (
+                      <div key={evt.id} style={{
+                        display:'flex',alignItems:'flex-start',gap:12,padding:'10px 12px',
+                        borderRadius:'var(--rad)',
+                        background:isCrm?'rgba(192,155,90,0.06)':'white',
+                        border:`1px solid ${isCrm?'var(--gold-line)':'var(--bd)'}`,
+                      }}>
+                        <div style={{minWidth:50,textAlign:'right',flexShrink:0}}>
+                          {isAllDay?<span style={{fontSize:10,fontWeight:600,color:'var(--t3)',textTransform:'uppercase'}}>Jour</span>:(
+                            <>
+                              <div style={{fontSize:12,fontWeight:600,color:isCrm?'var(--gold)':'var(--t2)'}}>{fmtTime(start)}</div>
+                              {end&&<div style={{fontSize:10,color:'var(--t3)'}}>{fmtTime(end)}</div>}
+                            </>
+                          )}
+                        </div>
+                        <div style={{width:3,alignSelf:'stretch',borderRadius:2,background:isCrm?'var(--gold)':'var(--progress)',flexShrink:0,minHeight:20}}/>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontWeight:600,fontSize:13,color:'var(--t1)',display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+                            {evt.summary||'(sans titre)'}
+                            {isCrm&&<span style={{fontSize:10,fontWeight:700,color:'var(--gold)',background:'rgba(192,155,90,0.12)',border:'1px solid var(--gold-line)',borderRadius:3,padding:'1px 5px',letterSpacing:'0.04em'}}>CRM</span>}
+                          </div>
+                          {linkedDeal&&(
+                            <div style={{marginTop:4,display:'flex',alignItems:'center',gap:6,fontSize:12,color:'var(--t2)',flexWrap:'wrap'}}>
+                              <Icon.Link/>
+                              <span>{linkedDeal.client} · {linkedDeal.product}</span>
+                              <span className={STATUS_CLASS[linkedDeal.status]||'badge'}>{linkedDeal.status}</span>
+                              <strong style={{color:'var(--t1)'}}>{euro(annualize(linkedDeal.pp_m))}</strong>
+                            </div>
+                          )}
+                          {evt.description&&!linkedDeal&&(
+                            <div style={{fontSize:12,color:'var(--t3)',marginTop:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:400}}>
+                              {evt.description.split('\n')[0]}
+                            </div>
+                          )}
+                          {evt.location&&<div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>📍 {evt.location}</div>}
+                        </div>
+                        {isCrm&&(
+                          <button onClick={()=>deleteEvent(evt.id)}
+                            style={{background:'none',border:'none',cursor:'pointer',color:'var(--t3)',padding:4,borderRadius:4,flexShrink:0,opacity:.7}}
+                            title="Supprimer cette relance">
+                            <Icon.Trash/>
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ):(
+                <div style={{padding:'12px 16px',fontSize:12.5,color:'var(--t3)',fontStyle:'italic'}}>
+                  Aucun événement ·{' '}
+                  <button onClick={()=>{setRelanceDate(date.toISOString().slice(0,10));setRelanceOpen(true)}}
+                    style={{background:'none',border:'none',color:'var(--gold)',cursor:'pointer',fontSize:12.5,padding:0,textDecoration:'underline'}}>
+                    planifier une relance ?
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <RelanceModal open={relanceOpen} onClose={()=>setRelanceOpen(false)} onSave={createEvent} deals={deals} defaultDate={relanceDate}/>
+    </div>
+  )
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
    TEAM VIEW (manager only)
 ───────────────────────────────────────────────────────────────────────────── */
@@ -1637,6 +1986,9 @@ export default function App(){
           )}
           {activeTab==='forecast'&&(
             <ForecastView deals={deals} objectifs={objectifs} month={month} profile={profile} teamProfiles={teamProfiles} canEditObjectifs={isManager} onSaveObjectif={saveObjectif}/>
+          )}
+          {activeTab==='agenda'&&(
+            <AgendaView session={session} deals={deals} profile={profile}/>
           )}
           {activeTab==='team'&&isManager&&(
             <TeamView deals={deals} objectifs={objectifs} teamProfiles={teamProfiles} month={month}/>
