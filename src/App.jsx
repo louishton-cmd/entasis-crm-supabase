@@ -185,6 +185,7 @@ function AuthScreen() {
 function KpiCard({ label, value, hint }) {
   return (
     <div className="kpi-card">
+      <div className="kpi-accent" />
       <div className="kpi-label">{label}</div>
       <div className="kpi-value">{value}</div>
       {hint ? <div className="kpi-hint">{hint}</div> : null}
@@ -195,22 +196,27 @@ function KpiCard({ label, value, hint }) {
 function Header({ profile, month, setMonth, onNewDeal, onSignOut }) {
   return (
     <header className="topbar">
-      <div>
-        <div className="brand-line">ENTASIS CONSEIL</div>
-        <div className="muted small">CRM patrimonial • Paris 8e • ORIAS 23003153</div>
-      </div>
-      <div className="topbar-actions">
-        <select value={month} onChange={(e) => setMonth(e.target.value)}>
-          {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
-        </select>
-        <button className="btn btn-secondary" onClick={onNewDeal}>Nouveau dossier</button>
-        <div className="user-chip">
-          <div>
-            <strong>{profile?.full_name || profile?.email || 'Utilisateur'}</strong>
-            <div className="muted tiny">{profile?.role === 'manager' ? 'Direction' : 'Conseiller'}{profile?.advisor_code ? ` • ${profile.advisor_code}` : ''}</div>
-          </div>
+      <div className="topbar-inner">
+        <div className="topbar-brand">
+          <div className="brand-line">ENTASIS CONSEIL</div>
+          <div className="muted small">CRM patrimonial • Paris 8e • ORIAS 23003153</div>
         </div>
-        <button className="btn btn-ghost" onClick={onSignOut}>Déconnexion</button>
+        <div className="topbar-actions">
+          <div className="select-shell compact">
+            <select value={month} onChange={(e) => setMonth(e.target.value)}>
+              {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          <button className="btn btn-secondary" onClick={onNewDeal}>Nouveau dossier</button>
+          <div className="user-chip">
+            <div className="user-chip-label">Session</div>
+            <div>
+              <strong>{profile?.full_name || profile?.email || 'Utilisateur'}</strong>
+              <div className="muted tiny">{profile?.role === 'manager' ? 'Direction' : 'Conseiller'}{profile?.advisor_code ? ` • ${profile.advisor_code}` : ''}</div>
+            </div>
+          </div>
+          <button className="btn btn-ghost" onClick={onSignOut}>Déconnexion</button>
+        </div>
       </div>
     </header>
   )
@@ -224,17 +230,19 @@ function TabNav({ activeTab, setActiveTab, profile }) {
   ]
 
   return (
-    <div className="tabbar">
-      {tabs.map((tab) => (
-        <button
-          key={tab.key}
-          type="button"
-          className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
-          onClick={() => setActiveTab(tab.key)}
-        >
-          {tab.label}
-        </button>
-      ))}
+    <div className="tabbar-shell">
+      <div className="tabbar">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.key)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
@@ -243,78 +251,78 @@ function CurvePanel({ title, actual, projected, target, note }) {
   const safeProjected = Math.max(projected, actual)
   const maxValue = Math.max(target || 0, safeProjected || 0, actual || 0, 1)
 
-  const W = 360
-  const H = 150
-  const PAD_TOP = 18
-  const PAD_BOTTOM = 18
-  const BASE_Y = H - PAD_BOTTOM
+  const W = 392
+  const H = 212
+  const LEFT = 22
+  const RIGHT = W - 18
+  const TOP = 18
+  const BOTTOM = 164
 
-  const pts = [
-    { x: 18, v: 0 },
-    { x: 120, v: actual },
-    { x: 240, v: safeProjected },
-    { x: 342, v: target || 0 },
+  const anchors = [
+    { x: LEFT, v: Math.max(actual * 0.28, actual ? actual * 0.35 : 0) },
+    { x: 126, v: actual },
+    { x: 252, v: safeProjected },
+    { x: RIGHT, v: Math.max(safeProjected, target || 0) },
   ]
 
   const toY = (v) => {
     const ratio = Math.max(0, Math.min(1, v / maxValue))
-    return BASE_Y - ratio * (BASE_Y - PAD_TOP)
+    return BOTTOM - ratio * (BOTTOM - TOP)
   }
 
-  // Catmull-Rom -> Bezier for a smoother, premium curve
+  const pts = anchors.map((pt) => ({ x: pt.x, y: toY(pt.v) }))
+
   const catmull = (p0, p1, p2, p3) => {
-    const t = 0.5
+    const t = 0.9
     return [
-      { x: p1.x + (p2.x - p0.x) / 6 * t, y: p1.y + (p2.y - p0.y) / 6 * t },
-      { x: p2.x - (p3.x - p1.x) / 6 * t, y: p2.y - (p3.y - p1.y) / 6 * t },
+      { x: p1.x + ((p2.x - p0.x) / 6) * t, y: p1.y + ((p2.y - p0.y) / 6) * t },
+      { x: p2.x - ((p3.x - p1.x) / 6) * t, y: p2.y - ((p3.y - p1.y) / 6) * t },
       { x: p2.x, y: p2.y },
     ]
   }
 
-  const p = pts.map((pt) => ({ x: pt.x, y: toY(pt.v) }))
-  const pExt = [p[0], ...p, p[p.length - 1]]
-  let d = `M ${p[0].x} ${p[0].y}`
-  for (let i = 1; i < p.length; i++) {
+  const pExt = [pts[0], ...pts, pts[pts.length - 1]]
+  let curvePath = `M ${pts[0].x} ${pts[0].y}`
+  for (let i = 1; i < pts.length; i++) {
     const [c1, c2, p2] = catmull(pExt[i - 1], pExt[i], pExt[i + 1], pExt[i + 2])
-    d += ` C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${p2.x} ${p2.y}`
+    curvePath += ` C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${p2.x} ${p2.y}`
   }
-  const fillD = `${d} L ${p[p.length - 1].x} ${BASE_Y} L ${p[0].x} ${BASE_Y} Z`
+
+  const areaPath = `${curvePath} L ${pts[pts.length - 1].x} ${BOTTOM} L ${pts[0].x} ${BOTTOM} Z`
+  const actualLineY = toY(actual)
+  const projectedLineY = toY(safeProjected)
+  const targetLineY = toY(target || 0)
 
   const pctSigned = target ? Math.round((actual / target) * 100) : Math.round((actual / maxValue) * 100)
   const pctProjected = target ? Math.round((safeProjected / target) * 100) : Math.round((safeProjected / maxValue) * 100)
 
   return (
-    <div className="curve-card">
+    <div className="curve-card premium-curve">
       <div className="curve-head">
         <div>
           <div className="curve-title">{title}</div>
-          {note ? <div className="muted small">{note}</div> : null}
+          {note ? <div className="muted small curve-note">{note}</div> : null}
         </div>
         <div className="curve-target">
-          <div className="muted small">Objectif</div>
+          <div className="muted tiny">Objectif</div>
           <div className="curve-target-value">{euro(target || 0)}</div>
         </div>
       </div>
 
-      <div className="curve-wrap">
+      <div className="curve-wrap dark-chart">
         <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="curve-svg" aria-hidden="true">
           <defs>
-            <linearGradient id="entasisArea" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.22" />
-              <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.02" />
+            <linearGradient id="entasisProjectedFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="rgba(215, 185, 126, 0.82)" />
+              <stop offset="100%" stopColor="rgba(215, 185, 126, 0.16)" />
             </linearGradient>
-            <linearGradient id="entasisLineGlow" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.0" />
-              <stop offset="40%" stopColor="var(--accent)" stopOpacity="0.5" />
-              <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.0" />
+            <linearGradient id="entasisCurveLine" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="rgba(243, 230, 207, 0.9)" />
+              <stop offset="100%" stopColor="rgba(214, 174, 103, 1)" />
             </linearGradient>
-            <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="6" result="blur" />
-              <feColorMatrix
-                in="blur"
-                type="matrix"
-                values="0 0 0 0 0.2  0 0 0 0 0.14  0 0 0 0 0.06  0 0 0 0.35 0"
-              />
+            <filter id="curveGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="5" result="blur" />
+              <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.84 0 0 0 0 0.70 0 0 0 0 0.42 0 0 0 0.35 0" />
               <feMerge>
                 <feMergeNode />
                 <feMergeNode in="SourceGraphic" />
@@ -322,44 +330,41 @@ function CurvePanel({ title, actual, projected, target, note }) {
             </filter>
           </defs>
 
-          {/* subtle baseline */}
-          <line x1="14" y1={BASE_Y} x2={W - 14} y2={BASE_Y} stroke="var(--border)" strokeWidth="1" />
+          {[0.25, 0.5, 0.75].map((tick) => {
+            const y = BOTTOM - (BOTTOM - TOP) * tick
+            return <line key={tick} x1={LEFT} y1={y} x2={RIGHT} y2={y} className="chart-grid" />
+          })}
+          <line x1={LEFT} y1={BOTTOM} x2={RIGHT} y2={BOTTOM} className="chart-axis" />
 
-          {/* target marker */}
-          {target ? (
-            <g>
-              <line
-                x1="14"
-                y1={toY(target)}
-                x2={W - 14}
-                y2={toY(target)}
-                stroke="var(--border)"
-                strokeWidth="1"
-                strokeDasharray="4 6"
-              />
+          {target ? <line x1={LEFT} y1={targetLineY} x2={RIGHT} y2={targetLineY} className="chart-target" /> : null}
+          <path d={areaPath} fill="url(#entasisProjectedFill)" />
+          <line x1={LEFT} y1={actualLineY} x2={RIGHT} y2={actualLineY} className="chart-actual-guide" />
+          <path d={curvePath} fill="none" stroke="url(#entasisCurveLine)" strokeWidth="4" strokeLinecap="round" filter="url(#curveGlow)" />
+          {pts.slice(1).map((pt, idx) => (
+            <g key={idx}>
+              <circle cx={pt.x} cy={pt.y} r="7" fill="#121417" stroke="rgba(214, 174, 103, 0.96)" strokeWidth="3" />
+              <circle cx={pt.x} cy={pt.y} r="3" fill="#f5e7c8" />
             </g>
-          ) : null}
-
-          <path d={fillD} fill="url(#entasisArea)" />
-          <path d={d} fill="none" stroke="var(--accent)" strokeWidth="3.5" strokeLinecap="round" filter="url(#softShadow)" />
-
-          {/* end cap */}
-          <circle cx={p[p.length - 1].x} cy={p[p.length - 1].y} r="6" fill="var(--panel)" stroke="var(--accent)" strokeWidth="3" />
+          ))}
         </svg>
 
-        <div className="curve-foot">
-          <div>
-            <div className="muted small">Réalisé</div>
-            <div className="kpi">{euro(actual)}</div>
-          </div>
-          <div>
-            <div className="muted small">Prévisionnel</div>
-            <div className="kpi">{euro(safeProjected)}</div>
-          </div>
-          <div>
-            <div className="muted small">Avancement</div>
-            <div className="kpi">{pctSigned}% signé • {pctProjected}% projeté</div>
-          </div>
+        <div className="chart-axis-label chart-left">Réalisé</div>
+        <div className="chart-axis-label chart-middle">Prévisionnel</div>
+        <div className="chart-axis-label chart-right">Objectif</div>
+      </div>
+
+      <div className="curve-foot">
+        <div>
+          <div className="muted tiny">Réalisé</div>
+          <div className="kpi">{euro(actual)}</div>
+        </div>
+        <div>
+          <div className="muted tiny">Prévisionnel</div>
+          <div className="kpi">{euro(safeProjected)}</div>
+        </div>
+        <div>
+          <div className="muted tiny">Atterrissage</div>
+          <div className="kpi">{pctSigned}% signé • {pctProjected}% projeté</div>
         </div>
       </div>
     </div>
@@ -377,29 +382,33 @@ function Dashboard({ deals, objectifs, month, profile }) {
   const monthlyTargets = objectifs[month] || { pp_target: 0, pu_target: 0 }
   const title = 'Objectifs du mois en cours'
   const intro = profile?.role === 'manager'
-    ? 'La courbe objectif intègre les dossiers signés. Les dossiers en cours et prévus alimentent la courbe prévisionnelle du cabinet.'
-    : 'Tes dossiers signés alimentent l’objectif du cabinet. Tes dossiers en cours et prévus alimentent automatiquement le prévisionnel.'
+    ? 'Le réalisé du cabinet provient uniquement des dossiers signés. Les dossiers en cours et prévus alimentent l’atterrissage projeté.'
+    : 'Tes dossiers signés nourrissent le réalisé cabinet. Tes dossiers en cours et prévus alimentent l’atterrissage projeté.'
 
   return (
     <section className="stack gap-lg">
       <div className="grid grid-4">
         <KpiCard label="Dossiers du mois" value={String(monthDeals.length)} hint={`${signed.length} signés • ${pipeline.length} en cours / prévus`} />
-        <KpiCard label="PP signée annualisée" value={euro(ppSigned)} hint="Statut Signé" />
-        <KpiCard label="PP prévisionnelle" value={euro(ppProjected)} hint="Signé + En cours + Prévu" />
-        <KpiCard label="PU prévisionnelle" value={euro(puProjected)} hint="Signé + En cours + Prévu" />
+        <KpiCard label="PP signée annualisée" value={euro(ppSigned)} hint="Réalisé cabinet" />
+        <KpiCard label="PP prévisionnelle" value={euro(ppProjected)} hint="Réalisé + pipeline" />
+        <KpiCard label="PU prévisionnelle" value={euro(puProjected)} hint="Réalisé + pipeline" />
       </div>
 
-      <div className="panel stack gap-lg">
+      <div className="panel panel-hero stack gap-lg">
         <div className="panel-head curve-intro-head">
           <div>
+            <div className="section-kicker">Pilotage mensuel</div>
             <h2>{title}</h2>
             <div className="muted small">{intro}</div>
           </div>
-          <div className="muted small">Mois affiché : <strong>{month}</strong></div>
+          <div className="month-chip">
+            <span className="muted tiny">Mois affiché</span>
+            <strong>{month}</strong>
+          </div>
         </div>
         <div className="grid grid-2">
-          <CurvePanel title="PP annualisée" actual={ppSigned} projected={ppProjected} target={Number(monthlyTargets.pp_target || 0)} note="Signé = réalisé • En cours / Prévu = projeté" />
-          <CurvePanel title="PU" actual={puSigned} projected={puProjected} target={Number(monthlyTargets.pu_target || 0)} note="Impact automatique des dossiers sur la courbe cabinet" />
+          <CurvePanel title="PP annualisée" actual={ppSigned} projected={ppProjected} target={Number(monthlyTargets.pp_target || 0)} note="Lecture cabinet • réalisé vs atterrissage" />
+          <CurvePanel title="PU" actual={puSigned} projected={puProjected} target={Number(monthlyTargets.pu_target || 0)} note="Lecture cabinet • réalisé vs atterrissage" />
         </div>
       </div>
     </section>
@@ -501,15 +510,16 @@ function ForecastPanel({ objectifs, month, profile, teamProfiles, deals }) {
     return base.filter((item) => item.advisor_code === profile?.advisor_code)
   }, [teamProfiles, profile])
 
-  const title = profile?.role === 'manager' ? 'Prévisionnels équipe' : 'Suivi de mon prévisionnel'
+  const title = profile?.role === 'manager' ? 'Prévisionnels équipe' : 'Prévisionnel personnel'
   const subtitle = profile?.role === 'manager'
-    ? 'Les courbes bougent uniquement avec les dossiers CRM : Signé, En cours et Prévu.'
-    : 'Tes dossiers Signé, En cours et Prévu alimentent automatiquement tes courbes. Aucun champ manuel à renseigner ici.'
+    ? 'Vision consolidée par conseiller. Les courbes reposent uniquement sur les dossiers Signé, En cours et Prévu.'
+    : 'Vision personnelle. Les courbes reposent uniquement sur tes dossiers Signé, En cours et Prévu.'
 
   return (
-    <section className="panel">
+    <section className="panel panel-hero">
       <div className="panel-head align-start wrap">
         <div>
+          <div className="section-kicker">Atterrissage commercial</div>
           <h2>{title}</h2>
           <div className="muted small">{subtitle}</div>
         </div>
@@ -523,11 +533,16 @@ function ForecastPanel({ objectifs, month, profile, teamProfiles, deals }) {
           const puProjection = metrics.puSigned + metrics.puPipeline
 
           return (
-            <div key={advisorCode} className="signature-row-card">
+            <div key={advisorCode} className="signature-row-card premium-block">
               <div className="signature-row-head">
                 <div>
-                  <div className="cell-title">{item.full_name || advisorCode}</div>
+                  <div className="cell-title premium-name">{item.full_name || advisorCode}</div>
                   <div className="muted tiny">{advisorCode}{item.role === 'manager' ? ' • direction' : ' • conseiller'}</div>
+                </div>
+                <div className="metrics-inline">
+                  <span className="inline-metric"><span>PP signé</span><strong>{euro(metrics.ppSigned)}</strong></span>
+                  <span className="inline-metric"><span>PP projeté</span><strong>{euro(ppProjection)}</strong></span>
+                  <span className="inline-metric"><span>PU projetée</span><strong>{euro(puProjection)}</strong></span>
                 </div>
               </div>
 
@@ -537,14 +552,14 @@ function ForecastPanel({ objectifs, month, profile, teamProfiles, deals }) {
                   actual={metrics.ppSigned}
                   projected={ppProjection}
                   target={objectifs?.[month]?.pp_target || 0}
-                  note="Signé = réalisé • En cours / Prévu = projeté"
+                  note="Dossiers signés, en cours et prévus uniquement"
                 />
                 <CurvePanel
                   title={`PU ${advisorCode}`}
                   actual={metrics.puSigned}
                   projected={puProjection}
                   target={objectifs?.[month]?.pu_target || 0}
-                  note="Signé = réalisé • En cours / Prévu = projeté"
+                  note="Dossiers signés, en cours et prévus uniquement"
                 />
               </div>
             </div>
@@ -580,13 +595,14 @@ function ObjectifsPanel({ objectifs, month, canEdit, onSave, profile }) {
   }
 
   return (
-    <section className="panel">
+    <section className="panel panel-side">
       <div className="panel-head align-start wrap">
         <div>
+          <div className="section-kicker">Référentiel cabinet</div>
           <h2>Objectifs du cabinet</h2>
           <div className="muted small">{canEdit ? 'Modification réservée à la direction.' : 'Lecture seule pour les conseillers.'}</div>
         </div>
-        {!canEdit ? <div className="muted small">Espace {profile?.advisor_code || profile?.full_name || ''}</div> : null}
+        {!canEdit ? <div className="space-chip">Espace {profile?.advisor_code || profile?.full_name || ''}</div> : null}
       </div>
 
       {canEdit ? (
