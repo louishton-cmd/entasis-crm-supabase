@@ -59,6 +59,28 @@ function advisorMetrics(deals,month,code){
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   DEAL AGE UTILS
+───────────────────────────────────────────────────────────────────────────── */
+function dealAge(deal){
+  if(!deal.created_at)return null
+  return Math.floor((Date.now()-new Date(deal.created_at))/(1000*60*60*24))
+}
+function ageLabel(days){
+  if(days===null)return null
+  if(days===0)return "Auj."
+  if(days===1)return "Hier"
+  if(days<7)return `${days}j`
+  if(days<30)return `${Math.floor(days/7)}sem`
+  return `${Math.floor(days/30)}mois`
+}
+function ageSeverity(days,status){
+  if(!isPipeline(status)||days===null)return 'ok'
+  if(days>60)return 'critical'
+  if(days>30)return 'warn'
+  return 'ok'
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    ICONS (inline SVG)
 ───────────────────────────────────────────────────────────────────────────── */
 const Icon = {
@@ -72,6 +94,91 @@ const Icon = {
   Edit:      ()=><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M9 1.5l2.5 2.5-7 7L2 12l.5-2.5 7-7z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg>,
   Trash:     ()=><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1.5 3.5h10M5 3.5V2h3v1.5M3 3.5l.8 7.5h5.4l.8-7.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   Refresh:   ()=><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M11 6.5A4.5 4.5 0 012 6.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><path d="M11 3.5v3h-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  Clock:     ()=><svg width="11" height="11" viewBox="0 0 11 11" fill="none"><circle cx="5.5" cy="5.5" r="4.5" stroke="currentColor" strokeWidth="1.2"/><path d="M5.5 3v2.5l1.5 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   AGE BADGE
+───────────────────────────────────────────────────────────────────────────── */
+function AgeBadge({deal,compact=false}){
+  const days=dealAge(deal)
+  if(days===null)return null
+  const sev=ageSeverity(days,deal.status)
+  const label=ageLabel(days)
+  const styles={
+    ok:      {color:'var(--t3)',       bg:'var(--bg)',          bd:'var(--bd)'},
+    warn:    {color:'var(--progress)', bg:'var(--progress-bg)', bd:'var(--progress-bd)'},
+    critical:{color:'var(--cancelled)',bg:'var(--cancelled-bg)',bd:'var(--cancelled-bd)'},
+  }
+  const s=styles[sev]
+  return (
+    <span style={{
+      display:'inline-flex',alignItems:'center',gap:3,
+      fontSize:compact?10:11,fontWeight:500,
+      padding:compact?'1px 5px':'2px 6px',
+      borderRadius:4,border:`1px solid ${s.bd}`,
+      color:s.color,background:s.bg,whiteSpace:'nowrap',
+    }}>
+      {sev!=='ok'&&<span style={{opacity:.8}}>⚑ </span>}
+      {label}
+    </span>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   STALE PIPELINE ALERT
+───────────────────────────────────────────────────────────────────────────── */
+function StalePipelineAlert({deals,onEdit}){
+  const stale=deals
+    .filter(d=>isPipeline(d.status))
+    .map(d=>({...d,_age:dealAge(d)}))
+    .filter(d=>d._age>30)
+    .sort((a,b)=>b._age-a._age)
+
+  const critical=stale.filter(d=>d._age>60)
+  const warn=stale.filter(d=>d._age<=60)
+  if(!stale.length)return null
+
+  return (
+    <div style={{
+      background:'var(--progress-bg)',border:'1px solid var(--progress-bd)',
+      borderRadius:'var(--rad-lg)',padding:'14px 18px',marginBottom:20,
+    }}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+        <div>
+          <div className="section-kicker" style={{color:'var(--progress)',marginBottom:2}}>Vieillissement pipeline</div>
+          <div style={{fontSize:13,fontWeight:600,color:'var(--t1)'}}>
+            {critical.length>0&&<span style={{color:'var(--cancelled)'}}>{critical.length} dossier{critical.length>1?'s':''} à risque (+60j)</span>}
+            {critical.length>0&&warn.length>0&&<span style={{color:'var(--t3)'}}> · </span>}
+            {warn.length>0&&<span style={{color:'var(--progress)'}}>{warn.length} dossier{warn.length>1?'s':''} en attente (+30j)</span>}
+          </div>
+        </div>
+        <span className="text-xs text-muted">{stale.length} dossier{stale.length>1?'s':''} sans mouvement</span>
+      </div>
+      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+        {stale.slice(0,5).map(deal=>(
+          <div key={deal.id}
+            onClick={()=>onEdit(deal)}
+            style={{
+              display:'flex',alignItems:'center',gap:10,
+              background:'white',border:'1px solid var(--bd)',
+              borderRadius:'var(--rad)',padding:'8px 12px',
+              cursor:'pointer',transition:'box-shadow .15s',
+            }}
+            onMouseEnter={e=>e.currentTarget.style.boxShadow='var(--sh-xs)'}
+            onMouseLeave={e=>e.currentTarget.style.boxShadow='none'}
+          >
+            <AgeBadge deal={deal} compact/>
+            <span style={{fontWeight:600,fontSize:13,color:'var(--t1)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{deal.client}</span>
+            <span style={{fontSize:12,color:'var(--t3)'}}>{deal.product}</span>
+            <span className={STATUS_CLASS[deal.status]||'badge'}>{deal.status}</span>
+            <span style={{fontSize:12,fontWeight:600,color:'var(--t1)',minWidth:80,textAlign:'right'}}>{euro(annualize(deal.pp_m))}</span>
+          </div>
+        ))}
+        {stale.length>5&&<div style={{fontSize:11.5,color:'var(--t3)',textAlign:'center',paddingTop:4}}>+ {stale.length-5} autres dossiers</div>}
+      </div>
+    </div>
+  )
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -326,16 +433,155 @@ function AreaChart({actual,projected,target,title,subtitle}){
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   KPI CARD
+   ANNUAL BAR CHART — 12 mois
 ───────────────────────────────────────────────────────────────────────────── */
-function KpiCard({label,value,hint,accent,progress,progressValue}){
+function AnnualChart({deals,objectifs,currentMonth,advisorCode,title,subtitle}){
+  const data=MONTHS.map(m=>{
+    const scope=advisorCode
+      ?deals.filter(d=>d.month===m&&dealMatchesAdvisor(d,advisorCode))
+      :deals.filter(d=>d.month===m)
+    const signed=scope.filter(d=>d.status==='Signé')
+    const pipeline=scope.filter(d=>isPipeline(d.status))
+    const ppS=sumAnnualPp(signed)
+    const ppP=sumAnnualPp(pipeline)
+    const target=Number(objectifs?.[m]?.pp_target||0)
+    return {month:m,ppSigned:ppS,ppPipeline:ppP,ppTotal:ppS+ppP,target}
+  })
+
+  const maxVal=Math.max(...data.map(d=>Math.max(d.ppTotal,d.target)),1)*1.12
+  const W=680,H=180,PB=36,PT=12,PL=4,PR=4
+  const chartW=W-PL-PR
+  const barGroupW=chartW/12
+  const barW=Math.max(6,barGroupW*0.52)
+  const toY=v=>PT+(H-PT-PB)*(1-Math.min(1,v/maxVal))
+  const toH=v=>(H-PT-PB)*Math.min(1,v/maxVal)
+  const curIdx=MONTHS.indexOf(currentMonth)
+
+  // Target line points
+  const targetPts=data.map((d,i)=>({
+    x:PL+i*barGroupW+barGroupW/2,
+    y:d.target>0?toY(d.target):null
+  }))
+  const targetPath=targetPts.reduce((path,pt,i)=>{
+    if(pt.y===null)return path
+    return path+(path===''?`M${pt.x},${pt.y}`:`L${pt.x},${pt.y}`)
+  },'')
+
+  const gridVals=[0.25,0.5,0.75,1].map(t=>({
+    y:PT+(H-PT-PB)*(1-t),
+    label:euro(maxVal*t),
+  }))
+
+  return (
+    <div className="chart-card">
+      <div className="chart-header">
+        <div>
+          <div className="chart-title">{title||'PP annualisée — vue annuelle'}</div>
+          {subtitle&&<div className="chart-subtitle">{subtitle}</div>}
+        </div>
+        <div className="chart-meta">
+          <div className="chart-target-label">Année en cours</div>
+          <div className="chart-target-value">{euro(data.reduce((s,d)=>s+d.ppSigned,0))}</div>
+        </div>
+      </div>
+      <div className="chart-body">
+        <svg viewBox={`0 0 ${W} ${H}`} className="chart-svg" style={{height:H}}>
+          <defs>
+            <linearGradient id="bar-signed" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#C09B5A"/>
+              <stop offset="100%" stopColor="#9A7B3A"/>
+            </linearGradient>
+            <linearGradient id="bar-pipeline" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="rgba(192,155,90,0.35)"/>
+              <stop offset="100%" stopColor="rgba(192,155,90,0.15)"/>
+            </linearGradient>
+          </defs>
+
+          {/* Horizontal grid lines */}
+          {gridVals.map((g,i)=>(
+            <line key={i} x1={PL} y1={g.y} x2={W-PR} y2={g.y} stroke="var(--bd)" strokeWidth="0.5"/>
+          ))}
+          <line x1={PL} y1={H-PB} x2={W-PR} y2={H-PB} stroke="var(--bd)" strokeWidth="1"/>
+
+          {/* Target line */}
+          {targetPath&&<path d={targetPath} fill="none" stroke="var(--gold)" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.6"/>}
+
+          {/* Bars */}
+          {data.map((d,i)=>{
+            const cx=PL+i*barGroupW+barGroupW/2
+            const bx=cx-barW/2
+            const isCurrent=i===curIdx
+            const hy=toY(d.ppTotal)
+            const hh=toH(d.ppTotal)
+            const sh=toH(d.ppSigned)
+            const sy=H-PB-sh
+            const ph=hh-sh
+            const py=sy-ph
+            return (
+              <g key={d.month}>
+                {/* Pipeline bar (lighter, on top) */}
+                {ph>0.5&&<rect x={bx} y={py} width={barW} height={ph} fill="url(#bar-pipeline)" rx="2" ry="2"/>}
+                {/* Signed bar */}
+                {sh>0.5&&<rect x={bx} y={sy} width={barW} height={sh} fill={isCurrent?"url(#bar-signed)":"rgba(192,155,90,0.75)"} rx="2" ry="2"/>}
+                {/* Current month glow */}
+                {isCurrent&&hh>0.5&&<rect x={bx-1} y={Math.min(py,sy)-1} width={barW+2} height={hh+2} fill="none" stroke="var(--gold)" strokeWidth="1.5" rx="3" opacity="0.5"/>}
+                {/* Month label */}
+                <text
+                  x={cx} y={H-8} textAnchor="middle"
+                  fontSize="9.5" fill={isCurrent?'var(--gold)':'var(--t3)'}
+                  fontWeight={isCurrent?'600':'400'}
+                  fontFamily="var(--font-sans)"
+                >
+                  {d.month.slice(0,3)}
+                </text>
+              </g>
+            )
+          })}
+        </svg>
+        <div className="chart-legend">
+          <div className="chart-legend-item">
+            <div className="legend-dot" style={{background:'var(--gold)'}}/>
+            PP signée : {euro(data.reduce((s,d)=>s+d.ppSigned,0))}
+          </div>
+          <div className="chart-legend-item">
+            <div className="legend-dot" style={{background:'rgba(192,155,90,0.35)',border:'1px solid var(--gold)'}}/>
+            PP pipeline : {euro(data.reduce((s,d)=>s+d.ppPipeline,0))}
+          </div>
+          <div className="chart-legend-item">
+            <div className="legend-dot" style={{background:'var(--gold)',opacity:0.4}}/>
+            Ligne objectif cabinet
+          </div>
+          <div className="chart-legend-item" style={{marginLeft:'auto'}}>
+            <div className="legend-dot" style={{background:'var(--gold)',outline:'1.5px solid var(--gold)',outlineOffset:1}}/>
+            Mois en cours : <strong style={{color:'var(--t1)'}}>{currentMonth}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+function KpiCard({label,value,hint,accent,progress,progressValue,delta}){
   const accentClass=accent?`kpi-card-${accent}`:''
   const fill=progressValue!=null?Math.min(100,progressValue):null
+  const hasDelta=delta!=null&&delta.raw!==0
+  const deltaUp=delta?.raw>0
   return (
     <div className={`kpi-card ${accentClass}`}>
       <div className="kpi-label">{label}</div>
       <div className="kpi-value">{value}</div>
-      {hint&&<div className="kpi-hint">{hint}</div>}
+      {hasDelta&&(
+        <div style={{
+          display:'inline-flex',alignItems:'center',gap:3,
+          fontSize:11.5,fontWeight:500,marginTop:4,
+          color:deltaUp?'var(--signed)':'var(--cancelled)',
+        }}>
+          <span style={{fontSize:10}}>{deltaUp?'▲':'▼'}</span>
+          {deltaUp?'+':''}{delta.label} vs mois préc.
+        </div>
+      )}
+      {!hasDelta&&hint&&<div className="kpi-hint">{hint}</div>}
       {fill!=null&&<>
         <div className="kpi-progress-bar">
           <div className={`kpi-progress-fill${fill>=100?' over':''}`} style={{width:`${Math.min(100,fill)}%`}}/>
@@ -403,9 +649,9 @@ function AdvisorDashboard({deals,objectifs,month,profile}){
 
       {/* KPIs */}
       <div className="kpi-grid mb-24">
-        <KpiCard label="PP signée annualisée" value={euro(m.ppSigned)} hint="Réalisé du mois" accent="gold" progressValue={ppPct}/>
-        <KpiCard label="PP en pipeline" value={euro(m.ppPipeline)} hint={`${m.pipelineCount} dossier${m.pipelineCount!==1?'s':''} en cours / prévus`} accent="amber"/>
-        <KpiCard label="PU signée" value={euro(m.puSigned)} hint="Versements uniques signés" accent="green"/>
+        <KpiCard label="PP signée annualisée" value={euro(m.ppSigned)} hint="Réalisé du mois" accent="gold" progressValue={ppPct} delta={prevMonth?dPpSigned:null}/>
+        <KpiCard label="PP en pipeline" value={euro(m.ppPipeline)} hint={`${m.pipelineCount} dossier${m.pipelineCount!==1?'s':''} en cours / prévus`} accent="amber" delta={prevMonth?dPpPipeline:null}/>
+        <KpiCard label="PU signée" value={euro(m.puSigned)} hint="Versements uniques signés" accent="green" delta={prevMonth?dPuSigned:null}/>
         <KpiCard label="PU en pipeline" value={euro(m.puPipeline)} hint="À signer ce mois" accent="blue"/>
       </div>
 
@@ -479,6 +725,18 @@ function AdvisorDashboard({deals,objectifs,month,profile}){
           </div>}
         </div>
       </div>
+
+      {/* Annual chart */}
+      <div style={{marginTop:28}}>
+        <div className="section-header">
+          <div>
+            <div className="section-kicker">Vue annuelle</div>
+            <div className="section-title">Saisonnalité — 12 mois</div>
+            <div className="section-sub">PP annualisée signée + pipeline par mois · mois courant mis en valeur</div>
+          </div>
+        </div>
+        <AnnualChart deals={deals} objectifs={objectifs} currentMonth={month} advisorCode={code} title="PP annualisée — mon année" subtitle={`Conseiller ${code} · barres : signée (plein) + pipeline (transparent)`}/>
+      </div>
     </div>
   )
 }
@@ -497,6 +755,18 @@ function ManagerDashboard({deals,objectifs,month,teamProfiles}){
   const puTarget=Number(targets.pu_target||0)
   const activeAdvisors=teamProfiles.filter(p=>p.is_active&&p.advisor_code)
 
+  // M vs M-1
+  const prevIdx=MONTHS.indexOf(month)-1
+  const prevMonth=prevIdx>=0?MONTHS[prevIdx]:null
+  const prevDeals=prevMonth?deals.filter(d=>d.month===prevMonth):[]
+  const prevSigned=prevDeals.filter(d=>d.status==='Signé')
+  const prevPipeline=prevDeals.filter(d=>isPipeline(d.status))
+  const prevPpS=sumAnnualPp(prevSigned),prevPuS=sumPu(prevSigned)
+  const prevPpP=sumAnnualPp(prevPipeline)
+  const dPpS={raw:ppS-prevPpS,label:euro(Math.abs(ppS-prevPpS))}
+  const dPuS={raw:puS-prevPuS,label:euro(Math.abs(puS-prevPuS))}
+  const dPpProj={raw:(ppS+ppP)-(prevPpS+prevPpP),label:euro(Math.abs((ppS+ppP)-(prevPpS+prevPpP)))}
+
   const advisorRows=useMemo(()=>activeAdvisors.map(p=>{
     const m=advisorMetrics(deals,month,p.advisor_code)
     return {...p,...m}
@@ -513,14 +783,14 @@ function ManagerDashboard({deals,objectifs,month,teamProfiles}){
         <div>
           <div className="section-kicker">Vue direction · {month}</div>
           <div className="section-title">Tableau de bord cabinet</div>
-          <div className="section-sub">{monthDeals.length} dossiers · {signed.length} signés · {pipeline.length} en pipeline</div>
+          <div className="section-sub">{monthDeals.length} dossiers · {signed.length} signés · {pipeline.length} en pipeline{prevMonth&&<span style={{color:'var(--t3)'}}> · vs {prevMonth}</span>}</div>
         </div>
       </div>
 
       <div className="kpi-grid mb-24">
-        <KpiCard label="PP signée cabinet" value={euro(ppS)} hint="Réalisé consolidé" accent="gold" progressValue={pct(ppS,ppTarget)}/>
-        <KpiCard label="PP prévisionnelle" value={euro(ppS+ppP)} hint="Atterrissage projeté" accent="amber"/>
-        <KpiCard label="PU signée" value={euro(puS)} hint="Versements uniques" accent="green" progressValue={pct(puS,puTarget)}/>
+        <KpiCard label="PP signée cabinet" value={euro(ppS)} hint="Réalisé consolidé" accent="gold" progressValue={pct(ppS,ppTarget)} delta={prevMonth?dPpS:null}/>
+        <KpiCard label="PP prévisionnelle" value={euro(ppS+ppP)} hint="Atterrissage projeté" accent="amber" delta={prevMonth?dPpProj:null}/>
+        <KpiCard label="PU signée" value={euro(puS)} hint="Versements uniques" accent="green" progressValue={pct(puS,puTarget)} delta={prevMonth?dPuS:null}/>
         <KpiCard label="PU prévisionnelle" value={euro(puS+puP)} hint="Atterrissage projeté" accent="blue"/>
       </div>
 
@@ -528,6 +798,18 @@ function ManagerDashboard({deals,objectifs,month,teamProfiles}){
       <div className="grid-2 gap-16 mb-24">
         <AreaChart title="PP cabinet annualisée" subtitle="Réalisé + pipeline → objectif" actual={ppS} projected={ppS+ppP} target={ppTarget}/>
         <AreaChart title="PU cabinet" subtitle="Versements uniques consolidés" actual={puS} projected={puS+puP} target={puTarget}/>
+      </div>
+
+      {/* Annual chart */}
+      <div className="mb-24">
+        <div className="section-header">
+          <div>
+            <div className="section-kicker">Vue annuelle</div>
+            <div className="section-title">Saisonnalité cabinet — 12 mois</div>
+            <div className="section-sub">PP annualisée signée + pipeline · ligne objectif cabinet · mois courant mis en valeur</div>
+          </div>
+        </div>
+        <AnnualChart deals={deals} objectifs={objectifs} currentMonth={month} advisorCode={null} title="PP cabinet — vue annuelle" subtitle="Tous conseillers confondus · barres : signée (plein) + pipeline (transparent)"/>
       </div>
 
       {/* Équipe ranking */}
@@ -667,6 +949,9 @@ function PipelineBoard({deals,month,profile,onEdit}){
         <input className="search-input" style={{maxWidth:260}} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher un dossier…"/>
       </div>
 
+      {/* Stale pipeline alert */}
+      <StalePipelineAlert deals={visible} onEdit={onEdit}/>
+
       <div className="pipeline-board">
         {PIPELINE_COLS.map(col=>{
           const items=byStatus[col.id]||[]
@@ -690,7 +975,10 @@ function PipelineBoard({deals,month,profile,onEdit}){
                     </div>
                     <div className="pipeline-deal-footer">
                       <span className={PRIORITY_CLASS[deal.priority]||'badge'}>{deal.priority}</span>
-                      <span style={{fontSize:11,color:'var(--t3)'}}>{deal.advisor_code}</span>
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <AgeBadge deal={deal} compact/>
+                        <span style={{fontSize:11,color:'var(--t3)'}}>{deal.advisor_code}</span>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -775,6 +1063,7 @@ function DealsTable({deals,month,profile,onEdit,onDelete,onRefresh}){
               <th>Mois</th>
               <th>Statut</th>
               <th>Priorité</th>
+              <th>Ancienneté</th>
               <th>Compagnie</th>
               <th></th>
             </tr></thead>
@@ -798,6 +1087,7 @@ function DealsTable({deals,month,profile,onEdit,onDelete,onRefresh}){
                   <td><span style={{fontSize:12,color:'var(--t3)'}}>{deal.month}</span></td>
                   <td><span className={STATUS_CLASS[deal.status]||'badge'}>{deal.status}</span></td>
                   <td><span className={PRIORITY_CLASS[deal.priority]||'badge'}>{deal.priority}</span></td>
+                  <td><AgeBadge deal={deal}/></td>
                   <td><span style={{fontSize:12,color:'var(--t3)'}}>{deal.company||'—'}</span></td>
                   <td>
                     <div className="table-actions">
