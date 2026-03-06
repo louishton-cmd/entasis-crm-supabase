@@ -1830,21 +1830,12 @@ export default function App(){
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[session?.user?.id])
 
-  // ✅ FIX : session passé en paramètre (évite stale closure) + timeout 15s anti-boucle infinie
+  // ✅ FIX : session passé en paramètre pour éviter la stale closure
   async function loadAll(currentSession){
     const s=currentSession||session
     if(!s?.user)return
     const userId=s.user.id
     setLoading(true);setError('')
-
-    // Timeout de sécurité : force la sortie du loader après 15s
-    let timedOut=false
-    const safetyTimer=setTimeout(()=>{
-      timedOut=true
-      setLoading(false)
-      setError('Chargement trop long — vérifie les policies RLS Supabase ou ta connexion.')
-    },15000)
-
     try {
       const[profRes,teamRes,dealsRes,objRes]=await Promise.all([
         supabase.from('profiles').select('*').eq('id',userId).maybeSingle(),
@@ -1852,7 +1843,6 @@ export default function App(){
         supabase.from('deals').select('*').order('created_at',{ascending:false}),
         supabase.from('objectifs').select('*'),
       ])
-      if(timedOut)return
       const errs=[profRes,teamRes,dealsRes,objRes].filter(r=>r.error).map(r=>r.error.message)
       if(errs.length)setError(errs[0])
       let prof=profRes.data
@@ -1876,10 +1866,9 @@ export default function App(){
       ;(objRes.data||[]).forEach(row=>{map[row.month]=row})
       setObjectifs(map)
     } catch(e) {
-      if(!timedOut)setError('Erreur chargement : '+e.message)
+      setError('Erreur chargement : '+e.message)
     } finally {
-      clearTimeout(safetyTimer)
-      if(!timedOut)setLoading(false)
+      setLoading(false)
     }
   }
 
@@ -1916,7 +1905,7 @@ export default function App(){
     <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16,background:'var(--bg)'}}>
       <div style={{fontFamily:'var(--font-serif)',fontSize:22,fontWeight:500,color:'var(--t1)',letterSpacing:'0.05em'}}>ENTASIS</div>
       <div className="loading-spinner"/>
-      <div className="text-sm text-muted">Chargement du CRM…</div>
+      <div className="text-sm text-muted">Chargement du CRM… (peut prendre 20-30s)</div>
     </div>
   )
 
