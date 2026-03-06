@@ -301,7 +301,7 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month}){
           <div className="user-avatar">{initials(profile?.full_name||profile?.email||'U')}</div>
           <div>
             <div className="user-name">{profile?.full_name||profile?.email||'Utilisateur'}</div>
-            <div className="user-role">{profile?.role==='manager'?'Direction':'Conseiller'}{profile?.advisor_code?` · ${profile.advisor_code}`:''}</div>
+            <div className="user-role">{profile?.role==='manager'?'Direction':'Conseiller'}{profile?.role!=='manager'&&profile?.advisor_code?` · ${profile.advisor_code}`:''}</div>
           </div>
         </div>
         <button className="btn-signout" onClick={onSignOut}>Se déconnecter</button>
