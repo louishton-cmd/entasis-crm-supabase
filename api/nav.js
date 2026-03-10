@@ -3,26 +3,34 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET')
 
-  const { isin } = req.query
+  const { isin, ticker } = req.query
   if (!isin) return res.status(400).json({ error: 'isin required' })
 
+  // Utilise le ticker direct si fourni (fonds LU non couverts via recherche ISIN)
+  const symbol = ticker || null
+
   try {
-    const searchRes = await fetch(
-      `https://query2.finance.yahoo.com/v1/finance/search?q=${isin}&quotesCount=1&newsCount=0&enableFuzzyQuery=false`,
-      { headers: { 'User-Agent': 'Mozilla/5.0' } }
-    )
-    const searchData = await searchRes.json()
-    const quote = searchData?.quotes?.[0]
-    if (!quote?.symbol) return res.status(404).json({ error: 'not found', isin })
-    const symbol = quote.symbol
+    let resolvedSymbol = symbol
+
+    // Si pas de ticker direct → recherche via Yahoo
+    if (!resolvedSymbol) {
+      const searchRes = await fetch(
+        `https://query2.finance.yahoo.com/v1/finance/search?q=${isin}&quotesCount=1&newsCount=0&enableFuzzyQuery=false`,
+        { headers: { 'User-Agent': 'Mozilla/5.0' } }
+      )
+      const searchData = await searchRes.json()
+      const quote = searchData?.quotes?.[0]
+      if (!quote?.symbol) return res.status(404).json({ error: 'not found', isin })
+      resolvedSymbol = quote.symbol
+    }
 
     const priceRes = await fetch(
-      `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1y`,
+      `https://query2.finance.yahoo.com/v8/finance/chart/${resolvedSymbol}?interval=1d&range=1y`,
       { headers: { 'User-Agent': 'Mozilla/5.0' } }
     )
     const priceData = await priceRes.json()
     const result = priceData?.chart?.result?.[0]
-    if (!result) return res.status(404).json({ error: 'no price data', symbol })
+    if (!result) return res.status(404).json({ error: 'no price data', symbol: resolvedSymbol })
 
     const closes = result.indicators?.quote?.[0]?.close || []
     const timestamps = result.timestamps || result.timestamp || []
@@ -30,7 +38,7 @@ export default async function handler(req, res) {
       .map((c, i) => ({ c, t: timestamps[i] }))
       .filter(x => x.c != null)
 
-    if (valid.length === 0) return res.status(404).json({ error: 'no closes', symbol })
+    if (valid.length === 0) return res.status(404).json({ error: 'no closes', symbol: resolvedSymbol })
 
     const last   = valid[valid.length - 1]
     const prev   = valid[valid.length - 2]
@@ -53,8 +61,8 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       isin,
-      symbol,
-      name:     result.meta?.longName || result.meta?.shortName || quote.longname || '',
+      symbol: resolvedSymbol,
+      name:     result.meta?.longName || result.meta?.shortName || '',
       currency: result.meta?.currency || 'EUR',
       vl:       Math.round(last.c * 100) / 100,
       change:   prev ? Math.round(((last.c - prev.c) / prev.c) * 10000) / 100 : null,
