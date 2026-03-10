@@ -690,6 +690,10 @@ function LeadRoom({leads,profile,onLeadsChange,onConvertDeal,onRefresh}){
     if(!window.confirm('Libérer ce lead pour qu\'un autre conseiller puisse le prendre ?'))return
     await supabase.from('leads').update({status:'released',taken_by:null,taken_at:null}).eq('id',lead.id)
   }
+  async function resetLead(lead){
+    if(!window.confirm(`Remettre "${lead.nom}" en disponible ?`))return
+    await supabase.from('leads').update({status:'available',taken_by:null,taken_at:null,booked_at:null}).eq('id',lead.id)
+  }
 
   function handleBooked(leadId){
     onLeadsChange(prev=>prev.map(l=>l.id===leadId?{...l,status:'booked',booked_at:new Date().toISOString()}:l))
@@ -1820,7 +1824,7 @@ export default function App(){
     const s=currentSession||session
     if(!s?.user)return
     const userId=s.user.id
-    setLoading(true);setError('')
+    setError('')
     try {
       const[profRes,teamRes,dealsRes,objRes]=await Promise.all([
         supabase.from('profiles').select('*').eq('id',userId).maybeSingle(),
@@ -1848,8 +1852,6 @@ export default function App(){
       setObjectifs(map)
     } catch(e) {
       setError('Erreur chargement : '+e.message)
-    } finally {
-      setLoading(false)
     }
   }
 
