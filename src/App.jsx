@@ -97,6 +97,7 @@ const Icon = {
   Trash:     ()=><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1.5 3.5h10M5 3.5V2h3v1.5M3 3.5l.8 7.5h5.4l.8-7.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   Refresh:   ()=><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M11 6.5A4.5 4.5 0 012 6.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><path d="M11 3.5v3h-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   Clock:     ()=><svg width="11" height="11" viewBox="0 0 11 11" fill="none"><circle cx="5.5" cy="5.5" r="4.5" stroke="currentColor" strokeWidth="1.2"/><path d="M5.5 3v2.5l1.5 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+  Market:    ()=><svg className="nav-item-icon" viewBox="0 0 20 20" fill="none"><rect x="3" y="10" width="2" height="6" rx=".5" fill="currentColor" opacity=".9"/><line x1="4" y1="7" x2="4" y2="10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity=".7"/><line x1="4" y1="16" x2="4" y2="18" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity=".7"/><rect x="9" y="5" width="2" height="8" rx=".5" fill="currentColor" opacity=".7"/><line x1="10" y1="2" x2="10" y2="5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity=".5"/><line x1="10" y1="13" x2="10" y2="16" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity=".5"/><rect x="15" y="7" width="2" height="7" rx=".5" fill="currentColor" opacity=".5"/><line x1="16" y1="4" x2="16" y2="7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity=".4"/><line x1="16" y1="14" x2="16" y2="17" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity=".4"/></svg>,
   Calendar:  ()=><svg className="nav-item-icon" viewBox="0 0 20 20" fill="none"><rect x="3" y="4" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="1.4" fill="none" opacity=".8"/><path d="M3 8h14" stroke="currentColor" strokeWidth="1.2" opacity=".5"/><path d="M7 2v3M13 2v3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity=".7"/><circle cx="7" cy="12" r="1" fill="currentColor" opacity=".6"/><circle cx="10" cy="12" r="1" fill="currentColor" opacity=".4"/><circle cx="13" cy="12" r="1" fill="currentColor" opacity=".4"/></svg>,
   CalPlus:   ()=><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1.5" y="2.5" width="10" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M1.5 5.5h10M4.5 1v2M8.5 1v2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M6.5 7.5v2M5.5 8.5h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
   Link:      ()=><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M5 7L7.5 4.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M4 5.5l-1 1a2.121 2.121 0 003 3l1-1" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M8 6.5l1-1a2.121 2.121 0 00-3-3l-1 1" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>,
@@ -282,6 +283,7 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,leadsAvai
     {key:'dossiers',  label:'Dossiers',  Icon:Icon.Dossiers},
     {key:'forecast',  label:'Prévisionnel', Icon:Icon.Forecast},
     {key:'agenda',    label:'Agenda',    Icon:Icon.Calendar},
+    {key:'market',    label:'Marchés',   Icon:Icon.Market},
     ...(isManager?[{key:'team', label:'Équipe', Icon:Icon.Team}]:[]),
   ]
 
@@ -322,7 +324,7 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,leadsAvai
 /* ─────────────────────────────────────────────────────────────────────────────
    TOP BAR
 ───────────────────────────────────────────────────────────────────────────── */
-const PAGE_TITLES={dashboard:'Vue d\'ensemble',pipeline:'Pipeline commercial',dossiers:'Dossiers clients',forecast:'Prévisionnel',agenda:'Agenda & Relances',team:'Équipe',leads:'Leads Live ⚡'}
+const PAGE_TITLES={dashboard:'Vue d\'ensemble',pipeline:'Pipeline commercial',dossiers:'Dossiers clients',forecast:'Prévisionnel',agenda:'Agenda & Relances',market:'Marchés financiers 📈',team:'Équipe',leads:'Leads Live ⚡'}
 
 function TopBar({activeTab,month,setMonth,onNewDeal,onRefresh}){
   return (
@@ -1521,6 +1523,205 @@ function RelanceModal({open,onClose,deals,defaultDate}){
   )
 }
 
+
+function MarketView(){
+  const funds=[
+    {name:'Lazard Japon AC H EUR',        isin:'FR0014008M81', cat:'Actions Japon',        refSymbol:'INDEX:NKY',         refLabel:'Nikkei 225', color:'#EF4444'},
+    {name:'AXA Or et Matières Premières', isin:'FR0010011171', cat:'Matières premières',   refSymbol:'COMEX:GC1!',        refLabel:'Or (Gold)',  color:'#F59E0B'},
+    {name:'AP Meeschaert Gl. Convictions',isin:'FR001400CSI0', cat:'Actions Monde Value',  refSymbol:'FOREXCOM:SPXUSD',   refLabel:'S&P 500',    color:'#10B981'},
+    {name:'Fidelity Em Mkts A-USD',       isin:'LU0261950470', cat:'Actions Ém. Marchés',  refSymbol:'NASDAQ:EEM',        refLabel:'EEM ETF',    color:'#F97316'},
+    {name:'Fidelity Global Technology',   isin:'LU0099574567', cat:'Actions Technologie',  refSymbol:'NASDAQ:QQQ',        refLabel:'Nasdaq QQQ', color:'#7C3AED'},
+    {name:'Quadrige France Smallcaps',    isin:'FR0011466093', cat:'Actions France Small', refSymbol:'INDEX:CAC40',       refLabel:'CAC 40',     color:'#0EA5E9'},
+    {name:'Pictet Clean Energy Transtn',  isin:'LU0280435461', cat:'Énergie Propre',       refSymbol:'AMEX:ICLN',         refLabel:'ICLN ETF',   color:'#06B6D4'},
+    {name:'First Eagle Amundi Intl',      isin:'LU0068578508', cat:'Actions Monde Flex.',  refSymbol:'FOREXCOM:SPXUSD',   refLabel:'S&P 500',    color:'#84CC16'},
+    {name:'Groupama Global Disruption',   isin:'LU1897556517', cat:'Actions Innovation',   refSymbol:'NASDAQ:QQQ',        refLabel:'Nasdaq QQQ', color:'#EC4899'},
+    {name:'Claresco USA',                 isin:'LU1379103812', cat:'Actions USA',          refSymbol:'FOREXCOM:SPXUSD',   refLabel:'S&P 500',    color:'#6366F1'},
+  ]
+
+  const [navData,setNavData]=React.useState({})
+  const [loading,setLoading]=React.useState(true)
+  const [lastUpdate,setLastUpdate]=React.useState(null)
+  const [selectedFund,setSelectedFund]=React.useState(null)
+
+  async function fetchNAV(isin){
+    try{
+      const r=await fetch(`/api/nav?isin=${isin}`)
+      if(!r.ok)return null
+      return await r.json()
+    }catch{return null}
+  }
+
+  async function loadAllNAV(){
+    setLoading(true)
+    const results=await Promise.all(funds.map(f=>fetchNAV(f.isin)))
+    const map={}
+    results.forEach((d,i)=>{if(d&&d.vl)map[funds[i].isin]=d})
+    setNavData(map)
+    setLastUpdate(new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}))
+    setLoading(false)
+  }
+
+  React.useEffect(()=>{
+    loadAllNAV()
+    // Refresh toutes les 4h
+    const t=setInterval(loadAllNAV,4*60*60*1000)
+    return()=>clearInterval(t)
+  },[])
+
+  // TradingView chart pour fonds sélectionné
+  React.useEffect(()=>{
+    if(!selectedFund)return
+    const id='tv-detail-chart'
+    const el=document.getElementById(id)
+    if(!el)return
+    el.innerHTML=''
+    const s=document.createElement('script')
+    s.type='text/javascript'
+    s.src='https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'
+    s.async=true
+    s.innerHTML=JSON.stringify({
+      symbol:selectedFund.refSymbol,width:'100%',height:350,
+      locale:'fr',interval:'D',timezone:'Europe/Paris',
+      theme:'light',style:'1',hide_top_toolbar:false,
+      allow_symbol_change:false,save_image:false,
+    })
+    el.appendChild(s)
+  },[selectedFund])
+
+  // Ticker bande top
+  React.useEffect(()=>{
+    const el=document.getElementById('tv-mkt-ticker')
+    if(!el||el.querySelector('script'))return
+    const s=document.createElement('script')
+    s.type='text/javascript'
+    s.src='https://s3.tradingview.com/external-embedding/embed-widget-tickers.js'
+    s.async=true
+    s.innerHTML=JSON.stringify({
+      symbols:[
+        {proName:'INDEX:NKY',        title:'Nikkei 225'},
+        {proName:'COMEX:GC1!',       title:'Or'},
+        {proName:'FOREXCOM:SPXUSD',  title:'S&P 500'},
+        {proName:'NASDAQ:QQQ',       title:'Nasdaq QQQ'},
+        {proName:'NASDAQ:EEM',       title:'Ém. Marchés'},
+        {proName:'INDEX:CAC40',      title:'CAC 40'},
+        {proName:'AMEX:ICLN',        title:'Clean Energy'},
+        {proName:'FX_IDC:EURUSD',    title:'EUR/USD'},
+      ],
+      colorTheme:'light',isTransparent:false,showSymbolLogo:true,locale:'fr'
+    })
+    el.appendChild(s)
+  },[])
+
+  const totalLoaded=Object.keys(navData).length
+
+  return(
+    <div>
+      <div className="section-header">
+        <div>
+          <div className="section-kicker">Swiss Life 2026 · VL quotidienne + indice de référence live</div>
+          <div className="section-title">Suivi allocations clients</div>
+          <div className="section-sub">
+            {loading?'Chargement des VL…':`${totalLoaded}/${funds.length} fonds chargés · mis à jour ${lastUpdate||'—'}`}
+          </div>
+        </div>
+        <button onClick={loadAllNAV} disabled={loading}
+          style={{padding:'7px 14px',background:loading?'var(--bd)':'var(--gold)',color:'white',border:'none',borderRadius:'var(--rad)',fontSize:12,fontWeight:600,cursor:loading?'not-allowed':'pointer'}}>
+          {loading?'Chargement…':'↻ Actualiser VL'}
+        </button>
+      </div>
+
+      {/* Ticker bande indices */}
+      <div style={{marginBottom:20,borderRadius:'var(--rad-lg)',overflow:'hidden',border:'1px solid var(--bd)'}}>
+        <div className="tradingview-widget-container" id="tv-mkt-ticker">
+          <div className="tradingview-widget-container__widget"></div>
+        </div>
+      </div>
+
+      {/* Table principale */}
+      <div style={{border:'1px solid var(--bd)',borderRadius:'var(--rad-lg)',overflow:'hidden',marginBottom:selectedFund?20:0,background:'white'}}>
+        {/* Header */}
+        <div style={{display:'grid',gridTemplateColumns:'32px 1fr 110px 80px 80px 140px 100px',gap:0,background:'var(--bg)',borderBottom:'2px solid var(--bd)'}}>
+          {['#','Fonds','ISIN','VL (€)','Var. J-1','Catégorie','Indice réf.'].map(h=>(
+            <div key={h} style={{padding:'8px 10px',fontSize:10,fontWeight:700,color:'var(--t3)',textTransform:'uppercase',letterSpacing:'0.04em',borderRight:'1px solid var(--bd)'}}>{h}</div>
+          ))}
+        </div>
+
+        {funds.map((f,i)=>{
+          const d=navData[f.isin]
+          const isSelected=selectedFund?.isin===f.isin
+          const isUp=d?.change>0
+          const isDown=d?.change<0
+          return(
+            <div key={f.isin}
+              onClick={()=>setSelectedFund(isSelected?null:f)}
+              style={{
+                display:'grid',gridTemplateColumns:'32px 1fr 110px 80px 80px 140px 100px',
+                gap:0,borderBottom:'1px solid var(--bd)',
+                background:isSelected?'rgba(192,155,90,0.06)':i%2===0?'white':'rgba(248,246,242,0.4)',
+                cursor:'pointer',transition:'background .15s',
+                borderLeft:isSelected?`3px solid var(--gold)`:'3px solid transparent',
+              }}
+              onMouseEnter={e=>!isSelected&&(e.currentTarget.style.background='rgba(192,155,90,0.04)')}
+              onMouseLeave={e=>!isSelected&&(e.currentTarget.style.background=i%2===0?'white':'rgba(248,246,242,0.4)')}
+            >
+              <div style={{padding:'10px',display:'flex',alignItems:'center',borderRight:'1px solid var(--bd)'}}>
+                <span style={{fontSize:11,fontWeight:700,color:'var(--t3)'}}>{i+1}</span>
+              </div>
+              <div style={{padding:'10px',borderRight:'1px solid var(--bd)',minWidth:0}}>
+                <div style={{fontSize:12.5,fontWeight:600,color:'var(--t1)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</div>
+                {d?.date&&<div style={{fontSize:10,color:'var(--t3)',marginTop:1}}>VL au {d.date}</div>}
+              </div>
+              <div style={{padding:'10px',borderRight:'1px solid var(--bd)',display:'flex',alignItems:'center'}}>
+                <span style={{fontSize:10.5,color:'var(--t3)',fontFamily:'monospace',letterSpacing:'0.01em'}}>{f.isin}</span>
+              </div>
+              <div style={{padding:'10px',borderRight:'1px solid var(--bd)',display:'flex',alignItems:'center',justifyContent:'flex-end'}}>
+                {loading&&!d?(<div style={{width:40,height:14,background:'var(--bd)',borderRadius:3,animation:'pulse 1.5s infinite'}}/>):
+                  d?.vl?(<span style={{fontSize:13,fontWeight:700,color:'var(--t1)'}}>{d.vl.toFixed(2)}<span style={{fontSize:10,color:'var(--t3)',marginLeft:2}}>{d.currency||'EUR'}</span></span>):
+                  (<span style={{fontSize:11,color:'var(--t3)'}}>—</span>)
+                }
+              </div>
+              <div style={{padding:'10px',borderRight:'1px solid var(--bd)',display:'flex',alignItems:'center',justifyContent:'flex-end'}}>
+                {d?.change!=null?(
+                  <span style={{fontSize:12,fontWeight:700,color:isUp?'#10B981':isDown?'#EF4444':'var(--t2)',background:isUp?'rgba(16,185,129,0.1)':isDown?'rgba(239,68,68,0.1)':'var(--bg)',padding:'2px 7px',borderRadius:4}}>
+                    {isUp?'+':''}{d.change.toFixed(2)}%
+                  </span>
+                ):(<span style={{fontSize:11,color:'var(--t3)'}}>—</span>)}
+              </div>
+              <div style={{padding:'10px',borderRight:'1px solid var(--bd)',display:'flex',alignItems:'center'}}>
+                <span style={{fontSize:11,color:'var(--t2)'}}>{f.cat}</span>
+              </div>
+              <div style={{padding:'10px',display:'flex',alignItems:'center',gap:5}}>
+                <div style={{width:6,height:6,borderRadius:'50%',background:f.color,flexShrink:0}}/>
+                <span style={{fontSize:11,color:'var(--t2)',fontWeight:500}}>{f.refLabel}</span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Chart détail fonds sélectionné */}
+      {selectedFund&&(
+        <div style={{border:'1px solid var(--gold-line)',borderRadius:'var(--rad-lg)',overflow:'hidden',background:'white',marginBottom:20}}>
+          <div style={{padding:'10px 16px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:10,background:'rgba(192,155,90,0.04)'}}>
+            <div style={{width:8,height:8,borderRadius:'50%',background:selectedFund.color}}/>
+            <span style={{fontWeight:600,fontSize:13,color:'var(--t1)'}}>{selectedFund.name}</span>
+            <span style={{fontSize:11,color:'var(--t3)'}}>· Indice de réf. : {selectedFund.refLabel}</span>
+            <button onClick={()=>setSelectedFund(null)} style={{marginLeft:'auto',background:'transparent',border:'none',color:'var(--t3)',cursor:'pointer',fontSize:16}}>✕</button>
+          </div>
+          <div className="tradingview-widget-container" id="tv-detail-chart" style={{height:350}}>
+            <div className="tradingview-widget-container__widget" style={{height:'100%'}}></div>
+          </div>
+        </div>
+      )}
+
+      {/* Note VL */}
+      <div style={{padding:'10px 14px',background:'rgba(192,155,90,0.04)',border:'1px solid var(--gold-line)',borderRadius:'var(--rad)',fontSize:11,color:'var(--t3)',lineHeight:1.6}}>
+        ℹ️ <strong style={{color:'var(--t2)'}}>VL quotidienne</strong> — Les VL des OPCVM sont publiées une fois par jour par les sociétés de gestion (J+1). 
+        Cliquez sur un fonds pour afficher le graphique de son indice de référence en temps réel.
+      </div>
+    </div>
+  )
+}
 function AgendaView({deals,profile}){
   const token=profile?.gcal_token,isGoogleConnected=!!token
   const [events,setEvents]=useState([])
@@ -1957,6 +2158,7 @@ export default function App(){
           {activeTab==='dossiers'&&<DealsTable deals={deals} month={month} profile={profile} onEdit={startEdit} onDelete={deleteDeal} onRefresh={loadAll}/>}
           {activeTab==='forecast'&&<ForecastView deals={deals} objectifs={objectifs} month={month} profile={profile} teamProfiles={teamProfiles} canEditObjectifs={isManager} onSaveObjectif={saveObjectif}/>}
           {activeTab==='agenda'&&<AgendaView deals={deals} profile={profile}/>}
+          {activeTab==='market'&&<MarketView/>}
           {activeTab==='team'&&isManager&&<TeamView deals={deals} objectifs={objectifs} teamProfiles={teamProfiles} month={month}/>}
         </div>
       </div>
