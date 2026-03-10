@@ -39,6 +39,7 @@ export default async function handler(req, res) {
     const last    = valid[valid.length - 1]
     const prev    = valid[valid.length - 2]
     const now     = last.t * 1000
+    const oneW    = now - 7   * 24 * 3600 * 1000
     const oneM    = now - 30  * 24 * 3600 * 1000
     const threeM  = now - 91  * 24 * 3600 * 1000
     const oneY    = now - 365 * 24 * 3600 * 1000
@@ -54,6 +55,7 @@ export default async function handler(req, res) {
       return Math.round(((last.c - from) / from) * 10000) / 100
     }
 
+    const vl1W  = closest(oneW)
     const vl1M  = closest(oneM)
     const vl3M  = closest(threeM)
     const vl1Y  = closest(oneY)
@@ -66,6 +68,7 @@ export default async function handler(req, res) {
       vl:     Math.round(last.c * 100) / 100,
       change: prev ? Math.round(((last.c - prev.c) / prev.c) * 10000) / 100 : null,
       date:   new Date(last.t * 1000).toLocaleDateString('fr-FR'),
+      perf1W:  perf(vl1W),
       perf1M:  perf(vl1M),
       perf3M:  perf(vl3M),
       perf1Y:  perf(vl1Y),
