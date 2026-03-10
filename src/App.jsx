@@ -1746,16 +1746,15 @@ export default function App(){
   const [error,setError]=useState('')
   const [activeTab,setActiveTab]=useState('dashboard')
 
-  // ── Supabase Realtime — leads ──────────────────────────────────────────────
+  // ── Leads — fetch + Realtime + polling 15s ────────────────────────────────
+  const fetchLeads=()=>supabase.from('leads').select('*').order('created_at',{ascending:false}).then(({data})=>{if(data)setLeads(data)})
+
   useEffect(()=>{
     if(!session?.user)return
-    // Chargement initial
-    supabase.from('leads').select('*').order('created_at',{ascending:false}).then(({data})=>{if(data)setLeads(data)})
-    // Abonnement temps réel
+    fetchLeads()
+    const poll=setInterval(fetchLeads,15000)
     const channel=supabase.channel('leads-room')
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'leads'},payload=>{
-        setLeads(prev=>[payload.new,...prev])
-      })
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'leads'},()=>fetchLeads())
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'leads'},payload=>{
         setLeads(prev=>prev.map(l=>l.id===payload.new.id?payload.new:l))
       })
@@ -1763,16 +1762,18 @@ export default function App(){
         setLeads(prev=>prev.filter(l=>l.id!==payload.old.id))
       })
       .subscribe()
-    return()=>supabase.removeChannel(channel)
+    return()=>{clearInterval(poll);supabase.removeChannel(channel)}
   },[session?.user?.id])
 
   // ── Auth ───────────────────────────────────────────────────────────────────
   useEffect(()=>{
     if(!isSupabaseConfigured)return
     let active=true
+    const fallback=setTimeout(()=>{if(active)setLoading(false)},5000)
     supabase.auth.getSession().then(({data})=>{
+      clearTimeout(fallback)
       if(active){setSession(data.session||null);setLoading(false)}
-    })
+    }).catch(()=>{clearTimeout(fallback);if(active)setLoading(false)})
     const{data:listener}=supabase.auth.onAuthStateChange(async(event,s)=>{
       if(!active)return
       setSession(s||null)
@@ -1786,8 +1787,9 @@ export default function App(){
           }catch(e){console.warn('gcal_token update:',e)}
         }
       }
+      if(event==='SIGNED_OUT'){setLoading(false)}
     })
-    return()=>{active=false;listener.subscription.unsubscribe()}
+    return()=>{active=false;clearTimeout(fallback);listener.subscription.unsubscribe()}
   },[])
 
   useEffect(()=>{
