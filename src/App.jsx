@@ -643,7 +643,7 @@ function LeadRow({lead,profile,onTake,onRelease,onCreateRDV,onConvertDeal,onRese
           <span style={{fontSize:10,color:'var(--t3)'}}>En appel…</span>
         )}
         {isDead&&(
-          <span style={{fontSize:10,color:'#9CA3AF',fontStyle:'italic'}}>❌ Mort</span>
+          <span style={{fontSize:10,color:'#9CA3AF',fontStyle:'italic'}}>✕ Mort</span>
         )}
         {isMyLead&&!isBooked&&!isDead&&(
           <button onClick={()=>onKill(lead)} title="Marquer non-intéressé" style={{padding:'3px 6px',background:'transparent',color:'#9CA3AF',border:'1px solid #E5E7EB',borderRadius:4,fontSize:10,cursor:'pointer'}}>💀</button>
@@ -705,6 +705,10 @@ function LeadRoom({leads,profile,onLeadsChange,onConvertDeal,onRefresh}){
     if(!window.confirm(`Remettre "${lead.nom}" en disponible ?`))return
     await supabase.from('leads').update({status:'available',taken_by:null,taken_at:null,booked_at:null}).eq('id',lead.id)
   }
+  async function killLead(lead){
+    if(!window.confirm(`Marquer "${lead.nom}" comme non-interesse ?`))return
+    await supabase.from('leads').update({status:'dead',taken_by:profile.id}).eq('id',lead.id)
+  }
 
   function handleBooked(leadId){
     onLeadsChange(prev=>prev.map(l=>l.id===leadId?{...l,status:'booked',booked_at:new Date().toISOString()}:l))
@@ -751,13 +755,13 @@ function LeadRoom({leads,profile,onLeadsChange,onConvertDeal,onRefresh}){
   return (
     <div>
       {/* Stats */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:12,marginBottom:20}}>
         {[
           {label:'Disponibles',value:available.length,color:'var(--gold)',bg:'rgba(192,155,90,0.06)',bd:'var(--gold-line)'},
           {label:'En appel',value:leads.filter(l=>l.status==='contacted').length,color:'var(--progress)',bg:'var(--progress-bg)',bd:'var(--progress-bd)'},
           {label:'RDV planifiés',value:booked.length,color:'#10B981',bg:'rgba(16,185,129,0.06)',bd:'rgba(16,185,129,0.2)'},
           {label:'Total leads',value:leads.length,color:'var(--t2)',bg:'var(--bg)',bd:'var(--bd)'},
-          {label:'❌ Non-intéressés',value:leads.filter(l=>l.status==='dead').length,color:'#9CA3AF',bg:'var(--bg)',bd:'var(--bd)'},
+          {label:'Non-intéressés',value:leads.filter(l=>l.status==='dead').length,color:'#9CA3AF',bg:'var(--bg)',bd:'var(--bd)'},
         ].map(s=>(
           <div key={s.label} style={{background:s.bg,border:`1px solid ${s.bd}`,borderRadius:'var(--rad-lg)',padding:'14px 18px',cursor:'pointer'}} onClick={()=>{if(s.label==='Disponibles')setFilter('available');else if(s.label==='Total leads')setFilter('all')}}>
             <div style={{fontSize:11,color:'var(--t3)',marginBottom:6,fontWeight:500,textTransform:'uppercase',letterSpacing:'0.05em'}}>{s.label}</div>
