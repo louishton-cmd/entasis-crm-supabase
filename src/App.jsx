@@ -1532,11 +1532,11 @@ function MarketView(){
     {name:'Lazard Japon AC H EUR',        isin:'FR0014008M81', cat:'Actions Japon',        refSymbol:'INDEX:NKY',        refLabel:'Nikkei 225', color:'#EF4444'},
     {name:'AXA Or et Matières Premières', isin:'FR0010011171', cat:'Matières premières',   refSymbol:'TVC:GOLD',       refLabel:'Or',         color:'#F59E0B'},
     {name:'AP Meeschaert Gl. Convictions',isin:'FR001400CSI0', cat:'Actions Monde Value',  refSymbol:'FOREXCOM:SPXUSD',  refLabel:'S&P 500',    color:'#10B981'},
-    {name:'Fidelity Em Mkts A-USD',       isin:'LU0261950470', cat:'Actions Ém. Marchés',  refSymbol:'AMEX:EEM',       refLabel:'EEM ETF',    color:'#F97316'},
-    {name:'Fidelity Global Technology',   isin:'LU0099574567', cat:'Actions Technologie',  refSymbol:'NASDAQ:QQQ',       refLabel:'Nasdaq QQQ', color:'#7C3AED'},
+    {name:'Fidelity Em Mkts A-USD',       isin:'LU0261950470', boursoCode:'MP-438480', cat:'Actions Ém. Marchés',  refSymbol:'AMEX:EEM',       refLabel:'EEM ETF',    color:'#F97316'},
+    {name:'Fidelity Global Technology',   isin:'LU0099574567', boursoCode:'MP-990490', cat:'Actions Technologie',  refSymbol:'NASDAQ:QQQ',       refLabel:'Nasdaq QQQ', color:'#7C3AED'},
     {name:'Quadrige France Smallcaps',    isin:'FR0011466093', cat:'Actions France Small', refSymbol:'INDEX:CAC40',      refLabel:'CAC 40',     color:'#0EA5E9'},
-    {name:'Pictet Clean Energy Transtn',  isin:'LU0280435461', cat:'Énergie Propre',       refSymbol:'AMEX:ICLN',        refLabel:'ICLN ETF',   color:'#06B6D4'},
-    {name:'First Eagle Amundi Intl',      isin:'LU0068578508', cat:'Actions Monde Flex.',  refSymbol:'FOREXCOM:SPXUSD',  refLabel:'S&P 500',    color:'#84CC16'},
+    {name:'Pictet Clean Energy Transtn',  isin:'LU0280435461', boursoCode:'MP-546238', cat:'Énergie Propre',       refSymbol:'AMEX:ICLN',        refLabel:'ICLN ETF',   color:'#06B6D4'},
+    {name:'First Eagle Amundi Intl',      isin:'LU0068578508', boursoCode:'MP-575277', cat:'Actions Monde Flex.',  refSymbol:'FOREXCOM:SPXUSD',  refLabel:'S&P 500',    color:'#84CC16'},
     {name:'Groupama Global Disruption',   isin:'LU1897556517', cat:'Actions Innovation',   refSymbol:'NASDAQ:QQQ',       refLabel:'Nasdaq QQQ', color:'#EC4899'},
     {name:'Claresco USA',                 isin:'LU1379103812', cat:'Actions USA',          refSymbol:'FOREXCOM:SPXUSD',  refLabel:'S&P 500',    color:'#6366F1'},
   ]
@@ -1546,9 +1546,9 @@ function MarketView(){
   const [lastUpdate,setLastUpdate]=useState(null)
   const [selectedFund,setSelectedFund]=useState(null)
 
-  async function fetchNAV(isin){
+  async function fetchNAV(isin, boursoCode){
     try{
-      const r=await fetch(`/api/nav?isin=${isin}`)
+      const r=await fetch(`/api/nav?isin=${isin}${boursoCode?`&boursoCode=${boursoCode}`:''}`)
       if(!r.ok)return null
       return await r.json()
     }catch{return null}
@@ -1556,7 +1556,7 @@ function MarketView(){
 
   async function loadAllNAV(){
     setLoading(true)
-    const results=await Promise.all(funds.map(f=>fetchNAV(f.isin)))
+    const results=await Promise.all(funds.map(f=>fetchNAV(f.isin, f.boursoCode)))
     const map={}
     results.forEach((d,i)=>{if(d&&d.vl)map[funds[i].isin]=d})
     setNavData(map)
