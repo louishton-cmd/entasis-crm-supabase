@@ -1531,8 +1531,8 @@ const FUNDS_DEFAULT=[
     {name:'Lazard Japon AC H EUR',        isin:'FR0014008M81', cat:'Actions Japon',        refSymbol:'INDEX:NKY',        refLabel:'Nikkei 225', color:'#EF4444'},
     {name:'AXA Or et Matières Premières', isin:'FR0010011171', cat:'Matières premières',   refSymbol:'TVC:GOLD',       refLabel:'Or',         color:'#F59E0B'},
     {name:'AP Meeschaert Gl. Convictions',isin:'FR001400CSI0', cat:'Actions Monde Value',  refSymbol:'FOREXCOM:SPXUSD',  refLabel:'S&P 500',    color:'#10B981'},
-    {name:'Fidelity Em Mkts A-USD',       isin:'LU0261950470', cat:'Actions Ém. Marchés',  refSymbol:'AMEX:EEM',       refLabel:'EEM ETF',    color:'#F97316'},
-    {name:'Fidelity Global Technology',   isin:'LU0099574567', cat:'Actions Technologie',  refSymbol:'NASDAQ:QQQ',       refLabel:'Nasdaq QQQ', color:'#7C3AED'},
+    {name:'Fidelity Em Mkts A-USD',       isin:'LU0261950470', morningstarId:'FOGBR05KLN', cat:'Actions Ém. Marchés',  refSymbol:'AMEX:EEM',       refLabel:'EEM ETF',    color:'#F97316'},
+    {name:'Fidelity Global Technology',   isin:'LU0099574567', morningstarId:'F0GBR04D20', cat:'Actions Technologie',  refSymbol:'NASDAQ:QQQ',       refLabel:'Nasdaq QQQ', color:'#7C3AED'},
     {name:'Quadrige France Smallcaps',    isin:'FR0011466093', cat:'Actions France Small', refSymbol:'INDEX:CAC40',      refLabel:'CAC 40',     color:'#0EA5E9'},
     {name:'Pictet Clean Energy Transtn',  isin:'LU0280435461', yahooTicker:'0P00008OBP.F', cat:'Énergie Propre',       refSymbol:'AMEX:ICLN',        refLabel:'ICLN ETF',   color:'#06B6D4'},
     {name:'First Eagle Amundi Intl',      isin:'LU0068578508', yahooTicker:'0P0000RXYQ.F', cat:'Actions Monde Flex.',  refSymbol:'FOREXCOM:SPXUSD',  refLabel:'S&P 500',    color:'#84CC16'},
@@ -1555,9 +1555,12 @@ function MarketView(){
   const [editPerfIsin,setEditPerfIsin]=useState(null)
   const [editPerfVals,setEditPerfVals]=useState({perf1W:'',perf1M:'',perf3M:'',perf1Y:''})
 
-  async function fetchNAV(isin, yahooTicker){
+  async function fetchNAV(isin, yahooTicker, morningstarId){
     try{
-      const r=await fetch(`/api/nav?isin=${isin}${yahooTicker?`&ticker=${yahooTicker}`:''}`)
+      const params=new URLSearchParams({isin})
+      if(yahooTicker) params.set('ticker',yahooTicker)
+      if(morningstarId) params.set('msId',morningstarId)
+      const r=await fetch(`/api/nav?${params}`)
       if(!r.ok)return null
       return await r.json()
     }catch{return null}
@@ -1565,7 +1568,7 @@ function MarketView(){
 
   async function loadAllNAV(){
     setLoading(true)
-    const results=await Promise.all(funds.map(f=>fetchNAV(f.isin, f.yahooTicker)))
+    const results=await Promise.all(funds.map(f=>fetchNAV(f.isin, f.yahooTicker, f.morningstarId)))
     const map={}
     results.forEach((d,i)=>{if(d&&d.vl)map[funds[i].isin]=d})
     setNavData(map)
