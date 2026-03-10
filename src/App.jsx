@@ -583,12 +583,105 @@ function LeadRDVModal({open,lead,onClose,onBooked}){
 /* ─────────────────────────────────────────────────────────────────────────────
    LEAD ROOM — onglet complet
 ───────────────────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   LEAD ROW — vue liste compacte
+───────────────────────────────────────────────────────────────────────────── */
+function LeadRow({lead,profile,onTake,onRelease,onCreateRDV,onConvertDeal}){
+  const remaining=useLeadTimer(lead)
+  const isMyLead=lead.taken_by===profile?.id
+  const isBooked=lead.status==='booked'
+  const isTaken=lead.status==='contacted'
+  const isAvailable=lead.status==='available'||lead.status==='released'
+  const campagneColor={'SUCCESSION':'#7C3AED','LEADS':'#0EA5E9','REUNION':'#10B981'}
+  const cc=campagneColor[lead.campagne]||'#6B7280'
+
+  return (
+    <div style={{
+      display:'grid',gridTemplateColumns:'110px 1fr 130px 130px 120px 160px',
+      alignItems:'center',gap:12,
+      padding:'10px 16px',
+      borderBottom:'1px solid var(--bd)',
+      background:isMyLead?'rgba(192,155,90,0.03)':isBooked?'rgba(16,185,129,0.03)':'white',
+      opacity:isTaken&&!isMyLead?0.55:1,
+      transition:'background .15s',
+    }}
+    onMouseEnter={e=>e.currentTarget.style.background=isMyLead?'rgba(192,155,90,0.06)':isBooked?'rgba(16,185,129,0.06)':'var(--bg)'}
+    onMouseLeave={e=>e.currentTarget.style.background=isMyLead?'rgba(192,155,90,0.03)':isBooked?'rgba(16,185,129,0.03)':'white'}
+    >
+      {/* Campagne + date */}
+      <div>
+        <span style={{fontSize:10,fontWeight:700,padding:'2px 6px',borderRadius:3,background:cc+'18',color:cc,border:`1px solid ${cc}30`}}>{lead.campagne}</span>
+        <div style={{fontSize:10.5,color:'var(--t3)',marginTop:3}}>
+          {lead.created_at?new Date(lead.created_at).toLocaleString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'—'}
+        </div>
+      </div>
+      {/* Nom */}
+      <div>
+        <div style={{fontWeight:700,fontSize:13,color:'var(--t1)'}}>{lead.nom}</div>
+        {lead.email&&<div style={{fontSize:11,color:'var(--t3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:200}}>{lead.email}</div>}
+      </div>
+      {/* Téléphone */}
+      <div>
+        {lead.telephone
+          ?<a href={`tel:${lead.telephone}`} style={{fontSize:12,fontWeight:600,color:'var(--t1)',textDecoration:'none',display:'flex',alignItems:'center',gap:4}}><Icon.Phone/>{lead.telephone}</a>
+          :<span style={{fontSize:11,color:'var(--t3)'}}>—</span>}
+      </div>
+      {/* Profil financier */}
+      <div style={{display:'flex',flexDirection:'column',gap:3}}>
+        {lead.patrimoine_net&&<span style={{fontSize:11,color:'#7C3AED',fontWeight:500}}>💰 {lead.patrimoine_net.length>16?lead.patrimoine_net.slice(0,16)+'…':lead.patrimoine_net}</span>}
+        {lead.tmi&&<span style={{fontSize:11,color:'#0EA5E9',fontWeight:500}}>📊 TMI {lead.tmi}</span>}
+        {!lead.patrimoine_net&&!lead.tmi&&<span style={{fontSize:11,color:'var(--t3)'}}>—</span>}
+      </div>
+      {/* Statut */}
+      <div style={{display:'flex',alignItems:'center',gap:6}}>
+        {isBooked&&<span style={{fontSize:10,fontWeight:700,color:'#10B981',background:'rgba(16,185,129,0.1)',padding:'2px 6px',borderRadius:3,border:'1px solid rgba(16,185,129,0.2)'}}>✓ RDV</span>}
+        {isTaken&&!isBooked&&(isMyLead
+          ?<TimerBadge remaining={remaining}/>
+          :<span style={{fontSize:10,color:'var(--t3)',padding:'2px 6px',borderRadius:3,background:'var(--bg)',border:'1px solid var(--bd)'}}>En appel</span>)}
+        {isAvailable&&<span style={{fontSize:10,fontWeight:700,color:'var(--gold)',background:'rgba(192,155,90,0.08)',padding:'2px 6px',borderRadius:3,border:'1px solid var(--gold-line)'}}>Disponible</span>}
+      </div>
+      {/* Actions */}
+      <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
+        {isAvailable&&(
+          <button onClick={()=>onTake(lead)} style={{padding:'6px 12px',background:'var(--gold)',color:'white',border:'none',borderRadius:'var(--rad)',fontSize:12,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>
+            ⚡ Je prends
+          </button>
+        )}
+        {isMyLead&&!isBooked&&(
+          <>
+            <button onClick={()=>onCreateRDV(lead)} style={{padding:'6px 10px',background:'#10B981',color:'white',border:'none',borderRadius:'var(--rad)',fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
+              <Icon.CalPlus/> RDV
+            </button>
+            <button onClick={()=>onRelease(lead)} style={{padding:'6px 8px',background:'transparent',color:'var(--t3)',border:'1px solid var(--bd)',borderRadius:'var(--rad)',fontSize:11,cursor:'pointer'}}>
+              ↩
+            </button>
+          </>
+        )}
+        {isBooked&&isMyLead&&(
+          <button onClick={()=>onConvertDeal(lead)} style={{padding:'6px 10px',background:'var(--gold)',color:'white',border:'none',borderRadius:'var(--rad)',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+            + Dossier
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function LeadRoom({leads,profile,onLeadsChange,onConvertDeal}){
   const [rdvLead,setRdvLead]=useState(null)
   const [rdvOpen,setRdvOpen]=useState(false)
   const [filter,setFilter]=useState('all')
+  const [search,setSearch]=useState('')
+  const [campagneF,setCampagneF]=useState('all')
+  const [sort,setSort]=useState('newest') // newest | oldest | campagne
+  const [viewMode,setViewMode]=useState('cards') // cards | list
+  const [page,setPage]=useState(1)
+  const PAGE_SIZE=viewMode==='cards'?18:50
 
-  // Auto-release après 30 min — vérifie toutes les 15s
+  // Reset page quand filtre change
+  useEffect(()=>setPage(1),[filter,search,campagneF,sort,viewMode])
+
+  // Auto-release après 30 min
   useEffect(()=>{
     const iv=setInterval(async()=>{
       const now=Date.now()
@@ -624,58 +717,123 @@ function LeadRoom({leads,profile,onLeadsChange,onConvertDeal}){
   const myBooked=leads.filter(l=>l.taken_by===profile?.id&&l.status==='booked')
   const otherContacted=leads.filter(l=>l.status==='contacted'&&l.taken_by!==profile?.id)
   const booked=leads.filter(l=>l.status==='booked')
-
-  const displayLeads=
-    filter==='mine'   ?[...mine,...myBooked]:
-    filter==='available'?available:
-    [...available,...mine,...otherContacted,...booked]
-
   const campagnes=[...new Set(leads.map(l=>l.campagne))].sort()
+
+  // Pipeline de filtrage + tri
+  const filtered=useMemo(()=>{
+    let list=
+      filter==='mine'      ?[...mine,...myBooked]:
+      filter==='available' ?available:
+      [...available,...mine,...otherContacted,...booked]
+
+    // filtre campagne
+    if(campagneF!=='all')list=list.filter(l=>l.campagne===campagneF)
+
+    // recherche
+    if(search.trim()){
+      const q=search.toLowerCase()
+      list=list.filter(l=>`${l.nom||''} ${l.telephone||''} ${l.email||''} ${l.patrimoine_net||''} ${l.tmi||''}`.toLowerCase().includes(q))
+    }
+
+    // tri
+    if(sort==='newest')list=[...list].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))
+    else if(sort==='oldest')list=[...list].sort((a,b)=>new Date(a.created_at)-new Date(b.created_at))
+    else if(sort==='campagne')list=[...list].sort((a,b)=>(a.campagne||'').localeCompare(b.campagne||''))
+
+    return list
+  },[leads,filter,campagneF,search,sort,mine,myBooked,available,otherContacted,booked])
+
+  const totalPages=Math.ceil(filtered.length/PAGE_SIZE)
+  const paginated=filtered.slice(0,(page)*PAGE_SIZE)
+  const hasMore=page*PAGE_SIZE<filtered.length
+
+  const cardProps={onTake:takeLead,onRelease:releaseLead,onCreateRDV:l=>{setRdvLead(l);setRdvOpen(true)},onConvertDeal,profile}
 
   return (
     <div>
       {/* Stats */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:24}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
         {[
           {label:'Disponibles',value:available.length,color:'var(--gold)',bg:'rgba(192,155,90,0.06)',bd:'var(--gold-line)'},
           {label:'En appel',value:leads.filter(l=>l.status==='contacted').length,color:'var(--progress)',bg:'var(--progress-bg)',bd:'var(--progress-bd)'},
           {label:'RDV planifiés',value:booked.length,color:'#10B981',bg:'rgba(16,185,129,0.06)',bd:'rgba(16,185,129,0.2)'},
           {label:'Total leads',value:leads.length,color:'var(--t2)',bg:'var(--bg)',bd:'var(--bd)'},
         ].map(s=>(
-          <div key={s.label} style={{background:s.bg,border:`1px solid ${s.bd}`,borderRadius:'var(--rad-lg)',padding:'14px 18px'}}>
+          <div key={s.label} style={{background:s.bg,border:`1px solid ${s.bd}`,borderRadius:'var(--rad-lg)',padding:'14px 18px',cursor:'pointer'}} onClick={()=>{if(s.label==='Disponibles')setFilter('available');else if(s.label==='Total leads')setFilter('all')}}>
             <div style={{fontSize:11,color:'var(--t3)',marginBottom:6,fontWeight:500,textTransform:'uppercase',letterSpacing:'0.05em'}}>{s.label}</div>
             <div style={{fontSize:28,fontWeight:700,color:s.color,fontFamily:'var(--font-serif)'}}>{s.value}</div>
           </div>
         ))}
       </div>
 
-      {/* Filtres */}
-      <div style={{display:'flex',gap:8,marginBottom:16,alignItems:'center',flexWrap:'wrap'}}>
-        <div style={{display:'flex',gap:0,border:'1px solid var(--bd)',borderRadius:'var(--rad)',overflow:'hidden'}}>
+      {/* Barre de contrôle complète */}
+      <div style={{display:'flex',gap:8,marginBottom:14,alignItems:'center',flexWrap:'wrap'}}>
+        {/* Filtre statut */}
+        <div style={{display:'flex',gap:0,border:'1px solid var(--bd)',borderRadius:'var(--rad)',overflow:'hidden',flexShrink:0}}>
           {[
             {key:'all',label:'Tous'},
-            {key:'available',label:`Disponibles (${available.length})`},
+            {key:'available',label:`Dispo (${available.length})`},
             {key:'mine',label:`Mes leads (${mine.length+myBooked.length})`},
           ].map(f=>(
-            <button key={f.key} onClick={()=>setFilter(f.key)} style={{padding:'7px 14px',fontSize:12.5,fontWeight:filter===f.key?600:400,background:filter===f.key?'var(--gold)':'white',color:filter===f.key?'white':'var(--t2)',border:'none',cursor:'pointer'}}>
+            <button key={f.key} onClick={()=>setFilter(f.key)} style={{padding:'7px 12px',fontSize:12,fontWeight:filter===f.key?600:400,background:filter===f.key?'var(--gold)':'white',color:filter===f.key?'white':'var(--t2)',border:'none',cursor:'pointer',whiteSpace:'nowrap'}}>
               {f.label}
             </button>
           ))}
         </div>
-        {campagnes.length>1&&campagnes.map(c=>(
-          <span key={c} style={{fontSize:11,fontWeight:600,padding:'4px 10px',borderRadius:'var(--rad)',background:'var(--bg)',border:'1px solid var(--bd)',color:'var(--t3)'}}>
-            {c} · {leads.filter(l=>l.campagne===c).length}
-          </span>
-        ))}
-        <div style={{marginLeft:'auto',fontSize:11.5,color:'var(--t3)',display:'flex',alignItems:'center',gap:6}}>
+
+        {/* Filtre campagne */}
+        {campagnes.length>1&&(
+          <select className="filter-select" value={campagneF} onChange={e=>setCampagneF(e.target.value)} style={{height:34,fontSize:12}}>
+            <option value="all">Toutes campagnes</option>
+            {campagnes.map(c=><option key={c} value={c}>{c} · {leads.filter(l=>l.campagne===c).length}</option>)}
+          </select>
+        )}
+
+        {/* Recherche */}
+        <div style={{position:'relative',flex:1,minWidth:160,maxWidth:320}}>
+          <input
+            className="search-input"
+            value={search}
+            onChange={e=>setSearch(e.target.value)}
+            placeholder="Nom, téléphone, email…"
+            style={{width:'100%',paddingLeft:32,height:34,fontSize:12}}
+          />
+          <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:13,color:'var(--t3)',pointerEvents:'none'}}>🔍</span>
+          {search&&<button onClick={()=>setSearch('')} style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'var(--t3)',fontSize:13,padding:0,lineHeight:1}}>×</button>}
+        </div>
+
+        {/* Tri */}
+        <select className="filter-select" value={sort} onChange={e=>setSort(e.target.value)} style={{height:34,fontSize:12}}>
+          <option value="newest">Plus récents</option>
+          <option value="oldest">Plus anciens</option>
+          <option value="campagne">Par campagne</option>
+        </select>
+
+        {/* Vue cards / liste */}
+        <div style={{display:'flex',gap:0,border:'1px solid var(--bd)',borderRadius:'var(--rad)',overflow:'hidden',flexShrink:0}}>
+          <button onClick={()=>setViewMode('cards')} title="Vue cartes" style={{padding:'7px 10px',background:viewMode==='cards'?'var(--gold)':'white',color:viewMode==='cards'?'white':'var(--t2)',border:'none',cursor:'pointer',fontSize:14}}>⊞</button>
+          <button onClick={()=>setViewMode('list')} title="Vue liste" style={{padding:'7px 10px',background:viewMode==='list'?'var(--gold)':'white',color:viewMode==='list'?'white':'var(--t2)',border:'none',cursor:'pointer',fontSize:14}}>≡</button>
+        </div>
+
+        <div style={{fontSize:11.5,color:'var(--t3)',display:'flex',alignItems:'center',gap:5,flexShrink:0}}>
           <span style={{width:7,height:7,borderRadius:'50%',background:'#10B981',display:'inline-block'}}/>
           Temps réel
         </div>
       </div>
 
+      {/* Résultat recherche */}
+      {(search||campagneF!=='all')&&(
+        <div style={{fontSize:12,color:'var(--t3)',marginBottom:10,paddingLeft:2}}>
+          {filtered.length} résultat{filtered.length!==1?'s':''} sur {leads.length} leads
+          {search&&<> · "<strong style={{color:'var(--t1)'}}>{search}</strong>"</>}
+          {campagneF!=='all'&&<> · Campagne <strong style={{color:'var(--t1)'}}>{campagneF}</strong></>}
+          <button onClick={()=>{setSearch('');setCampagneF('all')}} style={{marginLeft:8,background:'none',border:'none',color:'var(--gold)',cursor:'pointer',fontSize:12,padding:0,textDecoration:'underline'}}>Effacer</button>
+        </div>
+      )}
+
       {/* Alerte leads dispo */}
-      {available.length>0&&filter!=='available'&&(
-        <div style={{background:'rgba(192,155,90,0.08)',border:'1.5px solid var(--gold-line)',borderRadius:'var(--rad-lg)',padding:'12px 16px',marginBottom:16,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      {available.length>0&&filter!=='available'&&!search&&(
+        <div style={{background:'rgba(192,155,90,0.08)',border:'1.5px solid var(--gold-line)',borderRadius:'var(--rad-lg)',padding:'12px 16px',marginBottom:14,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             <span style={{fontSize:20}}>⚡</span>
             <div>
@@ -687,24 +845,63 @@ function LeadRoom({leads,profile,onLeadsChange,onConvertDeal}){
         </div>
       )}
 
-      {/* Grid */}
-      {displayLeads.length>0?(
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(340px,1fr))',gap:14}}>
-          {displayLeads.map(lead=>(
-            <LeadCard key={lead.id} lead={lead} profile={profile}
-              onTake={takeLead} onRelease={releaseLead}
-              onCreateRDV={l=>{setRdvLead(l);setRdvOpen(true)}}
-              onConvertDeal={onConvertDeal}
-            />
-          ))}
-        </div>
+      {/* Contenu */}
+      {paginated.length>0?(
+        <>
+          {viewMode==='list'?(
+            <div style={{background:'white',border:'1px solid var(--bd)',borderRadius:'var(--rad-lg)',overflow:'hidden'}}>
+              {/* En-tête liste */}
+              <div style={{display:'grid',gridTemplateColumns:'110px 1fr 130px 130px 120px 160px',gap:12,padding:'8px 16px',background:'var(--bg)',borderBottom:'1px solid var(--bd)'}}>
+                {['Campagne','Nom','Téléphone','Profil','Statut','Action'].map(h=>(
+                  <div key={h} style={{fontSize:10.5,fontWeight:700,color:'var(--t3)',textTransform:'uppercase',letterSpacing:'0.05em'}}>{h}</div>
+                ))}
+              </div>
+              {paginated.map(lead=>(
+                <LeadRow key={lead.id} lead={lead} {...cardProps}/>
+              ))}
+            </div>
+          ):(
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:14}}>
+              {paginated.map(lead=>(
+                <LeadCard key={lead.id} lead={lead} {...cardProps}/>
+              ))}
+            </div>
+          )}
+
+          {/* Pagination / Voir plus */}
+          {hasMore&&(
+            <div style={{textAlign:'center',marginTop:20,display:'flex',alignItems:'center',justifyContent:'center',gap:12}}>
+              <span style={{fontSize:12.5,color:'var(--t3)'}}>
+                {paginated.length} / {filtered.length} leads affichés
+              </span>
+              <button
+                onClick={()=>setPage(p=>p+1)}
+                style={{padding:'8px 20px',background:'white',border:'1px solid var(--bd)',borderRadius:'var(--rad)',fontSize:13,fontWeight:500,cursor:'pointer',color:'var(--t1)'}}
+                onMouseEnter={e=>e.currentTarget.style.borderColor='var(--gold)'}
+                onMouseLeave={e=>e.currentTarget.style.borderColor='var(--bd)'}
+              >
+                Voir {Math.min(PAGE_SIZE,filtered.length-paginated.length)} de plus
+              </button>
+              {filtered.length>PAGE_SIZE&&(
+                <button
+                  onClick={()=>setPage(Math.ceil(filtered.length/PAGE_SIZE))}
+                  style={{padding:'8px 16px',background:'transparent',border:'none',fontSize:12,cursor:'pointer',color:'var(--t3)',textDecoration:'underline'}}
+                >
+                  Tout afficher ({filtered.length})
+                </button>
+              )}
+            </div>
+          )}
+        </>
       ):(
         <div className="table-empty-state">
-          <div className="empty-icon">⚡</div>
+          <div className="empty-icon">{search?'🔍':'⚡'}</div>
           <div className="empty-title">
-            {filter==='mine'?'Aucun lead en cours':filter==='available'?'Aucun lead disponible pour le moment':'Aucun lead reçu'}
+            {search?`Aucun résultat pour "${search}"`:filter==='mine'?'Aucun lead en cours':filter==='available'?'Aucun lead disponible':'Aucun lead reçu'}
           </div>
-          <div className="empty-sub">Les leads Facebook apparaîtront ici automatiquement via Zapier.</div>
+          <div className="empty-sub">
+            {search?<button onClick={()=>setSearch('')} style={{background:'none',border:'none',color:'var(--gold)',cursor:'pointer',fontSize:13,padding:0,textDecoration:'underline'}}>Effacer la recherche</button>:'Les leads Facebook apparaîtront ici automatiquement via Zapier.'}
+          </div>
         </div>
       )}
 
