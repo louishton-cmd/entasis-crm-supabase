@@ -1527,28 +1527,35 @@ function RelanceModal({open,onClose,deals,defaultDate}){
 }
 
 
-function MarketView(){
-  const funds=[
+const FUNDS_DEFAULT=[
     {name:'Lazard Japon AC H EUR',        isin:'FR0014008M81', cat:'Actions Japon',        refSymbol:'INDEX:NKY',        refLabel:'Nikkei 225', color:'#EF4444'},
     {name:'AXA Or et Matières Premières', isin:'FR0010011171', cat:'Matières premières',   refSymbol:'TVC:GOLD',       refLabel:'Or',         color:'#F59E0B'},
     {name:'AP Meeschaert Gl. Convictions',isin:'FR001400CSI0', cat:'Actions Monde Value',  refSymbol:'FOREXCOM:SPXUSD',  refLabel:'S&P 500',    color:'#10B981'},
-    {name:'Fidelity Em Mkts A-USD',       isin:'LU0261950470', boursoCode:'MP-438480', cat:'Actions Ém. Marchés',  refSymbol:'AMEX:EEM',       refLabel:'EEM ETF',    color:'#F97316'},
-    {name:'Fidelity Global Technology',   isin:'LU0099574567', boursoCode:'MP-990490', cat:'Actions Technologie',  refSymbol:'NASDAQ:QQQ',       refLabel:'Nasdaq QQQ', color:'#7C3AED'},
+    {name:'Fidelity Em Mkts A-USD',       isin:'LU0261950470', cat:'Actions Ém. Marchés',  refSymbol:'AMEX:EEM',       refLabel:'EEM ETF',    color:'#F97316'},
+    {name:'Fidelity Global Technology',   isin:'LU0099574567', cat:'Actions Technologie',  refSymbol:'NASDAQ:QQQ',       refLabel:'Nasdaq QQQ', color:'#7C3AED'},
     {name:'Quadrige France Smallcaps',    isin:'FR0011466093', cat:'Actions France Small', refSymbol:'INDEX:CAC40',      refLabel:'CAC 40',     color:'#0EA5E9'},
-    {name:'Pictet Clean Energy Transtn',  isin:'LU0280435461', boursoCode:'MP-546238', cat:'Énergie Propre',       refSymbol:'AMEX:ICLN',        refLabel:'ICLN ETF',   color:'#06B6D4'},
-    {name:'First Eagle Amundi Intl',      isin:'LU0068578508', boursoCode:'MP-575277', cat:'Actions Monde Flex.',  refSymbol:'FOREXCOM:SPXUSD',  refLabel:'S&P 500',    color:'#84CC16'},
+    {name:'Pictet Clean Energy Transtn',  isin:'LU0280435461', cat:'Énergie Propre',       refSymbol:'AMEX:ICLN',        refLabel:'ICLN ETF',   color:'#06B6D4'},
+    {name:'First Eagle Amundi Intl',      isin:'LU0068578508', cat:'Actions Monde Flex.',  refSymbol:'FOREXCOM:SPXUSD',  refLabel:'S&P 500',    color:'#84CC16'},
     {name:'Groupama Global Disruption',   isin:'LU1897556517', cat:'Actions Innovation',   refSymbol:'NASDAQ:QQQ',       refLabel:'Nasdaq QQQ', color:'#EC4899'},
     {name:'Claresco USA',                 isin:'LU1379103812', cat:'Actions USA',          refSymbol:'FOREXCOM:SPXUSD',  refLabel:'S&P 500',    color:'#6366F1'},
   ]
 
+const FUND_COLORS=['#EF4444','#F59E0B','#10B981','#F97316','#7C3AED','#0EA5E9','#06B6D4','#84CC16','#EC4899','#6366F1','#14B8A6','#8B5CF6','#F43F5E','#22C55E','#3B82F6']
+
+function MarketView(){
+  const [funds,setFunds]=useState(FUNDS_DEFAULT)
   const [navData,setNavData]=useState({})
   const [loading,setLoading]=useState(true)
   const [lastUpdate,setLastUpdate]=useState(null)
   const [selectedFund,setSelectedFund]=useState(null)
+  const [addModal,setAddModal]=useState(false)
+  const [newFund,setNewFund]=useState({name:'',isin:'',cat:'',refLabel:'',refSymbol:''})
+  const [addError,setAddError]=useState('')
+  const [addLoading,setAddLoading]=useState(false)
 
-  async function fetchNAV(isin, boursoCode){
+  async function fetchNAV(isin){
     try{
-      const r=await fetch(`/api/nav?isin=${isin}${boursoCode?`&boursoCode=${boursoCode}`:''}`)
+      const r=await fetch(`/api/nav?isin=${isin}`)
       if(!r.ok)return null
       return await r.json()
     }catch{return null}
@@ -1556,7 +1563,7 @@ function MarketView(){
 
   async function loadAllNAV(){
     setLoading(true)
-    const results=await Promise.all(funds.map(f=>fetchNAV(f.isin, f.boursoCode)))
+    const results=await Promise.all(funds.map(f=>fetchNAV(f.isin)))
     const map={}
     results.forEach((d,i)=>{if(d&&d.vl)map[funds[i].isin]=d})
     setNavData(map)
@@ -1638,10 +1645,16 @@ function MarketView(){
             {loading?'Chargement des VL…':`${totalLoaded}/${funds.length} fonds chargés · ${lastUpdate||'—'}`}
           </div>
         </div>
-        <button onClick={loadAllNAV} disabled={loading}
-          style={{padding:'7px 14px',background:loading?'var(--bd)':'var(--gold)',color:'white',border:'none',borderRadius:'var(--rad)',fontSize:12,fontWeight:600,cursor:loading?'not-allowed':'pointer'}}>
-          {loading?'Chargement…':'↻ Actualiser'}
-        </button>
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={()=>{setNewFund({name:'',isin:'',cat:'',refLabel:'',refSymbol:''});setAddError('');setAddModal(true)}}
+            style={{padding:'7px 14px',background:'var(--gold)',color:'white',border:'none',borderRadius:'var(--rad)',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+            + Ajouter
+          </button>
+          <button onClick={loadAllNAV} disabled={loading}
+            style={{padding:'7px 14px',background:loading?'var(--bd)':'var(--bg)',color:'var(--t1)',border:'1px solid var(--bd)',borderRadius:'var(--rad)',fontSize:12,fontWeight:600,cursor:loading?'not-allowed':'pointer'}}>
+            {loading?'Chargement…':'↻ Actualiser'}
+          </button>
+        </div>
       </div>
 
       {/* Ticker bande */}
@@ -1654,8 +1667,8 @@ function MarketView(){
       {/* Table */}
       <div style={{border:'1px solid var(--bd)',borderRadius:'var(--rad-lg)',overflow:'hidden',marginBottom:selectedFund?20:0,background:'white'}}>
         {/* Header */}
-        <div style={{display:'grid',gridTemplateColumns:'28px 1fr 100px 75px 80px 80px 80px 80px 130px',background:'var(--bg)',borderBottom:'2px solid var(--bd)'}}>
-          {['#','Fonds','ISIN','VL','1 sem','1 mois','3 mois','1 an','Indice réf.'].map(h=>(
+        <div style={{display:'grid',gridTemplateColumns:'28px 1fr 100px 75px 80px 80px 80px 80px 130px 36px',background:'var(--bg)',borderBottom:'2px solid var(--bd)'}}>
+          {['#','Fonds','ISIN','VL','1 sem','1 mois','3 mois','1 an','Indice réf.',''].map(h=>(
             <div key={h} style={{padding:'8px 10px',fontSize:10,fontWeight:700,color:'var(--t3)',textTransform:'uppercase',letterSpacing:'0.04em',borderRight:'1px solid var(--bd)'}}>{h}</div>
           ))}
         </div>
@@ -1667,7 +1680,7 @@ function MarketView(){
             <div key={f.isin}
               onClick={()=>setSelectedFund(isSelected?null:f)}
               style={{
-                display:'grid',gridTemplateColumns:'28px 1fr 100px 75px 80px 80px 80px 80px 130px',
+                display:'grid',gridTemplateColumns:'28px 1fr 100px 75px 80px 80px 80px 80px 130px 36px',
                 borderBottom:'1px solid var(--bd)',
                 background:isSelected?'rgba(192,155,90,0.06)':i%2===0?'white':'rgba(248,246,242,0.4)',
                 cursor:'pointer',transition:'background .15s',
@@ -1722,6 +1735,12 @@ function MarketView(){
                 <div style={{width:7,height:7,borderRadius:'50%',background:f.color,flexShrink:0}}/>
                 <span style={{fontSize:11,color:'var(--t2)',fontWeight:500}}>{f.refLabel}</span>
               </div>
+              {/* Supprimer */}
+              <div style={{display:'flex',alignItems:'center',justifyContent:'center'}}
+                onClick={e=>{e.stopPropagation();if(funds.length>1){setFunds(prev=>prev.filter((_,j)=>j!==i));if(selectedFund?.isin===f.isin)setSelectedFund(null)}}}>
+                <span style={{fontSize:13,color:'var(--t3)',cursor:funds.length>1?'pointer':'not-allowed',opacity:funds.length>1?1:0.3}}
+                  title="Supprimer ce fonds">✕</span>
+              </div>
             </div>
           )
         })}
@@ -1757,6 +1776,53 @@ function MarketView(){
       <div style={{padding:'10px 14px',background:'rgba(192,155,90,0.04)',border:'1px solid var(--gold-line)',borderRadius:'var(--rad)',fontSize:11,color:'var(--t3)',lineHeight:1.6}}>
         ℹ️ <strong style={{color:'var(--t2)'}}>VL quotidienne J+1</strong> — Performances calculées sur les VL historiques. Cliquez sur un fonds pour afficher le graphique de son indice de référence.
       </div>
+
+      {/* Modal ajout allocation */}
+      {addModal&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
+          onClick={()=>setAddModal(false)}>
+          <div style={{background:'var(--surface)',borderRadius:'var(--rad-lg)',padding:28,width:420,boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}
+            onClick={e=>e.stopPropagation()}>
+            <div style={{fontWeight:700,fontSize:16,color:'var(--t1)',marginBottom:18}}>Ajouter une allocation</div>
+            {[
+              {label:'Nom du fonds *',key:'name',placeholder:'ex: Lazard Japon AC H EUR'},
+              {label:'ISIN *',key:'isin',placeholder:'ex: FR0014008M81'},
+              {label:'Catégorie',key:'cat',placeholder:'ex: Actions Japon'},
+              {label:'Indice de référence',key:'refLabel',placeholder:'ex: Nikkei 225'},
+              {label:'Symbole TradingView',key:'refSymbol',placeholder:'ex: INDEX:NKY'},
+            ].map(({label,key,placeholder})=>(
+              <div key={key} style={{marginBottom:12}}>
+                <div style={{fontSize:11,fontWeight:600,color:'var(--t2)',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.04em'}}>{label}</div>
+                <input value={newFund[key]} onChange={e=>setNewFund(p=>({...p,[key]:e.target.value}))}
+                  placeholder={placeholder}
+                  style={{width:'100%',padding:'8px 10px',border:'1px solid var(--bd)',borderRadius:'var(--rad)',fontSize:12,background:'var(--bg)',color:'var(--t1)',boxSizing:'border-box'}}/>
+              </div>
+            ))}
+            {addError&&<div style={{color:'#EF4444',fontSize:12,marginBottom:10}}>{addError}</div>}
+            <div style={{display:'flex',gap:8,marginTop:4}}>
+              <button onClick={async()=>{
+                if(!newFund.name.trim()||!newFund.isin.trim()){setAddError('Nom et ISIN obligatoires');return}
+                const isin=newFund.isin.trim().toUpperCase()
+                if(funds.find(f=>f.isin===isin)){setAddError('Cet ISIN est déjà dans la liste');return}
+                setAddLoading(true);setAddError('')
+                const color=FUND_COLORS[funds.length%FUND_COLORS.length]
+                const fund={name:newFund.name.trim(),isin,cat:newFund.cat.trim()||'—',refLabel:newFund.refLabel.trim()||'—',refSymbol:newFund.refSymbol.trim()||'',color}
+                const d=await fetchNAV(isin)
+                setFunds(prev=>[...prev,fund])
+                if(d&&d.vl)setNavData(prev=>({...prev,[isin]:d}))
+                setAddLoading(false);setAddModal(false)
+              }} disabled={addLoading}
+                style={{flex:1,padding:'9px 0',background:'var(--gold)',color:'white',border:'none',borderRadius:'var(--rad)',fontWeight:600,fontSize:13,cursor:addLoading?'not-allowed':'pointer'}}>
+                {addLoading?'Vérification…':'Ajouter'}
+              </button>
+              <button onClick={()=>setAddModal(false)}
+                style={{padding:'9px 18px',background:'var(--bg)',color:'var(--t2)',border:'1px solid var(--bd)',borderRadius:'var(--rad)',fontWeight:600,fontSize:13,cursor:'pointer'}}>
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
