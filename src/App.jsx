@@ -1769,15 +1769,36 @@ export default function App(){
   useEffect(()=>{
     if(!isSupabaseConfigured)return
     let active=true
-    const fallback=setTimeout(()=>{if(active)setLoading(false)},5000)
-    supabase.auth.getSession().then(({data})=>{
+    let initialResolved=false
+
+    // Une seule fonction pour résoudre le chargement initial
+    function resolveInitial(sess){
+      if(initialResolved||!active)return
+      initialResolved=true
       clearTimeout(fallback)
-      if(active){setSession(data.session||null);setLoading(false)}
-    }).catch(()=>{clearTimeout(fallback);if(active)setLoading(false)})
+      setSession(sess||null)
+      setLoading(false)
+    }
+
+    // Timeout de secours 10s
+    const fallback=setTimeout(()=>resolveInitial(null),10000)
+
+    // getSession gère aussi le hash OAuth (#access_token=...) au retour de Google
+    supabase.auth.getSession()
+      .then(({data})=>resolveInitial(data.session||null))
+      .catch(()=>resolveInitial(null))
+
     const{data:listener}=supabase.auth.onAuthStateChange(async(event,s)=>{
       if(!active)return
+      // INITIAL_SESSION peut arriver avant getSession — on s'en sert aussi
+      if(event==='INITIAL_SESSION'){
+        resolveInitial(s||null)
+        return
+      }
+      // Événements post-init
       setSession(s||null)
-      if(event==='SIGNED_IN'||event==='TOKEN_REFRESHED'||event==='INITIAL_SESSION'){
+      if(event==='SIGNED_OUT'){setLoading(false);return}
+      if(event==='SIGNED_IN'||event==='TOKEN_REFRESHED'){
         setLoading(false)
         if(s?.provider_token&&s?.user?.id){
           try{
@@ -1787,7 +1808,6 @@ export default function App(){
           }catch(e){console.warn('gcal_token update:',e)}
         }
       }
-      if(event==='SIGNED_OUT'){setLoading(false)}
     })
     return()=>{active=false;clearTimeout(fallback);listener.subscription.unsubscribe()}
   },[])
