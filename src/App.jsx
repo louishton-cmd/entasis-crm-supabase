@@ -6,6 +6,7 @@ import CatalogueProgrammes from './components/CatalogueProgrammes'
 import MesDossiersImmo from './components/MesDossiersImmo'
 import PipelineVEFA from './components/PipelineVEFA'
 import OutilsCGP from './components/OutilsCGP'
+import LinkedInPro from './components/LinkedInPro'
 
 /* ─────────────────────────────────────────────────────────────────────────────
    CONSTANTS
@@ -116,6 +117,7 @@ const Icon = {
   ImmoFolder:()=><svg className="nav-item-icon" viewBox="0 0 20 20" fill="none"><path d="M3 6a1 1 0 011-1h4l2 2h6a1 1 0 011 1v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z" fill="currentColor" opacity=".6"/><rect x="7" y="9" width="2" height="2" rx=".3" fill="currentColor" opacity=".9"/><rect x="10" y="9" width="2" height="2" rx=".3" fill="currentColor" opacity=".7"/></svg>,
   Kanban:    ()=><svg className="nav-item-icon" viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="4" height="14" rx="1" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8"/><rect x="8" y="3" width="4" height="10" rx="1" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".6"/><rect x="14" y="3" width="4" height="12" rx="1" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".5"/></svg>,
   Outils:    ()=><svg className="nav-item-icon" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="3" stroke="currentColor" strokeWidth="1.4" fill="none" opacity=".8"/><path d="M10 2v3M10 15v3M2 10h3M15 10h3M4.2 4.2l2.1 2.1M13.7 13.7l2.1 2.1M4.2 15.8l2.1-2.1M13.7 6.3l2.1-2.1" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity=".6"/></svg>,
+  LinkedIn:  ()=><svg className="nav-item-icon" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8"/><path d="M7 9v4M7 7v.01" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" opacity=".7"/><path d="M10 13v-2.5c0-1 .5-1.5 1.5-1.5s1.5.5 1.5 1.5V13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" opacity=".7"/></svg>,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -299,7 +301,6 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,leadsAvai
     {key:'market',    label:'Marchés',   Icon:Icon.Market},
     {key:'prospection', label:'Prospection', Icon:Icon.Prospect, badge:prospectsNew},
     ...(isManager?[{key:'team', label:'Équipe', Icon:Icon.Team}]:[]),
-    {key:'outils', label:'Outils CGP', Icon:Icon.Outils},
   ]
 
   const immoItems = [
@@ -307,6 +308,11 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,leadsAvai
     {key:'immo-programmes', label:'Programmes', Icon:Icon.Catalogue},
     {key:'immo-dossiers', label:'Mes Dossiers', Icon:Icon.ImmoFolder, badge:dossiersImmoCount||0},
     {key:'immo-pipeline', label:'Pipeline VEFA', Icon:Icon.Kanban},
+  ]
+
+  const outilsItems = [
+    {key:'linkedin-pro', label:'LinkedIn Pro', Icon:Icon.LinkedIn},
+    {key:'outils', label:'Outils CGP', Icon:Icon.Outils},
   ]
 
   return (
@@ -341,6 +347,14 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,leadsAvai
             )}
           </button>
         ))}
+        <div className="nav-divider"/>
+        <div className="nav-section-label">Outils</div>
+        {outilsItems.map(({key,label,Icon:NavIcon})=>(
+          <button key={key} className={`nav-item${activeTab===key?' active':''}`} onClick={()=>setActiveTab(key)}>
+            <NavIcon/>
+            {label}
+          </button>
+        ))}
       </div>
       <div className="sidebar-footer">
         <div className="user-info">
@@ -359,7 +373,7 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,leadsAvai
 /* ─────────────────────────────────────────────────────────────────────────────
    TOP BAR
 ───────────────────────────────────────────────────────────────────────────── */
-const PAGE_TITLES={dashboard:'Vue d\'ensemble',pipeline:'Pipeline commercial',dossiers:'Dossiers clients',forecast:'Prévisionnel',agenda:'Agenda & Relances',market:'Marchés financiers 📈',team:'Équipe',leads:'Leads Live ⚡',prospection:'Prospection LinkedIn','immo-dashboard':'Immobilier Neuf','immo-programmes':'Catalogue Programmes','immo-dossiers':'Mes Dossiers Immobilier','immo-pipeline':'Pipeline VEFA',outils:'Outils CGP'}
+const PAGE_TITLES={dashboard:'Vue d\'ensemble',pipeline:'Pipeline commercial',dossiers:'Dossiers clients',forecast:'Prévisionnel',agenda:'Agenda & Relances',market:'Marchés financiers 📈',team:'Équipe',leads:'Leads Live ⚡',prospection:'Prospection LinkedIn','immo-dashboard':'Immobilier Neuf','immo-programmes':'Catalogue Programmes','immo-dossiers':'Mes Dossiers Immobilier','immo-pipeline':'Pipeline VEFA','linkedin-pro':'LinkedIn Pro',outils:'Outils CGP'}
 
 function TopBar({activeTab,month,setMonth,onNewDeal,onRefresh}){
   return (
@@ -2719,6 +2733,7 @@ export default function App(){
           {activeTab==='immo-programmes'&&<CatalogueProgrammes setActiveTab={setActiveTab}/>}
           {activeTab==='immo-dossiers'&&<MesDossiersImmo profile={profile} teamProfiles={teamProfiles} setActiveTab={setActiveTab}/>}
           {activeTab==='immo-pipeline'&&<PipelineVEFA profile={profile} teamProfiles={teamProfiles}/>}
+          {activeTab==='linkedin-pro'&&<LinkedInPro profile={profile}/>}
           {activeTab==='outils'&&<OutilsCGP/>}
         </div>
       </div>
