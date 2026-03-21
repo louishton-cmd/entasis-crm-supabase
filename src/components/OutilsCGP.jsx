@@ -193,174 +193,152 @@ function copyText(text) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PDF EXPORT ENGINE (v2 — professional layout)
+   PDF EXPORT ENGINE v3
 ═══════════════════════════════════════════════════════════════════════════ */
-const fmtNum = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
-const fmtEur = (n) => fmtNum(n) + ' E'
-const fmtPctPDF = (n) => (Number(n || 0) * 100).toFixed(2) + ' %'
+const P = { m: 20, pw: 210, ph: 297 }
+P.cw = P.pw - P.m * 2 // 170
+P.right = P.pw - P.m   // 190
 
-const PDF = {
-  navy: [27, 42, 74],   // #1B2A4A
-  dark: [26, 26, 26],
-  grey: [102, 102, 102],
-  lightGrey: [153, 153, 153],
-  green: [39, 174, 96],   // #27AE60
-  red: [231, 76, 60],     // #E74C3C
-  white: [255, 255, 255],
-  ruleHex: '#CCCCCC',
-  altRow: [250, 250, 250], // #FAFAFA
-  clientBg: [245, 245, 245],
-  m: 15, pw: 210, ph: 297, cw: 180, // margin, page width/height, content width
-  footerTxt: 'Entasis Conseil \u2014 47 bd de Courcelles, 75008 Paris \u2014 ORIAS 23003153',
-  disclaimer: 'Document etabli a titre indicatif par Entasis Conseil, CGPI independant (ORIAS 23003153). Ce document ne constitue pas un conseil en investissement. Les simulations presentees sont indicatives et basees sur des hypotheses qui peuvent evoluer. Les performances passees ne prejudgent pas des performances futures. Tout investissement comporte un risque de perte en capital.',
+const pEur = (v) => String(Math.round(Number(v) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' EUR'
+const pPct = (v) => (Number(v) || 0).toFixed(2) + ' %'
+const pNum = (v) => String(Math.round(Number(v) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+
+const navy = [27, 42, 74]
+const dark = [26, 26, 26]
+const labelGrey = [85, 85, 85]
+const metaGrey = [102, 102, 102]
+const footGrey = [136, 136, 136]
+const green = [39, 174, 96]
+const red = [192, 57, 43]
+const white = [255, 255, 255]
+const altRow = [248, 249, 250]
+const disclaimerBg = [245, 245, 245]
+
+const DISCLAIMER = 'Document etabli a titre indicatif par Entasis Conseil, CGPI independant (ORIAS 23003153). Ce document ne constitue pas un conseil en investissement personnalise au sens de la reglementation. Les simulations presentees reposent sur des hypotheses qui peuvent ne pas se realiser. Les performances passees ne prejudgent pas des performances futures. Tout investissement comporte un risque de perte en capital. Seul un conseil personnalise tenant compte de votre situation patrimoniale globale peut fonder une decision d\'investissement.'
+const FOOTER_LEFT = 'Entasis Conseil - 47 bd de Courcelles, 75008 Paris - contact@entasis-conseil.fr - 01 87 66 71 24'
+
+function sc(d, c) { d.setTextColor(c[0], c[1], c[2]) }
+function sf(d, c) { d.setFillColor(c[0], c[1], c[2]) }
+function sd(d, c) { d.setDrawColor(c[0], c[1], c[2]) }
+
+function pdfHeader(doc, date) {
+  sf(doc, navy); doc.rect(0, 0, P.pw, 35, 'F')
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(20); sc(doc, white)
+  doc.text('ENTASIS CONSEIL', P.m, 15)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9)
+  doc.text('Cabinet en Gestion de Patrimoine Independant', P.m, 22)
+  doc.setFontSize(7); doc.text('ORIAS 23003153', P.m, 28)
+  doc.setFontSize(9); doc.text(date, P.right, 15, { align: 'right' })
+  doc.setFontSize(8); doc.text('Document confidentiel', P.right, 22, { align: 'right' })
 }
 
-function _sc(doc, c) { doc.setTextColor(c[0], c[1], c[2]) }
-function _sf(doc, c) { doc.setFillColor(c[0], c[1], c[2]) }
-function _sd(doc, c) { doc.setDrawColor(c[0], c[1], c[2]) }
-
-function addPDFHeader(doc, date) {
-  // Navy banner
-  _sf(doc, PDF.navy)
-  doc.rect(0, 0, PDF.pw, 28, 'F')
-  // Logo text
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(16)
-  _sc(doc, PDF.white)
-  doc.text('ENTASIS CONSEIL', PDF.m, 12)
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  doc.text('Cabinet en Gestion de Patrimoine Independant', PDF.m, 19)
-  // Right side
-  doc.text(date, PDF.pw - PDF.m, 12, { align: 'right' })
-  doc.text('Document confidentiel', PDF.pw - PDF.m, 19, { align: 'right' })
+function pdfFooter(doc, pg, total) {
+  sd(doc, [204, 204, 204]); doc.setLineWidth(0.3); doc.line(P.m, 282, P.right, 282)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7); sc(doc, footGrey)
+  doc.text(FOOTER_LEFT, P.m, 288)
+  doc.text('Page ' + pg + ' / ' + total, P.right, 288, { align: 'right' })
 }
 
-function addPDFFooter(doc, pageNum, totalPages) {
-  _sd(doc, [204, 204, 204])
-  doc.setLineWidth(0.3)
-  doc.line(PDF.m, 285, PDF.pw - PDF.m, 285)
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7)
-  _sc(doc, PDF.lightGrey)
-  doc.text(PDF.footerTxt, PDF.m, 290)
-  doc.text('Page ' + pageNum + ' / ' + totalPages, PDF.pw - PDF.m, 290, { align: 'right' })
-}
-
-function pdfClientBlock(doc, simType, clientName, conseiller, date) {
-  _sf(doc, PDF.clientBg)
-  doc.rect(0, 30, PDF.pw, 22, 'F')
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(13)
-  _sc(doc, PDF.dark)
-  doc.text('SIMULATION ' + simType.toUpperCase(), PDF.m, 44)
-  doc.setFont('helvetica', 'normal')
+function pdfTitleBlock(doc, simType, clientName, conseiller, date) {
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(16); sc(doc, navy)
+  doc.text('Simulation ' + simType, P.m, 52)
+  sd(doc, navy); doc.setLineWidth(0.5); doc.line(P.m, 55, P.right, 55)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); sc(doc, metaGrey)
+  doc.text('Client : ' + clientName, P.m, 62)
   doc.setFontSize(9)
-  _sc(doc, PDF.grey)
-  doc.text('Client : ' + clientName, PDF.pw - PDF.m, 41, { align: 'right' })
-  doc.text('Prepare par ' + conseiller + ' \u2014 ' + date, PDF.pw - PDF.m, 47, { align: 'right' })
-  return 60
+  doc.text('Conseiller : ' + conseiller + '  |  Date : ' + date, P.m, 70)
+  return 82
 }
 
-function pdfSection(doc, y, label) {
-  if (y > 258) { doc.addPage(); addPDFHeader(doc, ''); y = 38 }
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10)
-  _sc(doc, PDF.navy)
-  doc.text(label, PDF.m, y)
-  _sd(doc, PDF.navy)
-  doc.setLineWidth(0.6)
-  doc.line(PDF.m, y + 2, PDF.pw - PDF.m, y + 2)
-  return y + 8
+function pdfNewPageIfNeeded(doc, y, needed, date) {
+  if (y + needed > 270) { doc.addPage(); pdfHeader(doc, date); return 45 }
+  return y
 }
 
-function pdfParamTable(doc, y, rows) {
-  const valX = PDF.m + 90
+function pdfSec(doc, y, label, date) {
+  y = pdfNewPageIfNeeded(doc, y, 20, date)
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); sc(doc, navy)
+  doc.text(label, P.m, y)
+  sf(doc, navy); doc.rect(P.m, y + 2, 3, 0.8, 'F')
+  sd(doc, navy); doc.setLineWidth(0.5); doc.line(P.m, y + 2, P.right, y + 2)
+  return y + 10
+}
+
+function pdfRows(doc, y, rows, date) {
+  const valX = P.m + 95
   for (let i = 0; i < rows.length; i++) {
-    if (y > 272) { doc.addPage(); addPDFHeader(doc, ''); y = 38 }
-    const [label, value] = rows[i]
-    // Alternating row bg
-    if (i % 2 === 1) { _sf(doc, PDF.altRow); doc.rect(PDF.m, y - 3.5, PDF.cw, 5.5, 'F') }
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    _sc(doc, PDF.grey)
-    doc.text(label, PDF.m + 2, y)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(8)
-    _sc(doc, PDF.dark)
+    y = pdfNewPageIfNeeded(doc, y, 9, date)
+    const [label, value, style] = rows[i]
+    if (i % 2 === 1) { sf(doc, altRow); doc.rect(P.m, y - 4, P.cw, 9, 'F') }
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); sc(doc, labelGrey)
+    doc.text(String(label), P.m + 3, y)
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9)
+    if (style === 'green') sc(doc, green)
+    else if (style === 'red') sc(doc, red)
+    else sc(doc, dark)
     doc.text(String(value), valX, y)
-    y += 5.5
+    y += 9
   }
   return y + 3
 }
 
-function pdfResultBlock(doc, y, rows) {
-  const rowH = 7
-  const blockH = rows.length * rowH + 8
-  if (y + blockH > 270) { doc.addPage(); addPDFHeader(doc, ''); y = 38 }
-  // Border box
-  _sd(doc, PDF.navy)
-  doc.setLineWidth(0.4)
-  doc.rect(PDF.m, y - 2, PDF.cw, blockH, 'S')
-  // Navy left accent bar
-  _sf(doc, PDF.navy)
-  doc.rect(PDF.m, y - 2, 3, blockH, 'F')
-  const labelX = PDF.m + 8
-  const valX = PDF.m + 100
-  y += 4
-  for (const [label, value, style] of rows) {
-    const isBold = style === 'bold' || style === 'green' || style === 'red'
-    doc.setFont('helvetica', isBold ? 'bold' : 'normal')
-    doc.setFontSize(isBold ? 9 : 8)
-    _sc(doc, isBold ? PDF.navy : PDF.grey)
-    doc.text(label, labelX, y)
+function pdfKeyBox(doc, y, title, rows, date) {
+  const rowH = 9
+  const boxH = rows.length * rowH + 20
+  y = pdfNewPageIfNeeded(doc, y + 4, boxH, date)
+  sd(doc, navy); doc.setLineWidth(1); doc.rect(P.m, y, P.cw, boxH, 'S')
+  sf(doc, navy); doc.rect(P.m, y, 4, boxH, 'F')
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); sc(doc, navy)
+  doc.text(title, P.m + 10, y + 10)
+  let ry = y + 18
+  const col1X = P.m + 10
+  const col1VX = P.m + 60
+  const col2X = P.m + 95
+  const col2VX = P.m + 145
+  for (let i = 0; i < rows.length; i++) {
+    const [label, value, style] = rows[i]
+    const inCol2 = i >= Math.ceil(rows.length / 2)
+    const lx = inCol2 ? col2X : col1X
+    const vx = inCol2 ? col2VX : col1VX
+    const rowY = inCol2 ? y + 18 + (i - Math.ceil(rows.length / 2)) * rowH : ry
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); sc(doc, labelGrey)
+    doc.text(String(label), lx, rowY)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(isBold ? 9 : 8)
-    if (style === 'green') _sc(doc, PDF.green)
-    else if (style === 'red') _sc(doc, PDF.red)
-    else _sc(doc, PDF.dark)
-    doc.text(String(value), valX, y)
-    y += rowH
+    if (style === 'green') sc(doc, green)
+    else if (style === 'red') sc(doc, red)
+    else sc(doc, dark)
+    doc.text(String(value), vx, rowY)
+    if (!inCol2) ry += rowH
   }
-  return y + 4
+  return y + boxH + 10
 }
 
-function pdfComparisonTable(doc, y, headers, rows) {
-  const needed = rows.length * 5.5 + 12
-  if (y + needed > 270) { doc.addPage(); addPDFHeader(doc, ''); y = 38 }
-  const colW = PDF.cw / headers.length
-  // Header row
-  _sf(doc, PDF.navy)
-  doc.rect(PDF.m, y - 3.5, PDF.cw, 7, 'F')
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(7.5)
-  _sc(doc, PDF.white)
+function pdfCompTable(doc, y, headers, rows, date) {
+  const needed = rows.length * 8 + 14
+  y = pdfNewPageIfNeeded(doc, y, needed, date)
+  const colW = P.cw / headers.length
+  sf(doc, navy); doc.rect(P.m, y, P.cw, 9, 'F')
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(8); sc(doc, white)
   headers.forEach((h, i) => {
-    const x = PDF.m + i * colW + (i === 0 ? 2 : colW - 2)
-    doc.text(h, x, y, { align: i === 0 ? 'left' : 'right' })
+    const x = P.m + i * colW + (i === 0 ? 3 : colW - 3)
+    doc.text(h, x, y + 6, { align: i === 0 ? 'left' : 'right' })
   })
-  y += 6
-  // Data rows
-  doc.setFontSize(8)
+  y += 12
+  doc.setFontSize(8.5)
   for (let ri = 0; ri < rows.length; ri++) {
-    if (y > 275) { doc.addPage(); addPDFHeader(doc, ''); y = 38 }
+    y = pdfNewPageIfNeeded(doc, y, 8, date)
     const row = rows[ri]
-    const isBold = row._bold
-    // Alternating bg
-    if (ri % 2 === 0 && !isBold) { _sf(doc, PDF.altRow); doc.rect(PDF.m, y - 3.5, PDF.cw, 5.5, 'F') }
-    if (isBold) { _sf(doc, [235, 240, 250]); doc.rect(PDF.m, y - 3.5, PDF.cw, 6, 'F') }
+    if (ri % 2 === 0 && !row._bold) { sf(doc, altRow); doc.rect(P.m, y - 4, P.cw, 8, 'F') }
+    if (row._bold) { sf(doc, [230, 235, 245]); doc.rect(P.m, y - 4, P.cw, 8, 'F') }
     row.cells.forEach((cell, i) => {
-      const x = PDF.m + i * colW + (i === 0 ? 2 : colW - 2)
-      doc.setFont('helvetica', isBold ? 'bold' : 'normal')
-      _sc(doc, isBold ? PDF.navy : PDF.dark)
+      const x = P.m + i * colW + (i === 0 ? 3 : colW - 3)
+      doc.setFont('helvetica', row._bold ? 'bold' : 'normal')
+      sc(doc, row._bold ? navy : dark)
       doc.text(String(cell), x, y, { align: i === 0 ? 'left' : 'right' })
     })
-    y += 5.5
+    y += 8
   }
-  // Bottom border
-  _sd(doc, [204, 204, 204])
-  doc.setLineWidth(0.3)
-  doc.line(PDF.m, y - 2, PDF.pw - PDF.m, y - 2)
+  sd(doc, [204, 204, 204]); doc.setLineWidth(0.3); doc.line(P.m, y - 4, P.right, y - 4)
   return y + 3
 }
 
@@ -370,48 +348,38 @@ async function captureChartImage(chartRef) {
   return canvas.toDataURL('image/png')
 }
 
-function pdfAddChartAndDisclaimer(doc, img, y, date) {
-  // Try to fit chart on current page, otherwise new page
-  const chartH = 80
-  const disclaimerH = 25
-  const spaceNeeded = chartH + disclaimerH + 10
+function pdfChartAndDisclaimer(doc, img, y, date) {
+  const chartH = 85
   if (img) {
-    if (y + spaceNeeded > 275) {
-      doc.addPage()
-      addPDFHeader(doc, date)
-      y = 38
-    }
-    doc.addImage(img, 'PNG', PDF.m, y, PDF.cw, chartH)
-    y += chartH + 6
+    y = pdfNewPageIfNeeded(doc, y, chartH + 40, date)
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); sc(doc, navy)
+    doc.text('Evolution du patrimoine', P.pw / 2, y, { align: 'center' })
+    y += 8
+    doc.addImage(img, 'PNG', P.m, y, P.cw, chartH)
+    y += chartH + 8
   }
-  // Disclaimer box
-  if (y + disclaimerH > 278) {
-    doc.addPage()
-    addPDFHeader(doc, date)
-    y = 38
-  }
-  _sf(doc, PDF.clientBg)
-  const lines = doc.splitTextToSize(PDF.disclaimer, PDF.cw - 8)
-  const boxH = lines.length * 3.5 + 6
-  doc.rect(PDF.m, y - 2, PDF.cw, boxH, 'F')
-  doc.setFont('helvetica', 'italic')
-  doc.setFontSize(7)
-  _sc(doc, PDF.grey)
-  doc.text(lines, PDF.m + 4, y + 2)
-  return y + boxH + 4
+  // Disclaimer
+  y = pdfNewPageIfNeeded(doc, y, 35, date)
+  const lines = doc.splitTextToSize(DISCLAIMER, P.cw - 16)
+  const boxH = lines.length * 3.8 + 14
+  sf(doc, disclaimerBg); sd(doc, [204, 204, 204]); doc.setLineWidth(0.5)
+  doc.rect(P.m, y, P.cw, boxH, 'FD')
+  doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); sc(doc, labelGrey)
+  doc.text(lines, P.m + 8, y + 8)
+  return y + boxH + 6
 }
 
 function pdfFinalize(doc, type, client) {
   const total = doc.getNumberOfPages()
-  for (let i = 1; i <= total; i++) { doc.setPage(i); addPDFFooter(doc, i, total) }
+  for (let i = 1; i <= total; i++) { doc.setPage(i); pdfFooter(doc, i, total) }
   const d = new Date()
   const dd = String(d.getDate()).padStart(2, '0')
   const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const cleanClient = (client || 'Client').replace(/[^a-zA-Z0-9\u00C0-\u024F ]/g, '').replace(/\s+/g, '_')
-  doc.save('Entasis_Simulation_' + type + '_' + cleanClient + '_' + dd + mm + d.getFullYear() + '.pdf')
+  const clean = (client || 'Client').replace(/[^a-zA-Z0-9\u00C0-\u024F ]/g, '').replace(/\s+/g, '_')
+  doc.save('Entasis_Simulation_' + type + '_' + clean + '_' + dd + mm + d.getFullYear() + '.pdf')
 }
 
-/* ── PDF Client Name Modal ────────────────────────────────────────────── */
+/* ── PDF Client Modal & Button ────────────────────────────────────────── */
 function PDFClientModal({ open, onClose, onConfirm }) {
   const [name, setName] = useState('')
   if (!open) return null
@@ -424,8 +392,7 @@ function PDFClientModal({ open, onClose, onConfirm }) {
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6, fontFamily: FONT_SANS }}>Nom du client</div>
           <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="M. / Mme ..."
-            autoFocus
-            onKeyDown={e => { if (e.key === 'Enter' && name.trim()) onConfirm(name.trim()) }}
+            autoFocus onKeyDown={e => { if (e.key === 'Enter' && name.trim()) onConfirm(name.trim()) }}
             style={{ width: '100%', padding: '10px 14px', background: C.inputBg, border: `1px solid ${C.bdGold}`, borderRadius: 8, color: C.ivory, fontSize: 14, fontFamily: FONT_SANS, outline: 'none' }} />
         </div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
@@ -437,18 +404,12 @@ function PDFClientModal({ open, onClose, onConfirm }) {
   )
 }
 
-/* ── Export Button ────────────────────────────────────────────────────── */
 function ExportPDFButton({ onExport }) {
   const [modalOpen, setModalOpen] = useState(false)
   return (
     <>
       <button onClick={() => setModalOpen(true)}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-          fontFamily: FONT_SANS, cursor: 'pointer', transition: 'all .15s',
-          background: 'transparent', color: C.ivory, border: `1px solid ${C.bd}`,
-        }}>
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: FONT_SANS, cursor: 'pointer', transition: 'all .15s', background: 'transparent', color: C.ivory, border: `1px solid ${C.bd}` }}>
         Exporter en PDF
       </button>
       <PDFClientModal open={modalOpen} onClose={() => setModalOpen(false)}
@@ -587,26 +548,33 @@ Simulation indicative — Entasis Conseil`
       <div style={{ display: 'flex', gap: 8 }}>
         <Btn onClick={handleCopy} variant={copied ? 'outline' : 'gold'}>{copied ? '✓ Copié' : 'Copier le résumé'}</Btn>
         <ExportPDFButton onExport={clientName => {
-          const date = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-          const doc = new jsPDF()
-          addPDFHeader(doc, date)
-          let y = pdfClientBlock(doc, 'Defiscalisation', clientName, 'Entasis Conseil', date)
-          y = pdfSection(doc, y, 'Parametres de simulation')
-          y = pdfParamTable(doc, y, [
-            ['Revenu net imposable', fmtEur(revenu)],
+          const dt = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+          const doc = new jsPDF(); pdfHeader(doc, dt)
+          let y = pdfTitleBlock(doc, 'Defiscalisation', clientName, 'Entasis Conseil', dt)
+          y = pdfSec(doc, y, 'Parametres de simulation', dt)
+          y = pdfRows(doc, y, [
+            ['Revenu net imposable', pEur(revenu)],
             ['Situation familiale', (SITUATIONS.find(s => s.value === situation)?.label || '') + ' (' + parts + ' parts)'],
             ['Dispositif', disp?.label || ''],
-            ['Montant investi', fmtEur(montantInvesti)],
-          ])
-          y = pdfSection(doc, y, 'Resultats')
-          y = pdfResultBlock(doc, y, [
+            ['Montant investi', pEur(montantInvesti)],
+          ], dt)
+          y += 10
+          y = pdfSec(doc, y, 'Resultats', dt)
+          y = pdfRows(doc, y, [
             ['TMI', Math.round(result.tmi * 100) + ' %'],
-            ['Impot avant dispositif', fmtEur(result.irAvant)],
-            ['Impot apres dispositif', fmtEur(result.irApres)],
-            ['Economie fiscale', fmtEur(result.economie), 'green'],
-            ['Effort reel', fmtEur(result.effortReel), 'bold'],
-          ])
-          pdfAddChartAndDisclaimer(doc, null, y, date)
+            ['Impot avant dispositif', pEur(result.irAvant)],
+            ['Impot apres dispositif', pEur(result.irApres)],
+            ['Economie fiscale', pEur(result.economie), 'green'],
+            ['Effort reel', pEur(result.effortReel)],
+          ], dt)
+          y += 10
+          y = pdfKeyBox(doc, y, 'Points cles de la simulation', [
+            ['Economie fiscale', pEur(result.economie), 'green'],
+            ['TMI', Math.round(result.tmi * 100) + ' %'],
+            ['Effort reel', pEur(result.effortReel)],
+            ['Impot apres', pEur(result.irApres)],
+          ], dt)
+          pdfChartAndDisclaimer(doc, null, y, dt)
           pdfFinalize(doc, 'Defiscalisation', clientName)
         }} />
       </div>
@@ -706,28 +674,41 @@ function SimulateurPER() {
       </div>
       <div style={{ marginTop: 16 }}>
         <ExportPDFButton onExport={async clientName => {
-          const date = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-          const doc = new jsPDF()
-          addPDFHeader(doc, date)
-          let y = pdfClientBlock(doc, 'PER', clientName, 'Entasis Conseil', date)
-          y = pdfSection(doc, y, 'Parametres de simulation')
-          y = pdfParamTable(doc, y, [
-            ['Age actuel', age + ' ans'], ['Age de retraite', ageRetraite + ' ans'], ['Duree', duree + ' ans'],
-            ['Versement mensuel', fmtEur(versementMensuel)], ['Versement initial', fmtEur(versementInitial)], ['TMI', tmi + ' %'],
-          ])
-          y = pdfSection(doc, y, 'Resultats')
-          y = pdfResultBlock(doc, y, [
-            ['Capital Prudent (3%)', fmtEur(result.curves[0].final)],
-            ['Capital Equilibre (5%)', fmtEur(result.curves[1].final), 'bold'],
-            ['Capital Dynamique (7%)', fmtEur(result.curves[2].final)],
-            ['Rente mensuelle (equilibre)', fmtEur(result.renteMensuelle[1]), 'bold'],
-            ['Economie fiscale / an', fmtEur(result.economieFiscaleAnnuelle), 'green'],
-            ['Economie fiscale totale', fmtEur(result.economieFiscaleTotale), 'green'],
-            ['Total verse', fmtEur(result.totalVerse)],
-            ['Effort net annuel', fmtEur(result.effortNet)],
-          ])
+          const dt = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+          const doc = new jsPDF(); pdfHeader(doc, dt)
+          let y = pdfTitleBlock(doc, 'PER (Plan Epargne Retraite)', clientName, 'Entasis Conseil', dt)
+          y = pdfSec(doc, y, 'Parametres de simulation', dt)
+          y = pdfRows(doc, y, [
+            ['Age actuel', age + ' ans'], ['Age de retraite', ageRetraite + ' ans'],
+            ['Duree de capitalisation', duree + ' ans'],
+            ['Versement mensuel', pEur(versementMensuel)], ['Versement initial', pEur(versementInitial)],
+            ['TMI actuel', tmi + ' %'],
+          ], dt)
+          y += 10
+          y = pdfSec(doc, y, 'Projections du capital', dt)
+          y = pdfRows(doc, y, [
+            ['Capital Prudent (3%)', pEur(result.curves[0].final)],
+            ['Capital Equilibre (5%)', pEur(result.curves[1].final)],
+            ['Capital Dynamique (7%)', pEur(result.curves[2].final)],
+          ], dt)
+          y += 10
+          y = pdfSec(doc, y, 'Avantage fiscal et rente', dt)
+          y = pdfRows(doc, y, [
+            ['Economie fiscale / an', pEur(result.economieFiscaleAnnuelle), 'green'],
+            ['Economie fiscale totale', pEur(result.economieFiscaleTotale), 'green'],
+            ['Total verse sur la periode', pEur(result.totalVerse)],
+            ['Effort net annuel (apres avantage fiscal)', pEur(result.effortNet)],
+            ['Rente mensuelle estimee (equilibre)', pEur(result.renteMensuelle[1])],
+          ], dt)
+          y += 10
+          y = pdfKeyBox(doc, y, 'Points cles de la simulation', [
+            ['Capital equilibre', pEur(result.curves[1].final)],
+            ['Eco. fiscale totale', pEur(result.economieFiscaleTotale), 'green'],
+            ['Rente mensuelle', pEur(result.renteMensuelle[1])],
+            ['Effort net / an', pEur(result.effortNet)],
+          ], dt)
           const img = await captureChartImage(chartRef)
-          pdfAddChartAndDisclaimer(doc, img, y, date)
+          pdfChartAndDisclaimer(doc, img, y, dt)
           pdfFinalize(doc, 'PER', clientName)
         }} />
       </div>
@@ -842,27 +823,40 @@ function SimulateurAssuranceVie() {
       </div>
       <div style={{ marginTop: 16 }}>
         <ExportPDFButton onExport={async clientName => {
-          const date = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-          const doc = new jsPDF()
-          addPDFHeader(doc, date)
-          let y = pdfClientBlock(doc, 'Assurance Vie', clientName, 'Entasis Conseil', date)
-          y = pdfSection(doc, y, 'Parametres de simulation')
-          y = pdfParamTable(doc, y, [
-            ['Capital initial', fmtEur(capitalInitial)], ['Versements mensuels', fmtEur(versementMensuel)],
+          const dt = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+          const doc = new jsPDF(); pdfHeader(doc, dt)
+          let y = pdfTitleBlock(doc, 'Assurance Vie', clientName, 'Entasis Conseil', dt)
+          y = pdfSec(doc, y, 'Parametres de simulation', dt)
+          y = pdfRows(doc, y, [
+            ['Capital initial', pEur(capitalInitial)], ['Versements mensuels', pEur(versementMensuel)],
             ['Duree', duree + ' ans'], ['Repartition', 'Fonds Euro ' + pctEuro + '% / UC ' + (100 - pctEuro) + '%'],
             ['Rendement fonds Euro', rendEuro + ' %'], ['Rendement UC', rendUC + ' %'],
-          ])
-          y = pdfSection(doc, y, 'Resultats')
-          y = pdfResultBlock(doc, y, [
-            ['Capital final brut', fmtEur(result.capitalBrut), 'bold'],
-            ['Total verse', fmtEur(result.totalVerse)],
-            ['Interets bruts', fmtEur(result.interetsBruts), 'green'],
-            ['Rendement global', fmtPctPDF(result.rendGlobal)],
-            ['PFU apres 8 ans', fmtEur(result.pfuApres8), 'red'],
-            ['Capital net apres rachat (8 ans)', fmtEur(result.netApres8), 'bold'],
-          ])
+          ], dt)
+          y += 10
+          y = pdfSec(doc, y, 'Resultats', dt)
+          y = pdfRows(doc, y, [
+            ['Capital final brut', pEur(result.capitalBrut)],
+            ['Total verse', pEur(result.totalVerse)],
+            ['Interets bruts', pEur(result.interetsBruts), 'green'],
+            ['Rendement global pondere', pPct(result.rendGlobal)],
+          ], dt)
+          y += 10
+          y = pdfSec(doc, y, 'Fiscalite rachat apres 8 ans', dt)
+          y = pdfRows(doc, y, [
+            ['Gains totaux', pEur(result.interetsBruts)],
+            ['Abattement (celibataire)', '4 600 EUR'],
+            ['PFU 24,7% (7,5% IR + 17,2% PS)', pEur(result.pfuApres8), 'red'],
+            ['Capital net apres rachat', pEur(result.netApres8)],
+          ], dt)
+          y += 10
+          y = pdfKeyBox(doc, y, 'Points cles de la simulation', [
+            ['Capital final brut', pEur(result.capitalBrut)],
+            ['Interets bruts', pEur(result.interetsBruts), 'green'],
+            ['Capital net (8 ans)', pEur(result.netApres8)],
+            ['PFU estime', pEur(result.pfuApres8), 'red'],
+          ], dt)
           const img = await captureChartImage(chartRef)
-          pdfAddChartAndDisclaimer(doc, img, y, date)
+          pdfChartAndDisclaimer(doc, img, y, dt)
           pdfFinalize(doc, 'AssuranceVie', clientName)
         }} />
       </div>
@@ -1244,33 +1238,40 @@ Simulation indicative — Entasis Conseil`
         <Btn onClick={handleCopySim} variant={copied ? 'outline' : 'gold'}>{copied ? '✓ Copié' : 'Copier la simulation'}</Btn>
         <Btn onClick={handleAINote} variant="outline" disabled={aiLoading}>{aiLoading ? 'Génération…' : 'Générer note IA'}</Btn>
         <ExportPDFButton onExport={async clientName => {
-          const date = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-          const doc = new jsPDF()
-          addPDFHeader(doc, date)
-          let y = pdfClientBlock(doc, 'SCPI Wemo One', clientName, 'Entasis Conseil', date)
-          y = pdfSection(doc, y, 'Parametres de simulation')
-          y = pdfParamTable(doc, y, [
-            ['Capital en parts', fmtEur(montantEffectif)], ['Nombre de parts', String(nbParts)],
-            ['Frais souscription (10% HT, en sus)', fmtEur(result.ir.fraisEntree)],
-            ['Decaissement total', fmtEur(result.ir.decaissementTotal)],
-            ['Structure', structure], ['Hypothese rendement', rendement + ' %'],
-            ['Duree', duree + ' ans'], ['Revalorisation', revalo + ' %/an'],
-          ])
-          y = pdfSection(doc, y, 'Comparaison IR vs IS')
-          y = pdfComparisonTable(doc, y, ['', 'IR', 'IS'], [
-            { cells: ['Capital generateur de revenus', fmtEur(result.ir.capitalEnParts), fmtEur(result.is.capitalEnParts)] },
-            { cells: ['Frais souscription (en sus)', fmtEur(result.ir.fraisEntree), fmtEur(result.is.fraisEntree)] },
-            { cells: ['Decaissement total', fmtEur(result.ir.decaissementTotal), fmtEur(result.is.decaissementTotal)] },
-            { cells: ['Revenus bruts / an (' + rendement + '%)', fmtEur(result.ir.revenusBrutsAn), fmtEur(result.is.revenusBrutsAn)] },
-            { cells: ['PS 17,2% (part FR 14,5%)', fmtEur(result.ir.psAn) + '/an', '\u2014'] },
-            { cells: ['Impot / an', fmtEur(result.ir.impotAn) + '/an', fmtEur(result.is.impotAn) + '/an'] },
-            { cells: ['Revenus nets / an', fmtEur(result.ir.revenusNetsAn), fmtEur(result.is.revenusNetsAn)] },
-            { cells: ['Revenus cumules (' + duree + ' ans)', fmtEur(result.ir.totalNet), fmtEur(result.is.totalNet)] },
-            { cells: ['Capital a la sortie', fmtEur(result.ir.capitalSortie), fmtEur(result.is.capitalSortie)] },
-            { cells: ['TRI estime', fmtPctPDF(result.ir.tri), fmtPctPDF(result.is.tri)], _bold: true },
-          ])
+          const dt = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+          const doc = new jsPDF(); pdfHeader(doc, dt)
+          let y = pdfTitleBlock(doc, 'SCPI Wemo One', clientName, 'Entasis Conseil', dt)
+          y = pdfSec(doc, y, 'Parametres de simulation', dt)
+          y = pdfRows(doc, y, [
+            ['Capital en parts', pEur(montantEffectif)], ['Nombre de parts', pNum(nbParts)],
+            ['Frais souscription (10% HT, en sus)', pEur(result.ir.fraisEntree)],
+            ['Decaissement total', pEur(result.ir.decaissementTotal)],
+            ['Structure de detention', structure], ['Hypothese rendement', rendement + ' %'],
+            ['Duree de detention', duree + ' ans'], ['Revalorisation annuelle', revalo + ' %/an'],
+          ], dt)
+          y += 10
+          y = pdfSec(doc, y, 'Comparaison IR vs IS', dt)
+          y = pdfCompTable(doc, y, ['', 'IR', 'IS'], [
+            { cells: ['Capital generateur de revenus', pEur(result.ir.capitalEnParts), pEur(result.is.capitalEnParts)] },
+            { cells: ['Frais souscription (en sus)', pEur(result.ir.fraisEntree), pEur(result.is.fraisEntree)] },
+            { cells: ['Decaissement total', pEur(result.ir.decaissementTotal), pEur(result.is.decaissementTotal)] },
+            { cells: ['Revenus bruts / an (' + rendement + '%)', pEur(result.ir.revenusBrutsAn), pEur(result.is.revenusBrutsAn)] },
+            { cells: ['PS 17,2% (part FR 14,5%)', pEur(result.ir.psAn) + '/an', '-'] },
+            { cells: ['Impot / an', pEur(result.ir.impotAn) + '/an', pEur(result.is.impotAn) + '/an'] },
+            { cells: ['Revenus nets / an', pEur(result.ir.revenusNetsAn), pEur(result.is.revenusNetsAn)] },
+            { cells: ['Revenus cumules (' + duree + ' ans)', pEur(result.ir.totalNet), pEur(result.is.totalNet)] },
+            { cells: ['Capital a la sortie', pEur(result.ir.capitalSortie), pEur(result.is.capitalSortie)] },
+            { cells: ['TRI estime', pPct(result.ir.tri), pPct(result.is.tri)], _bold: true },
+          ], dt)
+          y += 10
+          y = pdfKeyBox(doc, y, 'Points cles de la simulation', [
+            ['TRI estime (IR)', pPct(result.ir.tri)],
+            ['Rev. nets / an (IR)', pEur(result.ir.revenusNetsAn), 'green'],
+            ['TRI estime (IS)', pPct(result.is.tri)],
+            ['Rev. nets / an (IS)', pEur(result.is.revenusNetsAn), 'green'],
+          ], dt)
           const img = await captureChartImage(chartRef)
-          pdfAddChartAndDisclaimer(doc, img, y, date)
+          pdfChartAndDisclaimer(doc, img, y, dt)
           pdfFinalize(doc, 'SCPI_WemoOne', clientName)
         }} />
       </div>
@@ -1472,38 +1473,80 @@ function SimulateurImmoNeuf() {
       <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
         <Btn onClick={handleAIEmail} variant="outline" disabled={aiLoading}>{aiLoading ? 'Génération…' : 'Générer email client (IA)'}</Btn>
         <ExportPDFButton onExport={async clientName => {
-          const date = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-          const doc = new jsPDF()
-          addPDFHeader(doc, date)
-          let y = pdfClientBlock(doc, 'Achat Immobilier Neuf', clientName, 'Entasis Conseil', date)
-          y = pdfSection(doc, y, 'Recapitulatif acquisition')
-          y = pdfParamTable(doc, y, [
-            ['Prix du bien', fmtEur(prixBien)], ['Surface', surface + ' m2'],
-            ['Frais de notaire (2,5%)', fmtEur(result.fraisNotaire)],
-            ['Cout total acquisition', fmtEur(result.coutTotal)],
-            ['Apport personnel', fmtEur(apport)], ['Montant emprunte', fmtEur(result.emprunt)],
-            ['Dispositif', dispositif],
-          ])
-          y = pdfSection(doc, y, 'Financement')
-          y = pdfParamTable(doc, y, [
-            ['Duree emprunt', dureeEmprunt + ' ans'], ['Taux interet', tauxInteret + ' %'],
-            ['Assurance', tauxAssurance + ' %'],
-            ['Mensualite credit', fmtEur(result.mensualiteCredit)],
-            ['Assurance mensuelle', fmtEur(result.assuranceMensuelle)],
-            ['Mensualite totale', fmtEur(result.mensualiteTotale)],
-            ['Cout total du credit', fmtEur(result.coutCredit)],
-          ])
+          const dt = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+          const doc = new jsPDF(); pdfHeader(doc, dt)
+          let y = pdfTitleBlock(doc, 'Achat Immobilier Neuf', clientName, 'Entasis Conseil', dt)
+          const tauxApport = result.coutTotal > 0 ? ((apport / result.coutTotal) * 100).toFixed(1) : '0'
+          // Section 1: Parametres du bien
+          y = pdfSec(doc, y, 'Parametres du bien', dt)
+          y = pdfRows(doc, y, [
+            ['Prix du bien', pEur(prixBien)],
+            ['Surface', surface + ' m2'],
+            ['Dispositif fiscal', dispositif],
+          ], dt)
+          y += 10
+          // Section 2: Acquisition
+          y = pdfSec(doc, y, 'Acquisition', dt)
+          y = pdfRows(doc, y, [
+            ['Prix du bien FAI', pEur(prixBien)],
+            ['Frais de notaire 2,5% (taux reduit neuf)', pEur(result.fraisNotaire)],
+            ['Cout total acquisition', pEur(result.coutTotal)],
+            ['Apport personnel', pEur(apport)],
+            ['Taux d\'apport', tauxApport + ' %'],
+            ['Montant emprunte', pEur(result.emprunt)],
+          ], dt)
+          y += 10
+          // Section 3: Financement
+          y = pdfSec(doc, y, 'Financement', dt)
+          const coutInterets = Math.round(result.mensualiteCredit * dureeEmprunt * 12 - result.emprunt)
+          y = pdfRows(doc, y, [
+            ['Duree d\'emprunt', dureeEmprunt + ' ans'],
+            ['Taux d\'interet', tauxInteret + ' %'],
+            ['Taux assurance emprunteur', tauxAssurance + ' %'],
+            ['Mensualite hors assurance', pEur(result.mensualiteCredit)],
+            ['Assurance mensuelle', pEur(result.assuranceMensuelle)],
+            ['Mensualite totale', pEur(result.mensualiteTotale)],
+            ['Cout total des interets', pEur(coutInterets)],
+            ['Cout total du credit (interets + assurance)', pEur(result.coutCredit)],
+          ], dt)
+          y += 10
+          // Section 4: Rendement locatif
           if (dispositif === 'LLI' || dispositif === 'LMNP') {
-            y = pdfSection(doc, y, 'Rendement locatif')
-            y = pdfResultBlock(doc, y, [
-              ['Rendement brut', fmtPctPDF(result.rendBrut)],
-              ['Loyer mensuel estime', fmtEur(result.loyerMensuel)],
-              ['Cashflow mensuel', fmtEur(result.cashflowMensuel), result.cashflowMensuel >= 0 ? 'green' : 'red'],
-              ...(dispositif === 'LLI' ? [['Economie TVA (10% vs 20%)', fmtEur(result.economieTVA), 'green']] : []),
-            ])
+            y = pdfSec(doc, y, 'Rendement locatif', dt)
+            const rendRows = [
+              ['Loyer mensuel estime', pEur(result.loyerMensuel)],
+              ['Cashflow mensuel brut', pEur(result.cashflowMensuel), result.cashflowMensuel >= 0 ? 'green' : 'red'],
+              ['Rendement brut', pPct(result.rendBrut)],
+            ]
+            if (dispositif === 'LLI') rendRows.push(['Economie TVA (10% vs 20%)', pEur(result.economieTVA), 'green'])
+            y = pdfRows(doc, y, rendRows, dt)
+            y += 10
           }
+          // Section 5: Synthese patrimoniale
+          const valeurFuture = Math.round(prixBien * Math.pow(1.01, dureeEmprunt))
+          const capitalRembourse = result.emprunt
+          const pvLatente = valeurFuture - prixBien
+          const effortMensuel = result.mensualiteTotale - (result.loyerMensuel || 0)
+          y = pdfSec(doc, y, 'Synthese patrimoniale', dt)
+          y = pdfRows(doc, y, [
+            ['Valeur estimee dans ' + dureeEmprunt + ' ans (+1%/an)', pEur(valeurFuture)],
+            ['Capital rembourse', pEur(capitalRembourse)],
+            ['Plus-value latente estimee', pEur(pvLatente), 'green'],
+            ['Effort d\'epargne mensuel net', pEur(effortMensuel), effortMensuel > 0 ? 'red' : 'green'],
+          ], dt)
+          y += 10
+          // Key results box
+          const keyRows = [
+            ['Mensualite totale', pEur(result.mensualiteTotale)],
+            ['Cout du credit', pEur(result.coutCredit), 'red'],
+          ]
+          if (dispositif === 'LLI' || dispositif === 'LMNP') {
+            keyRows.push(['Rendement brut', pPct(result.rendBrut)])
+            keyRows.push(['Cashflow mensuel', pEur(result.cashflowMensuel), result.cashflowMensuel >= 0 ? 'green' : 'red'])
+          }
+          y = pdfKeyBox(doc, y, 'Points cles de la simulation', keyRows, dt)
           const img = await captureChartImage(chartRef)
-          pdfAddChartAndDisclaimer(doc, img, y, date)
+          pdfChartAndDisclaimer(doc, img, y, dt)
           pdfFinalize(doc, 'AchatImmoNeuf', clientName)
         }} />
       </div>
