@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler } from 'chart.js'
 import { Line } from 'react-chartjs-2'
+import { jsPDF } from 'jspdf'
+import html2canvas from 'html2canvas'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler)
 
@@ -191,6 +193,219 @@ function copyText(text) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   PDF EXPORT ENGINE
+═══════════════════════════════════════════════════════════════════════════ */
+const PDF = {
+  navy: '#2C3E50', dark: '#1a1a1a', grey: '#666666', lightGrey: '#999999',
+  rule: '#E0E0E0', white: '#FFFFFF',
+  margin: 20, pageW: 210, pageH: 297,
+  contentW: 170, // 210 - 2*20
+  footer: 'Entasis Conseil — 47 bd de Courcelles, 75008 Paris — ORIAS 23003153',
+  disclaimer: 'Document établi à titre indicatif par Entasis Conseil, CGPI indépendant (ORIAS 23003153). Ce document ne constitue pas un conseil en investissement. Les simulations présentées sont indicatives et basées sur des hypothèses qui peuvent évoluer. Les performances passées ne préjugent pas des performances futures. Tout investissement comporte un risque de perte en capital.',
+}
+
+function addPDFFooter(doc, pageNum, totalPages) {
+  const y = PDF.pageH - 10
+  doc.setDrawColor(PDF.rule)
+  doc.setLineWidth(0.3)
+  doc.line(PDF.margin, y - 5, PDF.pageW - PDF.margin, y - 5)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7)
+  doc.setTextColor(PDF.lightGrey)
+  doc.text(PDF.footer, PDF.margin, y)
+  doc.text(`${pageNum} / ${totalPages}`, PDF.pageW - PDF.margin, y, { align: 'right' })
+}
+
+function addPDFHeader(doc, date) {
+  // Logo
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(16)
+  doc.setTextColor(PDF.dark)
+  doc.text('ENTASIS CONSEIL', PDF.margin, 18)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.setTextColor(PDF.grey)
+  doc.text('Cabinet en Gestion de Patrimoine Indépendant', PDF.margin, 23)
+  // Right side
+  doc.setFontSize(8)
+  doc.setTextColor(PDF.lightGrey)
+  doc.text(date, PDF.pageW - PDF.margin, 18, { align: 'right' })
+  doc.text('Document confidentiel', PDF.pageW - PDF.margin, 23, { align: 'right' })
+  // Rule
+  doc.setDrawColor(PDF.rule)
+  doc.setLineWidth(0.3)
+  doc.line(PDF.margin, 27, PDF.pageW - PDF.margin, 27)
+}
+
+function pdfTitle(doc, y, title, subtitle, client) {
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(18)
+  doc.setTextColor(PDF.navy)
+  doc.text(title, PDF.margin, y)
+  y += 8
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.setTextColor(PDF.grey)
+  doc.text(subtitle, PDF.margin, y)
+  y += 5
+  doc.text(`Client : ${client}`, PDF.margin, y)
+  y += 3
+  doc.setDrawColor(PDF.rule)
+  doc.line(PDF.margin, y, PDF.pageW - PDF.margin, y)
+  return y + 6
+}
+
+function pdfSection(doc, y, label) {
+  if (y > 260) { doc.addPage(); y = 20 }
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.setTextColor(PDF.navy)
+  doc.text(label, PDF.margin, y)
+  y += 2
+  doc.setDrawColor(PDF.navy)
+  doc.setLineWidth(0.5)
+  doc.line(PDF.margin, y, PDF.margin + 40, y)
+  return y + 5
+}
+
+function pdfParamTable(doc, y, rows) {
+  doc.setFontSize(9)
+  const colX = PDF.margin + 85
+  for (const [label, value] of rows) {
+    if (y > 270) { doc.addPage(); y = 20 }
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(PDF.grey)
+    doc.text(label, PDF.margin + 2, y)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(PDF.dark)
+    doc.text(String(value), colX, y)
+    y += 5.5
+  }
+  return y + 2
+}
+
+function pdfResultBlock(doc, y, rows) {
+  const blockH = rows.length * 6 + 6
+  if (y + blockH > 270) { doc.addPage(); y = 20 }
+  // Left border accent
+  doc.setDrawColor(PDF.navy)
+  doc.setLineWidth(1.5)
+  doc.line(PDF.margin, y - 2, PDF.margin, y + blockH - 2)
+  doc.setFontSize(9)
+  const labelX = PDF.margin + 5
+  const valX = PDF.margin + 90
+  for (const [label, value, bold] of rows) {
+    doc.setFont('helvetica', bold ? 'bold' : 'normal')
+    doc.setTextColor(bold ? PDF.navy : PDF.grey)
+    doc.text(label, labelX, y + 2)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(PDF.dark)
+    doc.text(String(value), valX, y + 2)
+    y += 6
+  }
+  return y + 4
+}
+
+function pdfComparisonTable(doc, y, headers, rows) {
+  if (y + rows.length * 5.5 + 15 > 270) { doc.addPage(); y = 20 }
+  const colW = PDF.contentW / headers.length
+  // Header
+  doc.setFillColor(245, 245, 245)
+  doc.rect(PDF.margin, y - 3, PDF.contentW, 7, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(8)
+  doc.setTextColor(PDF.navy)
+  headers.forEach((h, i) => {
+    const x = PDF.margin + i * colW + (i === 0 ? 2 : colW - 2)
+    doc.text(h, x, y + 1, { align: i === 0 ? 'left' : 'right' })
+  })
+  y += 7
+  doc.setDrawColor(PDF.rule)
+  doc.setLineWidth(0.3)
+  doc.line(PDF.margin, y - 2, PDF.pageW - PDF.margin, y - 2)
+  // Rows
+  doc.setFontSize(8.5)
+  for (const row of rows) {
+    if (y > 275) { doc.addPage(); y = 20 }
+    const isBold = row._bold
+    row.cells.forEach((cell, i) => {
+      const x = PDF.margin + i * colW + (i === 0 ? 2 : colW - 2)
+      doc.setFont('helvetica', isBold ? 'bold' : 'normal')
+      doc.setTextColor(isBold ? PDF.navy : PDF.dark)
+      doc.text(String(cell), x, y, { align: i === 0 ? 'left' : 'right' })
+    })
+    y += 5.5
+    if (!isBold) {
+      doc.setDrawColor(PDF.rule)
+      doc.setLineWidth(0.15)
+      doc.line(PDF.margin, y - 2.5, PDF.pageW - PDF.margin, y - 2.5)
+    }
+  }
+  return y + 3
+}
+
+async function captureChartImage(chartRef) {
+  if (!chartRef?.current) return null
+  const canvas = await html2canvas(chartRef.current, { backgroundColor: '#FFFFFF', scale: 2 })
+  return canvas.toDataURL('image/png')
+}
+
+function pdfSave(doc, type, client) {
+  const d = new Date()
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const yyyy = d.getFullYear()
+  const cleanClient = (client || 'Client').replace(/[^a-zA-Z0-9àâäéèêëïîôùûüçÀÂÄÉÈÊËÏÎÔÙÛÜÇ ]/g, '').replace(/\s+/g, '_')
+  doc.save(`Entasis_Simulation_${type}_${cleanClient}_${dd}${mm}${yyyy}.pdf`)
+}
+
+/* ── PDF Client Name Modal ────────────────────────────────────────────── */
+function PDFClientModal({ open, onClose, onConfirm }) {
+  const [name, setName] = useState('')
+  if (!open) return null
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ background: C.card, border: `1px solid ${C.bdGold}`, borderRadius: 14, padding: 24, width: 380 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: C.gold, fontFamily: FONT_SERIF, marginBottom: 4 }}>Exporter en PDF</div>
+        <div style={{ fontSize: 12, color: C.ivoryDim, marginBottom: 16 }}>Le nom du client apparaîtra sur le document.</div>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6, fontFamily: FONT_SANS }}>Nom du client</div>
+          <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="M. / Mme …"
+            autoFocus
+            onKeyDown={e => { if (e.key === 'Enter' && name.trim()) onConfirm(name.trim()) }}
+            style={{ width: '100%', padding: '10px 14px', background: C.inputBg, border: `1px solid ${C.bdGold}`, borderRadius: 8, color: C.ivory, fontSize: 14, fontFamily: FONT_SANS, outline: 'none' }} />
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <Btn onClick={onClose} variant="ghost">Annuler</Btn>
+          <Btn onClick={() => { if (name.trim()) onConfirm(name.trim()) }} disabled={!name.trim()}>Générer le PDF</Btn>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Export Button ────────────────────────────────────────────────────── */
+function ExportPDFButton({ onExport }) {
+  const [modalOpen, setModalOpen] = useState(false)
+  return (
+    <>
+      <button onClick={() => setModalOpen(true)}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+          fontFamily: FONT_SANS, cursor: 'pointer', transition: 'all .15s',
+          background: 'transparent', color: C.ivory, border: `1px solid ${C.bd}`,
+        }}>
+        Exporter en PDF
+      </button>
+      <PDFClientModal open={modalOpen} onClose={() => setModalOpen(false)}
+        onConfirm={clientName => { setModalOpen(false); onExport(clientName) }} />
+    </>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    TAB 1 — CALCULATEUR DÉFISCALISATION
 ═══════════════════════════════════════════════════════════════════════════ */
 const SITUATIONS = [
@@ -317,7 +532,38 @@ Simulation indicative — Entasis Conseil`
         })}
       </div>
 
-      <Btn onClick={handleCopy} variant={copied ? 'outline' : 'gold'}>{copied ? '✓ Copié' : 'Copier le résumé'}</Btn>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <Btn onClick={handleCopy} variant={copied ? 'outline' : 'gold'}>{copied ? '✓ Copié' : 'Copier le résumé'}</Btn>
+        <ExportPDFButton onExport={clientName => {
+          const date = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+          const doc = new jsPDF()
+          addPDFHeader(doc, date)
+          let y = pdfTitle(doc, 35, 'Simulation Défiscalisation', `Préparé le ${date}`, clientName)
+          y = pdfSection(doc, y, 'Paramètres de simulation')
+          y = pdfParamTable(doc, y, [
+            ['Revenu net imposable', euro(revenu)],
+            ['Situation familiale', `${SITUATIONS.find(s => s.value === situation)?.label} (${parts} parts)`],
+            ['Dispositif', disp?.label],
+            ['Montant investi', euro(montantInvesti)],
+          ])
+          y = pdfSection(doc, y, 'Résultats')
+          y = pdfResultBlock(doc, y, [
+            ['TMI', `${Math.round(result.tmi * 100)}%`],
+            ['Impôt avant dispositif', euro(result.irAvant)],
+            ['Impôt après dispositif', euro(result.irApres)],
+            ['Économie fiscale', euro(result.economie), true],
+            ['Effort réel', euro(result.effortReel), true],
+          ])
+          y += 4
+          doc.setFont('helvetica', 'italic')
+          doc.setFontSize(7.5)
+          doc.setTextColor(PDF.lightGrey)
+          const discLines = doc.splitTextToSize(PDF.disclaimer, PDF.contentW)
+          doc.text(discLines, PDF.margin, y)
+          addPDFFooter(doc, 1, 1)
+          pdfSave(doc, 'Defiscalisation', clientName)
+        }} />
+      </div>
     </div>
   )
 }
@@ -326,6 +572,7 @@ Simulation indicative — Entasis Conseil`
    TAB 2 — SIMULATEUR PER
 ═══════════════════════════════════════════════════════════════════════════ */
 function SimulateurPER() {
+  const chartRef = useRef(null)
   const [age, setAge] = useState(35)
   const [ageRetraite, setAgeRetraite] = useState(65)
   const [versementMensuel, setVersementMensuel] = useState(500)
@@ -408,8 +655,41 @@ function SimulateurPER() {
       </div>
 
       <SectionDivider label="Projection du capital" />
-      <div style={{ height: 300, background: C.card, borderRadius: 10, padding: 16 }}>
+      <div ref={chartRef} style={{ height: 300, background: '#fff', borderRadius: 10, padding: 16 }}>
         <Line data={chartData} options={{ ...chartDefaults }} />
+      </div>
+      <div style={{ marginTop: 16 }}>
+        <ExportPDFButton onExport={async clientName => {
+          const date = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+          const doc = new jsPDF()
+          addPDFHeader(doc, date)
+          let y = pdfTitle(doc, 35, 'Simulation PER', `Préparé le ${date}`, clientName)
+          y = pdfSection(doc, y, 'Paramètres de simulation')
+          y = pdfParamTable(doc, y, [
+            ['Âge actuel', `${age} ans`], ['Âge de retraite', `${ageRetraite} ans`], ['Durée', `${duree} ans`],
+            ['Versement mensuel', euro(versementMensuel)], ['Versement initial', euro(versementInitial)], ['TMI', `${tmi}%`],
+          ])
+          y = pdfSection(doc, y, 'Résultats')
+          y = pdfResultBlock(doc, y, [
+            ['Capital Prudent (3%)', euro(result.curves[0].final)],
+            ['Capital Équilibré (5%)', euro(result.curves[1].final), true],
+            ['Capital Dynamique (7%)', euro(result.curves[2].final)],
+            ['Rente mensuelle (équilibré)', euro(result.renteMensuelle[1]), true],
+            ['Économie fiscale / an', euro(result.economieFiscaleAnnuelle)],
+            ['Économie fiscale totale', euro(result.economieFiscaleTotale), true],
+            ['Total versé', euro(result.totalVerse)],
+            ['Effort net annuel', euro(result.effortNet)],
+          ])
+          const img = await captureChartImage(chartRef)
+          if (img) { doc.addPage(); addPDFHeader(doc, date); doc.addImage(img, 'PNG', PDF.margin, 35, PDF.contentW, 85) }
+          const lastPage = doc.getNumberOfPages()
+          doc.setPage(lastPage)
+          const dy = img ? 130 : y + 6
+          doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(PDF.lightGrey)
+          doc.text(doc.splitTextToSize(PDF.disclaimer, PDF.contentW), PDF.margin, dy)
+          for (let i = 1; i <= lastPage; i++) { doc.setPage(i); addPDFFooter(doc, i, lastPage) }
+          pdfSave(doc, 'PER', clientName)
+        }} />
       </div>
     </div>
   )
@@ -419,6 +699,7 @@ function SimulateurPER() {
    TAB 3 — SIMULATEUR ASSURANCE VIE
 ═══════════════════════════════════════════════════════════════════════════ */
 function SimulateurAssuranceVie() {
+  const chartRef = useRef(null)
   const [capitalInitial, setCapitalInitial] = useState(30000)
   const [versementMensuel, setVersementMensuel] = useState(300)
   const [duree, setDuree] = useState(15)
@@ -516,8 +797,40 @@ function SimulateurAssuranceVie() {
       </div>
 
       <SectionDivider label="Évolution du capital" />
-      <div style={{ height: 300, background: C.card, borderRadius: 10, padding: 16 }}>
+      <div ref={chartRef} style={{ height: 300, background: '#fff', borderRadius: 10, padding: 16 }}>
         <Line data={chartData} options={{ ...chartDefaults }} />
+      </div>
+      <div style={{ marginTop: 16 }}>
+        <ExportPDFButton onExport={async clientName => {
+          const date = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+          const doc = new jsPDF()
+          addPDFHeader(doc, date)
+          let y = pdfTitle(doc, 35, 'Simulation Assurance Vie', `Préparé le ${date}`, clientName)
+          y = pdfSection(doc, y, 'Paramètres de simulation')
+          y = pdfParamTable(doc, y, [
+            ['Capital initial', euro(capitalInitial)], ['Versements mensuels', euro(versementMensuel)],
+            ['Durée', `${duree} ans`], ['Répartition', `Fonds Euro ${pctEuro}% / UC ${100 - pctEuro}%`],
+            ['Rendement fonds Euro', `${rendEuro}%`], ['Rendement UC', `${rendUC}%`],
+          ])
+          y = pdfSection(doc, y, 'Résultats')
+          y = pdfResultBlock(doc, y, [
+            ['Capital final brut', euro(result.capitalBrut), true],
+            ['Total versé', euro(result.totalVerse)],
+            ['Intérêts bruts', euro(result.interetsBruts)],
+            ['Rendement global', pctFmt(result.rendGlobal)],
+            ['PFU après 8 ans', euro(result.pfuApres8)],
+            ['Capital net après rachat (8 ans)', euro(result.netApres8), true],
+          ])
+          const img = await captureChartImage(chartRef)
+          if (img) { doc.addPage(); addPDFHeader(doc, date); doc.addImage(img, 'PNG', PDF.margin, 35, PDF.contentW, 85) }
+          const lastPage = doc.getNumberOfPages()
+          doc.setPage(lastPage)
+          const dy = img ? 130 : y + 6
+          doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(PDF.lightGrey)
+          doc.text(doc.splitTextToSize(PDF.disclaimer, PDF.contentW), PDF.margin, dy)
+          for (let i = 1; i <= lastPage; i++) { doc.setPage(i); addPDFFooter(doc, i, lastPage) }
+          pdfSave(doc, 'AssuranceVie', clientName)
+        }} />
       </div>
     </div>
   )
@@ -551,6 +864,7 @@ const WEMO = {
 }
 
 function SimulateurSCPI() {
+  const chartRef = useRef(null)
   const [montant, setMontant] = useState(50000)
   const [structure, setStructure] = useState('IR')
   const [tmiRate, setTmiRate] = useState(30)
@@ -887,7 +1201,7 @@ Simulation indicative — Entasis Conseil`
 
       {/* ── CHART ─────────────────────────────────────────────────── */}
       <SectionDivider label="Évolution du patrimoine" />
-      <div style={{ height: 300, background: C.card, borderRadius: 10, padding: 16 }}>
+      <div ref={chartRef} style={{ height: 300, background: '#fff', borderRadius: 10, padding: 16 }}>
         <Line data={chartData} options={{ ...chartDefaults }} />
       </div>
 
@@ -895,6 +1209,42 @@ Simulation indicative — Entasis Conseil`
       <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
         <Btn onClick={handleCopySim} variant={copied ? 'outline' : 'gold'}>{copied ? '✓ Copié' : 'Copier la simulation'}</Btn>
         <Btn onClick={handleAINote} variant="outline" disabled={aiLoading}>{aiLoading ? 'Génération…' : 'Générer note IA'}</Btn>
+        <ExportPDFButton onExport={async clientName => {
+          const date = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+          const doc = new jsPDF()
+          addPDFHeader(doc, date)
+          let y = pdfTitle(doc, 35, 'Simulation SCPI Wemo One', `Préparé le ${date}`, clientName)
+          y = pdfSection(doc, y, 'Paramètres de simulation')
+          y = pdfParamTable(doc, y, [
+            ['Capital en parts', euro(montantEffectif)], ['Nombre de parts', `${nbParts}`],
+            ['Frais souscription (10% HT, en sus)', euro(result.ir.fraisEntree)],
+            ['Décaissement total', euro(result.ir.decaissementTotal)],
+            ['Structure', structure], ['Hypothèse rendement', `${rendement}%`],
+            ['Durée', `${duree} ans`], ['Revalorisation', `${revalo}%/an`],
+          ])
+          y = pdfSection(doc, y, 'Comparaison IR vs IS')
+          y = pdfComparisonTable(doc, y, ['', 'IR', 'IS'], [
+            { cells: ['Capital générateur de revenus', euro(result.ir.capitalEnParts), euro(result.is.capitalEnParts)] },
+            { cells: ['Frais souscription (en sus)', euro(result.ir.fraisEntree), euro(result.is.fraisEntree)] },
+            { cells: ['Décaissement total', euro(result.ir.decaissementTotal), euro(result.is.decaissementTotal)] },
+            { cells: [`Revenus bruts / an (${rendement}%)`, euro(result.ir.revenusBrutsAn), euro(result.is.revenusBrutsAn)] },
+            { cells: ['PS 17,2% (part FR 14,5%)', `${euro(result.ir.psAn)}/an`, '—'] },
+            { cells: ['Impôt / an', `${euro(result.ir.impotAn)}/an`, `${euro(result.is.impotAn)}/an`] },
+            { cells: ['Revenus nets / an', euro(result.ir.revenusNetsAn), euro(result.is.revenusNetsAn)] },
+            { cells: [`Revenus cumulés (${duree} ans)`, euro(result.ir.totalNet), euro(result.is.totalNet)] },
+            { cells: ['Capital à la sortie', euro(result.ir.capitalSortie), euro(result.is.capitalSortie)] },
+            { cells: ['TRI estimé', pctFmt(result.ir.tri), pctFmt(result.is.tri)], _bold: true },
+          ])
+          const img = await captureChartImage(chartRef)
+          if (img) { doc.addPage(); addPDFHeader(doc, date); doc.addImage(img, 'PNG', PDF.margin, 35, PDF.contentW, 85) }
+          const lastPage = doc.getNumberOfPages()
+          doc.setPage(lastPage)
+          const dy = img ? 130 : y + 6
+          doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(PDF.lightGrey)
+          doc.text(doc.splitTextToSize(PDF.disclaimer, PDF.contentW), PDF.margin, dy)
+          for (let i = 1; i <= lastPage; i++) { doc.setPage(i); addPDFFooter(doc, i, lastPage) }
+          pdfSave(doc, 'SCPI_WemoOne', clientName)
+        }} />
       </div>
 
       {aiNote && (
@@ -918,6 +1268,7 @@ const DISPOSITIFS_IMMO = [
 ]
 
 function SimulateurImmoNeuf() {
+  const chartRef = useRef(null)
   const [prixBien, setPrixBien] = useState(280000)
   const [surface, setSurface] = useState(55)
   const [apport, setApport] = useState(30000)
@@ -1086,12 +1437,53 @@ function SimulateurImmoNeuf() {
       )}
 
       <SectionDivider label="Capital restant vs Valeur du bien" />
-      <div style={{ height: 280, background: C.card, borderRadius: 10, padding: 16 }}>
+      <div ref={chartRef} style={{ height: 280, background: '#fff', borderRadius: 10, padding: 16 }}>
         <Line data={chartData} options={{ ...chartDefaults }} />
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
         <Btn onClick={handleAIEmail} variant="outline" disabled={aiLoading}>{aiLoading ? 'Génération…' : 'Générer email client (IA)'}</Btn>
+        <ExportPDFButton onExport={async clientName => {
+          const date = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+          const doc = new jsPDF()
+          addPDFHeader(doc, date)
+          let y = pdfTitle(doc, 35, 'Simulation Achat Immobilier Neuf', `Préparé le ${date}`, clientName)
+          y = pdfSection(doc, y, 'Récapitulatif acquisition')
+          y = pdfParamTable(doc, y, [
+            ['Prix du bien', euro(prixBien)], ['Surface', `${surface} m²`],
+            ['Frais de notaire (2,5%)', euro(result.fraisNotaire)],
+            ['Coût total acquisition', euro(result.coutTotal)],
+            ['Apport personnel', euro(apport)], ['Montant emprunté', euro(result.emprunt)],
+            ['Dispositif', dispositif],
+          ])
+          y = pdfSection(doc, y, 'Financement')
+          y = pdfParamTable(doc, y, [
+            ['Durée d\'emprunt', `${dureeEmprunt} ans`], ['Taux d\'intérêt', `${tauxInteret}%`],
+            ['Assurance', `${tauxAssurance}%`],
+            ['Mensualité crédit', euro(result.mensualiteCredit)],
+            ['Assurance mensuelle', euro(result.assuranceMensuelle)],
+            ['Mensualité totale', euro(result.mensualiteTotale)],
+            ['Coût total du crédit', euro(result.coutCredit)],
+          ])
+          if (dispositif === 'LLI' || dispositif === 'LMNP') {
+            y = pdfSection(doc, y, 'Rendement locatif')
+            y = pdfResultBlock(doc, y, [
+              ['Rendement brut', pctFmt(result.rendBrut)],
+              ['Loyer mensuel estimé', euro(result.loyerMensuel)],
+              ['Cashflow mensuel', euro(result.cashflowMensuel), true],
+              ...(dispositif === 'LLI' ? [['Économie TVA (10% vs 20%)', euro(result.economieTVA)]] : []),
+            ])
+          }
+          const img = await captureChartImage(chartRef)
+          if (img) { doc.addPage(); addPDFHeader(doc, date); doc.addImage(img, 'PNG', PDF.margin, 35, PDF.contentW, 80) }
+          const lastPage = doc.getNumberOfPages()
+          doc.setPage(lastPage)
+          const dy = img ? 125 : y + 6
+          doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(PDF.lightGrey)
+          doc.text(doc.splitTextToSize(PDF.disclaimer, PDF.contentW), PDF.margin, dy)
+          for (let i = 1; i <= lastPage; i++) { doc.setPage(i); addPDFFooter(doc, i, lastPage) }
+          pdfSave(doc, 'AchatImmoNeuf', clientName)
+        }} />
       </div>
 
       {aiEmail && (
