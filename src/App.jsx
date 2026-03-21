@@ -2538,34 +2538,24 @@ export default function App(){
     if(!isSupabaseConfigured)return
     let active=true
 
-    // onAuthStateChange en premier — capture SIGNED_IN au retour OAuth
+    // onAuthStateChange gère TOUS les événements, y compris INITIAL_SESSION
+    // Ne pas appeler getSession() séparément pour éviter le lock contention
+    const fallback=setTimeout(()=>{if(active)setLoading(false)},8000)
     const{data:listener}=supabase.auth.onAuthStateChange(async(event,s)=>{
       if(!active)return
-      if(event==='INITIAL_SESSION')return // ignoré — on utilise getSession()
+      clearTimeout(fallback)
       if(event==='SIGNED_OUT'){setSession(null);setLoading(false);return}
-      if(event==='SIGNED_IN'||event==='TOKEN_REFRESHED'){
-        setSession(s||null)
-        setLoading(false)
-        if(s?.provider_token&&s?.user?.id){
-          try{
-            await supabase.from('profiles').update({gcal_token:s.provider_token}).eq('id',s.user.id)
-            const{data:prof}=await supabase.from('profiles').select('*').eq('id',s.user.id).maybeSingle()
-            if(prof&&active)setProfile(prof)
-          }catch(e){console.warn('gcal_token update:',e)}
-        }
+      // INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED → mettre à jour la session
+      setSession(s||null)
+      setLoading(false)
+      if((event==='SIGNED_IN')&&s?.provider_token&&s?.user?.id){
+        try{
+          await supabase.from('profiles').update({gcal_token:s.provider_token}).eq('id',s.user.id)
+          const{data:prof}=await supabase.from('profiles').select('*').eq('id',s.user.id).maybeSingle()
+          if(prof&&active)setProfile(prof)
+        }catch(e){console.warn('gcal_token update:',e)}
       }
     })
-
-    // getSession après — gère la session existante et le hash OAuth #access_token
-    const fallback=setTimeout(()=>{if(active)setLoading(false)},8000)
-    supabase.auth.getSession()
-      .then(({data})=>{
-        clearTimeout(fallback)
-        if(!active)return
-        setSession(data.session||null)
-        setLoading(false)
-      })
-      .catch(()=>{clearTimeout(fallback);if(active)setLoading(false)})
 
     return()=>{active=false;clearTimeout(fallback);listener.subscription.unsubscribe()}
   },[])
@@ -2589,9 +2579,10 @@ export default function App(){
         supabase.from('objectifs').select('*'),
         supabase.from('prospects').select('*').order('created_at',{ascending:false}),
       ])
-      const errs=[profRes,teamRes,dealsRes,objRes].filter(r=>r.error).map(r=>r.error.message)
-      if(errs.length)setError(errs[0])
+      const nonProfileErrs=[teamRes,dealsRes,objRes].filter(r=>r.error).map(r=>r.error.message)
+      if(nonProfileErrs.length)setError(nonProfileErrs[0])
       let prof=profRes.data
+      if(profRes.error)console.warn('Profile fetch error:',profRes.error.message)
       if(!prof&&s.user){
         // Retry 3x avec délai croissant avant de créer
         for(let i=0;i<3&&!prof;i++){
@@ -2624,6 +2615,11 @@ export default function App(){
       ;(objRes.data||[]).forEach(row=>{map[row.month]=row})
       setObjectifs(map)
     } catch(e) {
+      // Ignore lock contention errors — they resolve on next auth cycle
+      if(e.message?.includes('released because another request stole it')){
+        console.warn('Auth lock contention, will retry on next session event')
+        return
+      }
       setError('Erreur chargement : '+e.message)
     }
   }
