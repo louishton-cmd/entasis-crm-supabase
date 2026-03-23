@@ -53,8 +53,20 @@ export default function CatalogueProgrammes({ setActiveTab }) {
 
   async function loadProgrammes() {
     setLoading(true)
-    const { data } = await supabase.from('programmes').select('*').order('created_at', { ascending: false })
-    setProgrammes(data || [])
+    try {
+      const { data, error } = await supabase.from('programmes').select('*').order('created_at', { ascending: false })
+      if (error) {
+        console.error('Erreur chargement programmes:', error.message, error.details, error.hint)
+        toast.error('Erreur chargement programmes : ' + error.message)
+        setProgrammes([])
+      } else {
+        setProgrammes(data || [])
+      }
+    } catch (err) {
+      console.error('Exception chargement programmes:', err)
+      toast.error('Erreur réseau : ' + err.message)
+      setProgrammes([])
+    }
     setLoading(false)
   }
 

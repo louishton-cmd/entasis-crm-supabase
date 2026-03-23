@@ -1932,7 +1932,7 @@ function MarketView(){
   )
 }
 function AgendaView({deals,profile}){
-  const token=profile?.gcal_token,isGoogleConnected=!!token
+  const token=profile?.gcal_token||(typeof localStorage!=='undefined'?localStorage.getItem('entasis_gcal_token'):null),isGoogleConnected=!!token
   const [events,setEvents]=useState([])
   const [loading,setLoading]=useState(false)
   const [error,setError]=useState('')
@@ -2573,12 +2573,14 @@ export default function App(){
     const{data:listener}=supabase.auth.onAuthStateChange(async(event,s)=>{
       if(!active)return
       clearTimeout(fallback)
-      if(event==='SIGNED_OUT'){setSession(null);setLoading(false);return}
+      if(event==='SIGNED_OUT'){try{localStorage.removeItem('entasis_gcal_token')}catch(e){} setSession(null);setLoading(false);return}
       // INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED → mettre à jour la session
       setSession(s||null)
       setLoading(false)
       // Persist gcal token whenever provider_token is present (any auth event)
       if(s?.provider_token&&s?.user?.id){
+        // Save to localStorage immediately as backup (survives page refresh even if Supabase update fails)
+        try{localStorage.setItem('entasis_gcal_token',s.provider_token)}catch(e){}
         try{
           await supabase.from('profiles').update({gcal_token:s.provider_token,gcal_token_updated_at:new Date().toISOString()}).eq('id',s.user.id)
           const{data:prof}=await supabase.from('profiles').select('*').eq('id',s.user.id).maybeSingle()
