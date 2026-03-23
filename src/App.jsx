@@ -1977,14 +1977,26 @@ function AgendaView({deals,profile}){
   }
   const crmCount=events.filter(e=>e.extendedProperties?.private?.entasisCrm==='true').length
 
+  async function reconnectGoogle(){
+    await supabase.auth.signInWithOAuth({
+      provider:'google',
+      options:{
+        scopes:'https://www.googleapis.com/auth/calendar.readonly',
+        redirectTo:window.location.origin,
+        queryParams:{access_type:'offline',prompt:'consent'}
+      }
+    })
+  }
+
   if(!isGoogleConnected) return (
     <div>
       <div className="section-header"><div><div className="section-kicker">Google Agenda</div><div className="section-title">Agenda & Relances</div></div></div>
       <div className="card" style={{maxWidth:460,margin:'48px auto',textAlign:'center',padding:'40px 32px'}}>
         <div style={{fontSize:42,marginBottom:16}}>📅</div>
         <div style={{fontFamily:'var(--font-serif)',fontSize:20,fontWeight:500,color:'var(--t1)',marginBottom:10}}>Google Agenda non connecté</div>
-        <div style={{fontSize:13.5,color:'var(--t2)',lineHeight:1.7,marginBottom:24}}>Pour activer l'intégration, déconnecte-toi puis reconnecte-toi avec ton compte Google — le token Calendar sera capturé automatiquement.</div>
-        <div style={{fontSize:12,color:'var(--t3)',padding:'10px 14px',background:'var(--bg)',borderRadius:'var(--rad)',border:'1px solid var(--bd)',lineHeight:1.7}}>① Clique <strong style={{color:'var(--t1)'}}>Se déconnecter</strong> en bas du menu<br/>② Clique <strong style={{color:'var(--t1)'}}>Se connecter avec Google</strong><br/>③ Autorise l'accès à Google Agenda<br/>④ L'Agenda s'affiche automatiquement ✓</div>
+        <div style={{fontSize:13.5,color:'var(--t2)',lineHeight:1.7,marginBottom:24}}>Le token Google Calendar a expiré ou n'a pas été capturé. Clique ci-dessous pour reconnecter ton compte Google et autoriser l'accès à ton agenda.</div>
+        <button className="btn btn-gold" style={{margin:'0 auto 20px',padding:'12px 24px',fontSize:14}} onClick={reconnectGoogle}>Reconnecter Google Agenda</button>
+        <div style={{fontSize:11,color:'var(--t3)',lineHeight:1.6}}>Tu seras redirigé vers Google pour autoriser l'accès Calendar, puis ramené ici automatiquement.</div>
       </div>
     </div>
   )
@@ -2565,9 +2577,10 @@ export default function App(){
       // INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED → mettre à jour la session
       setSession(s||null)
       setLoading(false)
-      if((event==='SIGNED_IN')&&s?.provider_token&&s?.user?.id){
+      // Persist gcal token whenever provider_token is present (any auth event)
+      if(s?.provider_token&&s?.user?.id){
         try{
-          await supabase.from('profiles').update({gcal_token:s.provider_token}).eq('id',s.user.id)
+          await supabase.from('profiles').update({gcal_token:s.provider_token,gcal_token_updated_at:new Date().toISOString()}).eq('id',s.user.id)
           const{data:prof}=await supabase.from('profiles').select('*').eq('id',s.user.id).maybeSingle()
           if(prof&&active)setProfile(prof)
         }catch(e){console.warn('gcal_token update:',e)}
