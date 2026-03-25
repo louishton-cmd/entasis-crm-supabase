@@ -21,14 +21,14 @@ const FONT_SERIF = "'Cormorant Garamond', 'Playfair Display', Georgia, serif"
 const FONT_SANS = "'DM Sans', system-ui, sans-serif"
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   TAX ENGINE (barème 2025 sur revenus 2024)
+   TAX ENGINE (bareme 2025 sur revenus 2024)
 ───────────────────────────────────────────────────────────────────────────── */
 const TRANCHES_IR = [
-  { min: 0, max: 11294, taux: 0 },
-  { min: 11294, max: 28797, taux: 0.11 },
-  { min: 28797, max: 82341, taux: 0.30 },
-  { min: 82341, max: 177106, taux: 0.41 },
-  { min: 177106, max: Infinity, taux: 0.45 },
+  { min: 0, max: 11497, taux: 0 },
+  { min: 11497, max: 29315, taux: 0.11 },
+  { min: 29315, max: 83823, taux: 0.30 },
+  { min: 83823, max: 180294, taux: 0.41 },
+  { min: 180294, max: Infinity, taux: 0.45 },
 ]
 
 function calcIR(revenuImposable, parts) {
@@ -82,7 +82,7 @@ async function callAI(system, userMsg) {
   })
   const data = await res.json()
   if (data.error) throw new Error(data.error)
-  return data.content || 'Erreur : pas de réponse'
+  return data.content || 'Erreur : pas de reponse'
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -147,7 +147,7 @@ function PillSelect({ options, value, onChange }) {
       {options.map(o => {
         const key = typeof o === 'string' ? o : o.value
         const label = typeof o === 'string' ? o : o.label
-        const active = value === key
+        const active = String(value) === String(key)
         return (
           <button key={key} onClick={() => onChange(key)}
             style={{
@@ -194,17 +194,17 @@ function copyText(text) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PDF EXPORT ENGINE v3
+   PDF EXPORT ENGINE v4 — Ultra-professionnel
 ═══════════════════════════════════════════════════════════════════════════ */
 const P = { m: 20, pw: 210, ph: 297 }
-P.cw = P.pw - P.m * 2 // 170
-P.right = P.pw - P.m   // 190
+P.cw = P.pw - P.m * 2
+P.right = P.pw - P.m
 
-const pEur = (v) => String(Math.round(Number(v) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' EUR'
+const fmt = (n) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' EUR'
 const pPct = (v) => (Number(v) || 0).toFixed(2) + ' %'
 const pNum = (v) => String(Math.round(Number(v) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
 
-const navy = [27, 42, 74]
+const navy = [44, 62, 80]
 const dark = [26, 26, 26]
 const labelGrey = [85, 85, 85]
 const metaGrey = [102, 102, 102]
@@ -222,58 +222,129 @@ function sc(d, c) { d.setTextColor(c[0], c[1], c[2]) }
 function sf(d, c) { d.setFillColor(c[0], c[1], c[2]) }
 function sd(d, c) { d.setDrawColor(c[0], c[1], c[2]) }
 
+/* ── PDF Cover Page ─────────────────────────────────────────────────────── */
+function pdfCoverPage(doc, simType, clientName, conseiller, conseillerEmail, date) {
+  // Background geometric shapes
+  sf(doc, [235, 235, 235])
+  doc.triangle(170, 0, 210, 0, 210, 60, 'F')
+  sf(doc, [240, 240, 240])
+  doc.triangle(150, 297, 210, 297, 210, 200, 'F')
+  sf(doc, [230, 230, 230])
+  doc.rect(0, 120, 8, 80, 'F')
+  sf(doc, [245, 245, 245])
+  doc.triangle(0, 0, 0, 40, 30, 0, 'F')
+  sf(doc, [238, 238, 238])
+  doc.rect(180, 140, 30, 4, 'F')
+  doc.rect(185, 148, 25, 3, 'F')
+
+  // Title block
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(32)
+  sc(doc, navy)
+  doc.text('Simulation', P.m + 10, 100)
+  doc.text(simType, P.m + 10, 115)
+
+  // Accent line
+  sf(doc, navy)
+  doc.rect(P.m + 10, 122, 50, 2, 'F')
+
+  // Client info
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(14)
+  sc(doc, metaGrey)
+  doc.text('Etude realisee pour', P.m + 10, 145)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(18)
+  sc(doc, dark)
+  doc.text(clientName, P.m + 10, 157)
+
+  // Date
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(12)
+  sc(doc, metaGrey)
+  doc.text('le ' + date, P.m + 10, 168)
+
+  // Conseiller block
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(11)
+  sc(doc, labelGrey)
+  doc.text('Votre conseiller', P.m + 10, 195)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(13)
+  sc(doc, navy)
+  doc.text(conseiller, P.m + 10, 205)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  sc(doc, metaGrey)
+  doc.text(conseillerEmail, P.m + 10, 213)
+
+  // Bottom branding
+  sf(doc, navy)
+  doc.rect(0, 270, P.pw, 27, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(14)
+  sc(doc, white)
+  doc.text('ENTASIS CONSEIL', P.pw / 2, 282, { align: 'center' })
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.text('Cabinet en Gestion de Patrimoine Independant — ORIAS 23003153', P.pw / 2, 290, { align: 'center' })
+}
+
+/* ── PDF Header (pages 2+) ──────────────────────────────────────────────── */
 function pdfHeader(doc, date) {
-  sf(doc, navy); doc.rect(0, 0, P.pw, 35, 'F')
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(20); sc(doc, white)
-  doc.text('ENTASIS CONSEIL', P.m, 15)
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9)
-  doc.text('Cabinet en Gestion de Patrimoine Independant', P.m, 22)
-  doc.setFontSize(7); doc.text('ORIAS 23003153', P.m, 28)
-  doc.setFontSize(9); doc.text(date, P.right, 15, { align: 'right' })
-  doc.setFontSize(8); doc.text('Document confidentiel', P.right, 22, { align: 'right' })
+  sf(doc, navy)
+  doc.rect(0, 0, P.pw, 20, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  sc(doc, white)
+  doc.text('ENTASIS CONSEIL', P.m, 13)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.text(date, P.right, 13, { align: 'right' })
 }
 
 function pdfFooter(doc, pg, total) {
-  sd(doc, [204, 204, 204]); doc.setLineWidth(0.3); doc.line(P.m, 282, P.right, 282)
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(7); sc(doc, footGrey)
+  sd(doc, [204, 204, 204])
+  doc.setLineWidth(0.3)
+  doc.line(P.m, 282, P.right, 282)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7)
+  sc(doc, footGrey)
   doc.text(FOOTER_LEFT, P.m, 288)
   doc.text('Page ' + pg + ' / ' + total, P.right, 288, { align: 'right' })
 }
 
-function pdfTitleBlock(doc, simType, clientName, conseiller, date) {
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(16); sc(doc, navy)
-  doc.text('Simulation ' + simType, P.m, 52)
-  sd(doc, navy); doc.setLineWidth(0.5); doc.line(P.m, 55, P.right, 55)
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); sc(doc, metaGrey)
-  doc.text('Client : ' + clientName, P.m, 62)
-  doc.setFontSize(9)
-  doc.text('Conseiller : ' + conseiller + '  |  Date : ' + date, P.m, 70)
-  return 82
-}
-
 function pdfNewPageIfNeeded(doc, y, needed, date) {
-  if (y + needed > 270) { doc.addPage(); pdfHeader(doc, date); return 45 }
+  if (y + needed > 270) { doc.addPage(); pdfHeader(doc, date); return 30 }
   return y
 }
 
 function pdfSec(doc, y, label, date) {
   y = pdfNewPageIfNeeded(doc, y, 20, date)
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); sc(doc, navy)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  sc(doc, navy)
   doc.text(label, P.m, y)
-  sf(doc, navy); doc.rect(P.m, y + 2, 3, 0.8, 'F')
-  sd(doc, navy); doc.setLineWidth(0.5); doc.line(P.m, y + 2, P.right, y + 2)
+  sf(doc, navy)
+  doc.rect(P.m, y + 2, 40, 1, 'F')
+  sd(doc, [220, 220, 220])
+  doc.setLineWidth(0.3)
+  doc.line(P.m + 40, y + 2.5, P.right, y + 2.5)
   return y + 10
 }
 
 function pdfRows(doc, y, rows, date) {
-  const valX = P.m + 95
+  const valX = P.m + 100
   for (let i = 0; i < rows.length; i++) {
     y = pdfNewPageIfNeeded(doc, y, 9, date)
     const [label, value, style] = rows[i]
     if (i % 2 === 1) { sf(doc, altRow); doc.rect(P.m, y - 4, P.cw, 9, 'F') }
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); sc(doc, labelGrey)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    sc(doc, labelGrey)
     doc.text(String(label), P.m + 3, y)
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
     if (style === 'green') sc(doc, green)
     else if (style === 'red') sc(doc, red)
     else sc(doc, dark)
@@ -283,43 +354,58 @@ function pdfRows(doc, y, rows, date) {
   return y + 3
 }
 
-function pdfKeyBox(doc, y, title, rows, date) {
-  const rowH = 9
-  const boxH = rows.length * rowH + 20
-  y = pdfNewPageIfNeeded(doc, y + 4, boxH, date)
-  sd(doc, navy); doc.setLineWidth(1); doc.rect(P.m, y, P.cw, boxH, 'S')
-  sf(doc, navy); doc.rect(P.m, y, 4, boxH, 'F')
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); sc(doc, navy)
-  doc.text(title, P.m + 10, y + 10)
-  let ry = y + 18
-  const col1X = P.m + 10
-  const col1VX = P.m + 60
-  const col2X = P.m + 95
-  const col2VX = P.m + 145
-  for (let i = 0; i < rows.length; i++) {
-    const [label, value, style] = rows[i]
-    const inCol2 = i >= Math.ceil(rows.length / 2)
-    const lx = inCol2 ? col2X : col1X
-    const vx = inCol2 ? col2VX : col1VX
-    const rowY = inCol2 ? y + 18 + (i - Math.ceil(rows.length / 2)) * rowH : ry
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); sc(doc, labelGrey)
-    doc.text(String(label), lx, rowY)
+/* ── PDF KPI Blocks (big numbers in boxes) ──────────────────────────────── */
+function pdfKPIBlocks(doc, y, kpis, date) {
+  // kpis = [{ label, value, accent }] — up to 6
+  const cols = Math.min(kpis.length, 3)
+  const boxW = (P.cw - (cols - 1) * 6) / cols
+  const boxH = 32
+
+  for (let i = 0; i < kpis.length; i++) {
+    const row = Math.floor(i / cols)
+    const col = i % cols
+    const bx = P.m + col * (boxW + 6)
+    const by = y + row * (boxH + 6)
+
+    if (by + boxH > 270) { doc.addPage(); pdfHeader(doc, date); y = 30; }
+
+    sf(doc, disclaimerBg)
+    sd(doc, [220, 220, 220])
+    doc.setLineWidth(0.3)
+    doc.roundedRect(bx, by, boxW, boxH, 3, 3, 'FD')
+
+    // Accent left bar
+    const accentColor = kpis[i].accent || navy
+    sf(doc, accentColor)
+    doc.rect(bx, by, 3, boxH, 'F')
+
+    // Label
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7.5)
+    sc(doc, labelGrey)
+    doc.text(kpis[i].label.toUpperCase(), bx + 8, by + 10)
+
+    // Value
     doc.setFont('helvetica', 'bold')
-    if (style === 'green') sc(doc, green)
-    else if (style === 'red') sc(doc, red)
-    else sc(doc, dark)
-    doc.text(String(value), vx, rowY)
-    if (!inCol2) ry += rowH
+    doc.setFontSize(14)
+    sc(doc, accentColor)
+    doc.text(String(kpis[i].value), bx + 8, by + 24)
   }
-  return y + boxH + 10
+
+  const totalRows = Math.ceil(kpis.length / cols)
+  return y + totalRows * (boxH + 6) + 6
 }
 
+/* ── PDF Table with header ──────────────────────────────────────────────── */
 function pdfCompTable(doc, y, headers, rows, date) {
   const needed = rows.length * 8 + 14
   y = pdfNewPageIfNeeded(doc, y, needed, date)
   const colW = P.cw / headers.length
-  sf(doc, navy); doc.rect(P.m, y, P.cw, 9, 'F')
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(8); sc(doc, white)
+  sf(doc, navy)
+  doc.rect(P.m, y, P.cw, 9, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(8)
+  sc(doc, white)
   headers.forEach((h, i) => {
     const x = P.m + i * colW + (i === 0 ? 3 : colW - 3)
     doc.text(h, x, y + 6, { align: i === 0 ? 'left' : 'right' })
@@ -339,7 +425,9 @@ function pdfCompTable(doc, y, headers, rows, date) {
     })
     y += 8
   }
-  sd(doc, [204, 204, 204]); doc.setLineWidth(0.3); doc.line(P.m, y - 4, P.right, y - 4)
+  sd(doc, [204, 204, 204])
+  doc.setLineWidth(0.3)
+  doc.line(P.m, y - 4, P.right, y - 4)
   return y + 3
 }
 
@@ -349,23 +437,34 @@ async function captureChartImage(chartRef) {
   return canvas.toDataURL('image/png')
 }
 
-function pdfChartAndDisclaimer(doc, img, y, date) {
+function pdfChartPage(doc, img, title, y, date) {
   const chartH = 85
   if (img) {
-    y = pdfNewPageIfNeeded(doc, y, chartH + 40, date)
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); sc(doc, navy)
-    doc.text('Evolution du patrimoine', P.pw / 2, y, { align: 'center' })
-    y += 8
+    doc.addPage()
+    pdfHeader(doc, date)
+    y = 35
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(14)
+    sc(doc, navy)
+    doc.text(title, P.pw / 2, y, { align: 'center' })
+    y += 10
     doc.addImage(img, 'PNG', P.m, y, P.cw, chartH)
-    y += chartH + 8
+    y += chartH + 10
   }
-  // Disclaimer
+  return y
+}
+
+function pdfDisclaimer(doc, y, date) {
   y = pdfNewPageIfNeeded(doc, y, 35, date)
   const lines = doc.splitTextToSize(DISCLAIMER, P.cw - 16)
   const boxH = lines.length * 3.8 + 14
-  sf(doc, disclaimerBg); sd(doc, [204, 204, 204]); doc.setLineWidth(0.5)
+  sf(doc, disclaimerBg)
+  sd(doc, [204, 204, 204])
+  doc.setLineWidth(0.5)
   doc.rect(P.m, y, P.cw, boxH, 'FD')
-  doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); sc(doc, labelGrey)
+  doc.setFont('helvetica', 'italic')
+  doc.setFontSize(7.5)
+  sc(doc, labelGrey)
   doc.text(lines, P.m + 8, y + 8)
   return y + boxH + 6
 }
@@ -420,296 +519,339 @@ function ExportPDFButton({ onExport }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   TAB 1 — CALCULATEUR DÉFISCALISATION
+   TAB 1 — SIMULATEUR PER (logique Yomoni)
 ═══════════════════════════════════════════════════════════════════════════ */
-const SITUATIONS = [
-  { value: 'celibataire', label: 'Célibataire', parts: 1 },
-  { value: 'couple', label: 'Couple marié/pacsé', parts: 2 },
-  { value: 'couple_1e', label: 'Couple + 1 enfant', parts: 2.5 },
-  { value: 'couple_2e', label: 'Couple + 2 enfants', parts: 3 },
-  { value: 'couple_3e', label: 'Couple + 3 enfants', parts: 4 },
-  { value: 'parent_isole', label: 'Parent isolé + 1 enfant', parts: 2 },
+const PARTS_OPTIONS = [
+  { value: 1, label: '1' }, { value: 1.5, label: '1.5' }, { value: 2, label: '2' },
+  { value: 2.5, label: '2.5' }, { value: 3, label: '3' }, { value: 3.5, label: '3.5' }, { value: 4, label: '4' },
 ]
 
-const DISPOSITIFS_DEFISC = [
-  { value: 'per', label: 'PER Individuel', desc: 'Déduction du revenu imposable', maxPct: 0.10 },
-  { value: 'deficit_foncier', label: 'Déficit Foncier', desc: 'Déduction des travaux (max 10 700 €/an)', maxAnnuel: 10700 },
-  { value: 'scpi_fiscal', label: 'SCPI Fiscale', desc: 'Réduction proportionnelle', reducPct: 0.18 },
-  { value: 'monument_historique', label: 'Monument Historique', desc: 'Déduction totale des travaux', maxPct: 1 },
+const PROFIL_RENDEMENTS = [
+  { value: 'prudent', label: 'Prudent 3%', taux: 0.03 },
+  { value: 'equilibre', label: 'Equilibre 5%', taux: 0.05 },
+  { value: 'dynamique', label: 'Dynamique 7%', taux: 0.07 },
 ]
 
-function CalculateurDefiscalisation() {
-  const [revenu, setRevenu] = useState(75000)
-  const [situation, setSituation] = useState('couple')
-  const [dispositif, setDispositif] = useState('per')
-  const [montantInvesti, setMontantInvesti] = useState(10000)
-  const [copied, setCopied] = useState(false)
-
-  const parts = SITUATIONS.find(s => s.value === situation)?.parts || 1
-  const disp = DISPOSITIFS_DEFISC.find(d => d.value === dispositif)
-
-  const result = useMemo(() => {
-    const irAvant = calcIR(revenu, parts)
-    const tmi = getTMI(revenu, parts)
-    let deduction = 0
-    let reduction = 0
-
-    if (dispositif === 'per') {
-      const plafond = Math.max(revenu * 0.10, 4399)
-      deduction = Math.min(montantInvesti, plafond)
-    } else if (dispositif === 'deficit_foncier') {
-      deduction = Math.min(montantInvesti, 10700)
-    } else if (dispositif === 'scpi_fiscal') {
-      reduction = montantInvesti * 0.18
-    } else if (dispositif === 'monument_historique') {
-      deduction = montantInvesti
-    }
-
-    const revenuApres = Math.max(0, revenu - deduction)
-    const irApres = Math.max(0, calcIR(revenuApres, parts) - reduction)
-    const economie = irAvant - irApres
-    const effortReel = montantInvesti - economie
-
-    return { irAvant, irApres, tmi, economie, effortReel, deduction, reduction, revenuApres }
-  }, [revenu, parts, dispositif, montantInvesti])
-
-  function handleCopy() {
-    const summary = `SIMULATION DÉFISCALISATION — Entasis Conseil
-─────────────────────────────────
-Revenu net imposable : ${euro(revenu)}
-Situation : ${SITUATIONS.find(s => s.value === situation)?.label} (${parts} parts)
-Dispositif : ${disp?.label}
-Montant investi : ${euro(montantInvesti)}
-
-TMI : ${Math.round(result.tmi * 100)}%
-Impôt avant : ${euro(result.irAvant)}
-Impôt après : ${euro(result.irApres)}
-Économie fiscale : ${euro(result.economie)}
-Effort réel : ${euro(result.effortReel)}
-─────────────────────────────────
-Simulation indicative — Entasis Conseil`
-    copyText(summary)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  return (
-    <div>
-      <Slider label="Revenu net imposable" value={revenu} onChange={setRevenu} min={15000} max={300000} step={1000} suffix="€" formatValue={v => euro(v)} />
-
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontFamily: FONT_SANS }}>Situation familiale</div>
-        <PillSelect options={SITUATIONS} value={situation} onChange={setSituation} />
-      </div>
-
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontFamily: FONT_SANS }}>Dispositif de défiscalisation</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          {DISPOSITIFS_DEFISC.map(d => (
-            <button key={d.value} onClick={() => setDispositif(d.value)}
-              style={{
-                textAlign: 'left', padding: '12px 14px', borderRadius: 10,
-                border: `1px solid ${d.value === dispositif ? C.gold : C.bdGold}`,
-                background: d.value === dispositif ? C.goldBg : 'transparent',
-                cursor: 'pointer', transition: 'all .15s',
-              }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: d.value === dispositif ? C.gold : C.ivory, fontFamily: FONT_SANS }}>{d.label}</div>
-              <div style={{ fontSize: 10.5, color: C.ivoryDim, marginTop: 2 }}>{d.desc}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <Slider label="Montant investi" value={montantInvesti} onChange={setMontantInvesti} min={1000} max={100000} step={500} suffix="€" formatValue={v => euro(v)} />
-
-      <SectionDivider label="Résultats" />
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
-        <ResultCard label="TMI" value={`${Math.round(result.tmi * 100)}%`} />
-        <ResultCard label="Impôt avant" value={euro(result.irAvant)} accent={C.danger} />
-        <ResultCard label="Impôt après" value={euro(result.irApres)} accent={C.success} />
-        <ResultCard label="Économie fiscale" value={euro(result.economie)} accent={C.gold} sub={`Effort réel : ${euro(result.effortReel)}`} />
-      </div>
-
-      <div style={{ background: C.card, borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryDim, textTransform: 'uppercase', marginBottom: 10, fontFamily: FONT_SANS }}>Détail par tranche</div>
-        {TRANCHES_IR.map((tr, i) => {
-          const q = result.revenuApres / parts
-          const assiette = Math.max(0, Math.min(q, tr.max) - tr.min)
-          if (assiette <= 0 && i > 0) return null
-          return (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: `1px solid ${C.bd}`, fontSize: 12 }}>
-              <span style={{ color: C.ivoryDim }}>{Math.round(tr.taux * 100)}% — {tr.max === Infinity ? `> ${euro(tr.min)}` : `${euro(tr.min)} → ${euro(tr.max)}`}</span>
-              <span style={{ fontWeight: 600, color: C.ivory }}>{euro(assiette * tr.taux * parts)}</span>
-            </div>
-          )
-        })}
-      </div>
-
-      <div style={{ display: 'flex', gap: 8 }}>
-        <Btn onClick={handleCopy} variant={copied ? 'outline' : 'gold'}>{copied ? '✓ Copié' : 'Copier le résumé'}</Btn>
-        <ExportPDFButton onExport={clientName => {
-          const dt = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-          const doc = new jsPDF(); pdfHeader(doc, dt)
-          let y = pdfTitleBlock(doc, 'Defiscalisation', clientName, 'Entasis Conseil', dt)
-          y = pdfSec(doc, y, 'Parametres de simulation', dt)
-          y = pdfRows(doc, y, [
-            ['Revenu net imposable', pEur(revenu)],
-            ['Situation familiale', (SITUATIONS.find(s => s.value === situation)?.label || '') + ' (' + parts + ' parts)'],
-            ['Dispositif', disp?.label || ''],
-            ['Montant investi', pEur(montantInvesti)],
-          ], dt)
-          y += 10
-          y = pdfSec(doc, y, 'Resultats', dt)
-          y = pdfRows(doc, y, [
-            ['TMI', Math.round(result.tmi * 100) + ' %'],
-            ['Impot avant dispositif', pEur(result.irAvant)],
-            ['Impot apres dispositif', pEur(result.irApres)],
-            ['Economie fiscale', pEur(result.economie), 'green'],
-            ['Effort reel', pEur(result.effortReel)],
-          ], dt)
-          y += 10
-          y = pdfKeyBox(doc, y, 'Points cles de la simulation', [
-            ['Economie fiscale', pEur(result.economie), 'green'],
-            ['TMI', Math.round(result.tmi * 100) + ' %'],
-            ['Effort reel', pEur(result.effortReel)],
-            ['Impot apres', pEur(result.irApres)],
-          ], dt)
-          pdfChartAndDisclaimer(doc, null, y, dt)
-          pdfFinalize(doc, 'Defiscalisation', clientName)
-        }} />
-      </div>
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   TAB 2 — SIMULATEUR PER
-═══════════════════════════════════════════════════════════════════════════ */
 function SimulateurPER() {
   const chartRef = useRef(null)
+  const [revenu, setRevenu] = useState(80000)
+  const [nbParts, setNbParts] = useState(2)
+  const [plafondReportable, setPlafondReportable] = useState(0)
   const [age, setAge] = useState(35)
-  const [ageRetraite, setAgeRetraite] = useState(65)
+  const [ageRetraite, setAgeRetraite] = useState(64)
   const [versementMensuel, setVersementMensuel] = useState(500)
-  const [versementInitial, setVersementInitial] = useState(10000)
-  const [tmi, setTmi] = useState(30)
+  const [versementInitial, setVersementInitial] = useState(0)
+  const [profil, setProfil] = useState('equilibre')
+  const [fraisGestion, setFraisGestion] = useState(1)
+  const [showDetail, setShowDetail] = useState(false)
 
   const duree = Math.max(1, ageRetraite - age)
 
+  // Plafond PER 2025
+  const plafondBase = Math.max(4637, Math.min(revenu * 0.10, 37094))
+  const plafondTotal = plafondBase + plafondReportable
+
+  // Versements PER envisages (capped at plafond)
+  const versementAnnuel2025 = Math.min(versementMensuel * 12, plafondTotal)
+  const [versement2025, setVersement2025] = useState(versementAnnuel2025)
+
+  // Keep versement2025 in sync with plafond changes
+  useEffect(() => {
+    setVersement2025(prev => Math.min(prev, plafondTotal))
+  }, [plafondTotal])
+
   const result = useMemo(() => {
-    const rates = [0.03, 0.05, 0.07]
-    const labels = ['Prudent (3%)', 'Équilibré (5%)', 'Dynamique (7%)']
-    const curves = rates.map(rate => {
-      const r = rate / 12
-      const n = duree * 12
-      let solde = versementInitial
+    // Fiscal calculations
+    const impotSans = calcIR(revenu, nbParts)
+    const revenuAvecPER = Math.max(0, revenu - versement2025)
+    const impotAvec = calcIR(revenuAvecPER, nbParts)
+    const economieFiscale = impotSans - impotAvec
+    const effortReel = versement2025 - economieFiscale
+    const tmi = getTMI(revenu, nbParts)
+
+    // Long-term simulation — 3 scenarios
+    const frais = fraisGestion / 100
+    const scenarios = PROFIL_RENDEMENTS.map(p => {
+      const taux = p.taux
+      let capital = versementInitial
       const yearly = []
-      for (let i = 1; i <= n; i++) {
-        solde = solde * (1 + r) + versementMensuel
-        if (i % 12 === 0) yearly.push(Math.round(solde))
+      let totalVerse = versementInitial
+      let econFiscaleCumulee = 0
+
+      for (let an = 1; an <= duree; an++) {
+        const versAnnuel = versementMensuel * 12
+        totalVerse += versAnnuel
+        // Economie fiscale de l'annee (on suppose meme revenu/TMI)
+        const ecoAn = versAnnuel * tmi
+        econFiscaleCumulee += ecoAn
+        capital = (capital + versAnnuel) * (1 + taux - frais)
+        yearly.push({
+          annee: an,
+          versements: versAnnuel,
+          produits: Math.round(capital - totalVerse),
+          capital: Math.round(capital),
+          econFiscale: Math.round(ecoAn),
+        })
       }
-      return { rate, yearly, final: Math.round(solde) }
+
+      const plusValue = Math.round(capital - totalVerse)
+      const renteMensuelle = Math.round(capital * 0.032 / 12)
+
+      // TRI net calculation
+      let tri = taux
+      for (let iter = 0; iter < 50; iter++) {
+        let npv = -versementInitial
+        let dnpv = 0
+        for (let t = 1; t <= duree; t++) {
+          const cf = -(versementMensuel * 12 - versementMensuel * 12 * tmi) // effort reel annuel (negatif = investissement net)
+          const disc = Math.pow(1 + tri, t)
+          npv += cf / disc
+          dnpv -= t * cf / (disc * (1 + tri))
+        }
+        const disc = Math.pow(1 + tri, duree)
+        npv += capital / disc
+        dnpv -= duree * capital / (disc * (1 + tri))
+        if (Math.abs(dnpv) < 1e-12) break
+        const step = npv / dnpv
+        tri = tri - step
+        if (Math.abs(step) < 1e-8) break
+      }
+
+      return {
+        ...p,
+        capital: Math.round(capital),
+        totalVerse: Math.round(totalVerse),
+        plusValue,
+        econFiscaleCumulee: Math.round(econFiscaleCumulee),
+        effortReelTotal: Math.round(totalVerse - econFiscaleCumulee),
+        renteMensuelle,
+        tri: isFinite(tri) ? tri : 0,
+        yearly,
+      }
     })
 
-    const totalVerse = versementInitial + versementMensuel * 12 * duree
-    const economieFiscaleAnnuelle = Math.round(versementMensuel * 12 * (tmi / 100))
-    const economieFiscaleTotale = economieFiscaleAnnuelle * duree
-    const effortNet = versementMensuel * 12 - economieFiscaleAnnuelle
+    return { impotSans, impotAvec, economieFiscale, effortReel, tmi, plafondTotal, scenarios }
+  }, [revenu, nbParts, versement2025, versementMensuel, versementInitial, age, ageRetraite, duree, fraisGestion, plafondReportable, plafondTotal])
 
-    // Rente mensuelle estimée (taux conversion 3%, espérance vie 25 ans)
-    const r3 = 0.03 / 12
-    const n25 = 25 * 12
-    const renteMensuelle = curves.map(c => {
-      return Math.round(c.final * r3 / (1 - Math.pow(1 + r3, -n25)))
-    })
-
-    return { curves, labels, totalVerse, economieFiscaleAnnuelle, economieFiscaleTotale, effortNet, renteMensuelle, duree }
-  }, [age, ageRetraite, versementMensuel, versementInitial, tmi, duree])
+  const selectedScenario = result.scenarios.find(s => s.value === profil) || result.scenarios[1]
 
   const chartData = {
-    labels: Array.from({ length: result.duree }, (_, i) => `${age + i + 1} ans`),
-    datasets: result.curves.map((c, i) => ({
-      label: result.labels[i],
-      data: c.yearly,
-      borderColor: [C.info, C.gold, C.success][i],
-      backgroundColor: [`${C.info}15`, `${C.gold}15`, `${C.success}15`][i],
-      fill: i === 1,
-      tension: 0.3,
-      pointRadius: 0,
-      borderWidth: 2,
-    })),
+    labels: Array.from({ length: duree }, (_, i) => `${age + i + 1} ans`),
+    datasets: [
+      {
+        label: 'Versements cumules',
+        data: result.scenarios[1].yearly.map(y => y.annee * versementMensuel * 12 + versementInitial),
+        borderColor: '#999', borderDash: [5, 3], backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 0, borderWidth: 1.5,
+      },
+      {
+        label: 'Prudent (3%)',
+        data: result.scenarios[0].yearly.map(y => y.capital),
+        borderColor: C.info, backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 0, borderWidth: 2.5,
+      },
+      {
+        label: 'Equilibre (5%)',
+        data: result.scenarios[1].yearly.map(y => y.capital),
+        borderColor: C.gold, backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 0, borderWidth: 2.5,
+      },
+      {
+        label: 'Dynamique (7%)',
+        data: result.scenarios[2].yearly.map(y => y.capital),
+        borderColor: C.success, backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 0, borderWidth: 2.5,
+      },
+      {
+        label: '_fill',
+        data: result.scenarios[0].yearly.map(y => y.capital),
+        borderColor: 'transparent',
+        backgroundColor: 'rgba(74,222,128,0.08)',
+        fill: '+1',
+        pointRadius: 0,
+        borderWidth: 0,
+      },
+      {
+        label: '_fillTop',
+        data: result.scenarios[2].yearly.map(y => y.capital),
+        borderColor: 'transparent',
+        backgroundColor: 'transparent',
+        fill: false,
+        pointRadius: 0,
+        borderWidth: 0,
+      },
+    ],
+  }
+
+  const chartOptions = {
+    ...chartDefaults,
+    plugins: {
+      ...chartDefaults.plugins,
+      legend: {
+        ...chartDefaults.plugins.legend,
+        labels: {
+          ...chartDefaults.plugins.legend.labels,
+          filter: (item) => !item.text.startsWith('_'),
+        },
+      },
+    },
   }
 
   return (
     <div>
+      {/* ── FISCAL BLOCK ─────────────────────────────────────────── */}
+      <div style={{ background: C.card, border: `1px solid ${C.bdGold}`, borderRadius: 14, padding: '20px 24px', marginBottom: 20 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.gold, fontFamily: FONT_SERIF, marginBottom: 16 }}>Calcul fiscal PER 2025</div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 16 }}>
+          <div>
+            <Slider label="Revenu fiscal du foyer net/an" value={revenu} onChange={setRevenu} min={20000} max={500000} step={1000} suffix="EUR" formatValue={v => euro(v)} />
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontFamily: FONT_SANS }}>Nombre de parts fiscales</div>
+              <PillSelect options={PARTS_OPTIONS} value={nbParts} onChange={v => setNbParts(Number(v))} />
+            </div>
+            <Field label="Plafond PER reportable non utilise (3 annees precedentes)" value={plafondReportable} onChange={setPlafondReportable} suffix="EUR" />
+            <div style={{ height: 14 }} />
+            <Slider label="Versements PER envisages en 2025" value={versement2025} onChange={setVersement2025} min={0} max={Math.max(1, plafondTotal)} step={100} suffix="EUR" formatValue={v => euro(v)} />
+          </div>
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <ResultCard label="Impots sans PER" value={euro(result.impotSans)} accent={C.danger} />
+              <ResultCard label="Impots avec PER" value={euro(result.impotAvec)} accent={C.info} />
+              <ResultCard label="Economie d'impots" value={euro(result.economieFiscale)} accent={C.success} />
+              <ResultCard label="Effort reel d'epargne" value={euro(result.effortReel)} accent={C.ivoryMuted} />
+              <ResultCard label="TMI detectee" value={`${Math.round(result.tmi * 100)}%`} accent={C.gold} />
+              <ResultCard label="Plafond disponible 2025" value={euro(result.plafondTotal)} accent={C.gold} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── LONG TERM SIMULATION ─────────────────────────────────── */}
+      <SectionDivider label="Simulation long terme" />
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         <div>
-          <Slider label="Votre âge" value={age} onChange={setAge} min={18} max={60} suffix="ans" />
-          <Slider label="Âge de départ en retraite" value={ageRetraite} onChange={setAgeRetraite} min={55} max={70} suffix="ans" />
-          <Slider label="Versement mensuel" value={versementMensuel} onChange={setVersementMensuel} min={50} max={3000} step={50} suffix="€" formatValue={v => euro(v)} />
-          <Slider label="Versement initial" value={versementInitial} onChange={setVersementInitial} min={0} max={100000} step={1000} suffix="€" formatValue={v => euro(v)} />
+          <Slider label="Age actuel" value={age} onChange={v => { setAge(v); if (ageRetraite <= v) setAgeRetraite(v + 1) }} min={25} max={60} suffix="ans" />
+          <Slider label="Age de depart a la retraite" value={ageRetraite} onChange={setAgeRetraite} min={age + 1} max={67} suffix="ans" />
+          <Slider label="Versement mensuel" value={versementMensuel} onChange={setVersementMensuel} min={100} max={5000} step={50} suffix="EUR" formatValue={v => euro(v)} />
+          <Field label="Versement initial" value={versementInitial} onChange={setVersementInitial} suffix="EUR" />
+          <div style={{ height: 14 }} />
+
           <div style={{ marginBottom: 18 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontFamily: FONT_SANS }}>Votre TMI</div>
-            <PillSelect options={[{ value: 0, label: '0%' }, { value: 11, label: '11%' }, { value: 30, label: '30%' }, { value: 41, label: '41%' }, { value: 45, label: '45%' }]} value={tmi} onChange={v => setTmi(Number(v))} />
+            <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontFamily: FONT_SANS }}>Hypothese de rendement</div>
+            <PillSelect options={PROFIL_RENDEMENTS} value={profil} onChange={setProfil} />
           </div>
+
+          <Slider label="Frais de gestion annuels" value={fraisGestion} onChange={setFraisGestion} min={0} max={3} step={0.1} suffix="%" />
         </div>
 
         <div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-            {result.curves.map((c, i) => (
-              <ResultCard key={i} label={`Capital ${result.labels[i]}`} value={euro(c.final)} accent={[C.info, C.gold, C.success][i]} sub={`Rente : ${euro(result.renteMensuelle[i])}/mois`} />
+            {result.scenarios.map((s, i) => (
+              <ResultCard key={s.value} label={`Capital ${s.label}`} value={euro(s.capital)} accent={[C.info, C.gold, C.success][i]} sub={`Rente : ${euro(s.renteMensuelle)}/mois`} />
             ))}
-            <ResultCard label="Économie fiscale / an" value={euro(result.economieFiscaleAnnuelle)} accent={C.gold} sub={`Total : ${euro(result.economieFiscaleTotale)}`} />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <ResultCard label="Total versé" value={euro(result.totalVerse)} accent={C.ivoryDim} />
-            <ResultCard label="Effort net annuel" value={euro(result.effortNet)} accent={C.warn} sub="Après avantage fiscal" />
+            <ResultCard label="Total verse brut" value={euro(selectedScenario.totalVerse)} accent={C.ivoryDim} />
+            <ResultCard label="Plus-value nette" value={euro(selectedScenario.plusValue)} accent={C.success} />
+            <ResultCard label="Economie fiscale cumulee" value={euro(selectedScenario.econFiscaleCumulee)} accent={C.gold} />
+            <ResultCard label="Effort reel net total" value={euro(selectedScenario.effortReelTotal)} accent={C.warn} />
+            <ResultCard label="TRI net" value={pctFmt(selectedScenario.tri)} accent={C.info} />
+            <ResultCard label="Rente mensuelle estimee" value={euro(selectedScenario.renteMensuelle)} accent={C.gold} sub="Taux conversion 3.2% viager" />
           </div>
         </div>
       </div>
 
+      {/* ── DETAIL TABLE ─────────────────────────────────────────── */}
+      <div style={{ marginTop: 8 }}>
+        <Btn onClick={() => setShowDetail(!showDetail)} variant="outline">{showDetail ? 'Masquer' : 'Voir le detail'}</Btn>
+      </div>
+      {showDetail && (
+        <div style={{ background: C.card, borderRadius: 10, padding: '12px 0', marginTop: 12, maxHeight: 350, overflowY: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr>
+                {['Annee', 'Versements', 'Produits', 'Capital fin annee', 'Economie fiscale'].map(h => (
+                  <th key={h} style={{ textAlign: h === 'Annee' ? 'left' : 'right', padding: '8px 12px', color: C.ivoryDim, fontSize: 10, textTransform: 'uppercase', fontWeight: 700, borderBottom: `1px solid ${C.bd}`, position: 'sticky', top: 0, background: C.card }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {selectedScenario.yearly.map(r => (
+                <tr key={r.annee}>
+                  <td style={{ padding: '6px 12px', color: C.ivory, borderBottom: `1px solid ${C.bd}` }}>{r.annee}</td>
+                  <td style={{ padding: '6px 12px', textAlign: 'right', color: C.ivoryMuted, borderBottom: `1px solid ${C.bd}` }}>{euro(r.versements)}</td>
+                  <td style={{ padding: '6px 12px', textAlign: 'right', color: C.success, borderBottom: `1px solid ${C.bd}` }}>{euro(r.produits)}</td>
+                  <td style={{ padding: '6px 12px', textAlign: 'right', color: C.ivory, fontWeight: 600, borderBottom: `1px solid ${C.bd}` }}>{euro(r.capital)}</td>
+                  <td style={{ padding: '6px 12px', textAlign: 'right', color: C.gold, borderBottom: `1px solid ${C.bd}` }}>{euro(r.econFiscale)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ── CHART ─────────────────────────────────────────────────── */}
       <SectionDivider label="Projection du capital" />
-      <div ref={chartRef} style={{ height: 300, background: '#fff', borderRadius: 10, padding: 16 }}>
-        <Line data={chartData} options={{ ...chartDefaults }} />
+      <div ref={chartRef} style={{ height: 320, background: '#fff', borderRadius: 10, padding: 16 }}>
+        <Line data={chartData} options={chartOptions} />
       </div>
       <div style={{ marginTop: 16 }}>
         <ExportPDFButton onExport={async clientName => {
           const dt = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-          const doc = new jsPDF(); pdfHeader(doc, dt)
-          let y = pdfTitleBlock(doc, 'PER (Plan Epargne Retraite)', clientName, 'Entasis Conseil', dt)
+          const doc = new jsPDF()
+          const conseiller = 'Louis Music'
+          const email = 'louis@entasis-conseil.fr'
+
+          // Page 1: Cover
+          pdfCoverPage(doc, 'PER', clientName, conseiller, email, dt)
+
+          // Page 2: Synthese
+          doc.addPage()
+          pdfHeader(doc, dt)
+          let y = 35
+          y = pdfSec(doc, y, 'Synthese fiscale', dt)
+          y = pdfKPIBlocks(doc, y, [
+            { label: 'Impots sans PER', value: fmt(result.impotSans), accent: red },
+            { label: 'Impots avec PER', value: fmt(result.impotAvec), accent: navy },
+            { label: 'Economie d\'impots', value: fmt(result.economieFiscale), accent: green },
+            { label: 'TMI detectee', value: Math.round(result.tmi * 100) + ' %', accent: navy },
+            { label: 'Plafond PER 2025', value: fmt(result.plafondTotal), accent: navy },
+            { label: 'Effort reel', value: fmt(result.effortReel), accent: dark },
+          ], dt)
+          y += 5
+          y = pdfSec(doc, y, 'Projection du capital a la retraite', dt)
+          y = pdfKPIBlocks(doc, y, [
+            { label: 'Capital Prudent (3%)', value: fmt(result.scenarios[0].capital), accent: [96, 165, 250] },
+            { label: 'Capital Equilibre (5%)', value: fmt(result.scenarios[1].capital), accent: navy },
+            { label: 'Capital Dynamique (7%)', value: fmt(result.scenarios[2].capital), accent: green },
+            { label: 'Total verse brut', value: fmt(selectedScenario.totalVerse), accent: dark },
+            { label: 'Eco. fiscale cumulee', value: fmt(selectedScenario.econFiscaleCumulee), accent: green },
+            { label: 'Rente mensuelle (eq.)', value: fmt(result.scenarios[1].renteMensuelle), accent: navy },
+          ], dt)
+          y += 5
           y = pdfSec(doc, y, 'Parametres de simulation', dt)
           y = pdfRows(doc, y, [
-            ['Age actuel', age + ' ans'], ['Age de retraite', ageRetraite + ' ans'],
+            ['Age actuel', age + ' ans'],
+            ['Age de retraite', ageRetraite + ' ans'],
             ['Duree de capitalisation', duree + ' ans'],
-            ['Versement mensuel', pEur(versementMensuel)], ['Versement initial', pEur(versementInitial)],
-            ['TMI actuel', tmi + ' %'],
+            ['Versement mensuel', fmt(versementMensuel)],
+            ['Versement initial', fmt(versementInitial)],
+            ['Revenu fiscal', fmt(revenu)],
+            ['Nombre de parts', String(nbParts)],
+            ['Frais de gestion', fraisGestion + ' %'],
           ], dt)
-          y += 10
-          y = pdfSec(doc, y, 'Projections du capital', dt)
-          y = pdfRows(doc, y, [
-            ['Capital Prudent (3%)', pEur(result.curves[0].final)],
-            ['Capital Equilibre (5%)', pEur(result.curves[1].final)],
-            ['Capital Dynamique (7%)', pEur(result.curves[2].final)],
-          ], dt)
-          y += 10
-          y = pdfSec(doc, y, 'Avantage fiscal et rente', dt)
-          y = pdfRows(doc, y, [
-            ['Economie fiscale / an', pEur(result.economieFiscaleAnnuelle), 'green'],
-            ['Economie fiscale totale', pEur(result.economieFiscaleTotale), 'green'],
-            ['Total verse sur la periode', pEur(result.totalVerse)],
-            ['Effort net annuel (apres avantage fiscal)', pEur(result.effortNet)],
-            ['Rente mensuelle estimee (equilibre)', pEur(result.renteMensuelle[1])],
-          ], dt)
-          y += 10
-          y = pdfKeyBox(doc, y, 'Points cles de la simulation', [
-            ['Capital equilibre', pEur(result.curves[1].final)],
-            ['Eco. fiscale totale', pEur(result.economieFiscaleTotale), 'green'],
-            ['Rente mensuelle', pEur(result.renteMensuelle[1])],
-            ['Effort net / an', pEur(result.effortNet)],
-          ], dt)
+
+          // Page 3: Tableau annuel
+          doc.addPage()
+          pdfHeader(doc, dt)
+          y = 35
+          y = pdfSec(doc, y, 'Tableau annuel detaille — ' + selectedScenario.label, dt)
+          y = pdfCompTable(doc, y, ['Annee', 'Versements', 'Produits', 'Capital', 'Eco. fiscale'], selectedScenario.yearly.map((r, i) => ({
+            cells: [r.annee, fmt(r.versements), fmt(r.produits), fmt(r.capital), fmt(r.econFiscale)],
+            _bold: i === selectedScenario.yearly.length - 1,
+          })), dt)
+
+          // Page 4: Chart
           const img = await captureChartImage(chartRef)
-          pdfChartAndDisclaimer(doc, img, y, dt)
+          y = pdfChartPage(doc, img, 'Evolution du capital PER', y, dt)
+          pdfDisclaimer(doc, y, dt)
+
           pdfFinalize(doc, 'PER', clientName)
         }} />
       </div>
@@ -718,60 +860,114 @@ function SimulateurPER() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   TAB 3 — SIMULATEUR ASSURANCE VIE
+   TAB 2 — SIMULATEUR ASSURANCE VIE (logique Boursorama)
 ═══════════════════════════════════════════════════════════════════════════ */
+const AV_OBJECTIFS = [
+  { value: 'capitalisation', label: 'Capitalisation' },
+  { value: 'transmission', label: 'Transmission' },
+  { value: 'retraite', label: 'Retraite' },
+]
+
 function SimulateurAssuranceVie() {
   const chartRef = useRef(null)
-  const [capitalInitial, setCapitalInitial] = useState(30000)
-  const [versementMensuel, setVersementMensuel] = useState(300)
+  const [capitalInitial, setCapitalInitial] = useState(10000)
+  const [versementMensuel, setVersementMensuel] = useState(200)
   const [duree, setDuree] = useState(15)
-  const [pctEuro, setPctEuro] = useState(30)
-  const [rendEuro, setRendEuro] = useState(2.5)
-  const [rendUC, setRendUC] = useState(6)
+  const [pctEuro, setPctEuro] = useState(40)
+  const [tauxEuro, setTauxEuro] = useState(2.5)
+  const [tauxUC, setTauxUC] = useState(5)
+  const [fraisGestion, setFraisGestion] = useState(0.85)
+  const [objectif, setObjectif] = useState('capitalisation')
+  const [situationFiscale, setSituationFiscale] = useState('celibataire')
 
   const pctUC = 100 - pctEuro
 
   const result = useMemo(() => {
-    const rendGlobal = (pctEuro / 100 * rendEuro + pctUC / 100 * rendUC) / 100
-    const r = rendGlobal / 12
-    const n = duree * 12
+    const tauxComposite = (pctEuro * tauxEuro + pctUC * tauxUC) / 10000 - fraisGestion / 100
+    const versementAnnuel = versementMensuel * 12
 
-    let soldeBrut = capitalInitial
-    let soldeNet = capitalInitial
+    let capital = capitalInitial
     const yearlyBrut = []
     const yearlyNet = []
+    const yearlyCumVerse = []
 
-    for (let i = 1; i <= n; i++) {
-      soldeBrut = soldeBrut * (1 + r) + versementMensuel
-      // Fiscalité simplifiée: PS 17.2% sur gains pour fonds euro annuellement
-      const gainMensuel = soldeNet * r
-      const ps = gainMensuel * (pctEuro / 100) * 0.172
-      soldeNet = soldeNet * (1 + r) + versementMensuel - ps
+    for (let an = 1; an <= duree; an++) {
+      capital = capital * (1 + tauxComposite) + versementAnnuel
+      yearlyBrut.push(Math.round(capital))
 
-      if (i % 12 === 0) {
-        yearlyBrut.push(Math.round(soldeBrut))
-        yearlyNet.push(Math.round(soldeNet))
+      const totalVerseAnN = capitalInitial + versementAnnuel * an
+      yearlyCumVerse.push(totalVerseAnN)
+
+      // Fiscal calc at each year for net curve
+      const interetsAnN = Math.max(0, Math.round(capital) - totalVerseAnN)
+      const abattement = situationFiscale === 'couple' ? 9200 : 4600
+      let impotAnN = 0
+      if (an >= 8) {
+        // After 8 years
+        const interetsApresAbat = Math.max(0, interetsAnN - abattement)
+        if (totalVerseAnN <= 150000) {
+          impotAnN = interetsApresAbat * 0.075
+        } else {
+          const part150 = Math.max(0, interetsApresAbat * (150000 / totalVerseAnN))
+          const partAbove = interetsApresAbat - part150
+          impotAnN = part150 * 0.075 + partAbove * 0.128
+        }
+      } else {
+        // Before 8 years: PFU 12.8% on all gains
+        impotAnN = interetsAnN * 0.128
       }
+      const psAnN = interetsAnN * 0.172
+      yearlyNet.push(Math.round(capital - impotAnN - psAnN))
     }
 
-    const totalVerse = capitalInitial + versementMensuel * n
-    const interetsBruts = Math.round(soldeBrut - totalVerse)
-    const interetsNets = Math.round(soldeNet - totalVerse)
+    const capitalBrut = Math.round(capital)
+    const totalVerse = capitalInitial + versementAnnuel * duree
+    const interets = Math.max(0, capitalBrut - totalVerse)
 
-    // Fiscalité rachat après 8 ans
-    const abattement = 4600 // célibataire — 9200 couple
-    const gainsRachat = interetsBruts
-    const pfuApres8 = Math.max(0, gainsRachat - abattement) * 0.247 // 24.7% = 7.5% IR + 17.2% PS
-    const netApres8 = Math.round(soldeBrut - pfuApres8)
+    // Fiscalite AV apres 8 ans
+    const abattement = situationFiscale === 'couple' ? 9200 : 4600
+    const interetsApresAbat = Math.max(0, interets - abattement)
 
-    return { capitalBrut: Math.round(soldeBrut), capitalNet: Math.round(soldeNet), totalVerse, interetsBruts, interetsNets, rendGlobal, pfuApres8: Math.round(pfuApres8), netApres8, yearlyBrut, yearlyNet }
-  }, [capitalInitial, versementMensuel, duree, pctEuro, rendEuro, rendUC, pctUC])
+    let irApresAbat = 0
+    if (totalVerse <= 150000) {
+      irApresAbat = Math.round(interetsApresAbat * 0.075)
+    } else {
+      const part150 = Math.max(0, interetsApresAbat * (150000 / totalVerse))
+      const partAbove = interetsApresAbat - part150
+      irApresAbat = Math.round(part150 * 0.075 + partAbove * 0.128)
+    }
+    const ps = Math.round(interets * 0.172)
+    const netFiscal = capitalBrut - irApresAbat - ps
+    const rendNetAnnualise = totalVerse > 0 && duree > 0 ? (Math.pow(netFiscal / totalVerse, 1 / duree) - 1) : 0
+
+    return {
+      capitalBrut, totalVerse, interets, abattement, irApresAbat, ps, netFiscal,
+      rendNetAnnualise, tauxComposite,
+      yearlyBrut, yearlyNet, yearlyCumVerse,
+    }
+  }, [capitalInitial, versementMensuel, duree, pctEuro, tauxEuro, tauxUC, fraisGestion, situationFiscale, pctUC])
 
   const chartData = {
     labels: Array.from({ length: duree }, (_, i) => `An ${i + 1}`),
     datasets: [
-      { label: 'Capital brut', data: result.yearlyBrut, borderColor: C.gold, backgroundColor: `${C.gold}15`, fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
-      { label: 'Capital net (PS déduits)', data: result.yearlyNet, borderColor: C.info, backgroundColor: `${C.info}10`, fill: false, tension: 0.3, pointRadius: 0, borderWidth: 2, borderDash: [5, 3] },
+      {
+        label: 'Versements cumules',
+        data: result.yearlyCumVerse,
+        borderColor: '#bbb', backgroundColor: 'rgba(200,200,200,0.1)', fill: true,
+        tension: 0.3, pointRadius: 0, borderWidth: 1.5, borderDash: [4, 3],
+      },
+      {
+        label: 'Capital brut',
+        data: result.yearlyBrut,
+        borderColor: C.gold, backgroundColor: 'transparent', fill: false,
+        tension: 0.3, pointRadius: 0, borderWidth: 2.5,
+      },
+      {
+        label: 'Capital net apres fiscalite',
+        data: result.yearlyNet,
+        borderColor: C.success, backgroundColor: 'transparent', fill: false,
+        tension: 0.3, pointRadius: 0, borderWidth: 2.5,
+      },
     ],
   }
 
@@ -779,85 +975,131 @@ function SimulateurAssuranceVie() {
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         <div>
-          <Slider label="Capital initial" value={capitalInitial} onChange={setCapitalInitial} min={0} max={500000} step={5000} suffix="€" formatValue={v => euro(v)} />
-          <Slider label="Versements mensuels" value={versementMensuel} onChange={setVersementMensuel} min={0} max={5000} step={50} suffix="€" formatValue={v => euro(v)} />
-          <Slider label="Durée" value={duree} onChange={setDuree} min={1} max={40} suffix="ans" />
-          <SectionDivider label="Répartition" />
-          <Slider label={`Fonds Euro (${pctEuro}%)`} value={pctEuro} onChange={setPctEuro} min={0} max={100} step={5} suffix="%" />
-          <Slider label="Rendement fonds Euro" value={rendEuro} onChange={setRendEuro} min={0.5} max={5} step={0.1} suffix="%" />
-          <Slider label="Rendement UC" value={rendUC} onChange={setRendUC} min={0} max={12} step={0.5} suffix="%" />
+          <Slider label="Capital initial" value={capitalInitial} onChange={setCapitalInitial} min={1000} max={500000} step={1000} suffix="EUR" formatValue={v => euro(v)} />
+          <Slider label="Versements mensuels programmes" value={versementMensuel} onChange={setVersementMensuel} min={0} max={5000} step={50} suffix="EUR" formatValue={v => euro(v)} />
+          <Slider label="Duree" value={duree} onChange={setDuree} min={1} max={30} suffix="ans" />
+
+          <SectionDivider label="Repartition et rendement" />
+          <Slider label={`Fonds Euro ${pctEuro}% / UC ${pctUC}%`} value={pctEuro} onChange={setPctEuro} min={0} max={100} step={5} suffix="%" />
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+            <Field label="Taux fonds euro" value={tauxEuro} onChange={setTauxEuro} suffix="%" step="0.1" />
+            <Field label="Taux UC hypothese" value={tauxUC} onChange={setTauxUC} suffix="%" step="0.1" />
+          </div>
+
+          <Field label="Frais de gestion annuels" value={fraisGestion} onChange={setFraisGestion} suffix="%" step="0.05" />
+          <div style={{ height: 14 }} />
+
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontFamily: FONT_SANS }}>Objectif</div>
+            <PillSelect options={AV_OBJECTIFS} value={objectif} onChange={setObjectif} />
+          </div>
+
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontFamily: FONT_SANS }}>Situation fiscale</div>
+            <PillSelect options={[{ value: 'celibataire', label: 'Celibataire' }, { value: 'couple', label: 'Couple' }]} value={situationFiscale} onChange={setSituationFiscale} />
+          </div>
         </div>
 
         <div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-            <ResultCard label="Capital final brut" value={euro(result.capitalBrut)} accent={C.gold} />
-            <ResultCard label="Total versé" value={euro(result.totalVerse)} accent={C.ivoryDim} />
-            <ResultCard label="Intérêts bruts" value={euro(result.interetsBruts)} accent={C.success} />
-            <ResultCard label="Rendement global" value={pctFmt(result.rendGlobal)} accent={C.info} sub={`Euro ${pctEuro}% / UC ${pctUC}%`} />
+            <ResultCard label="Capital brut final" value={euro(result.capitalBrut)} accent={C.gold} />
+            <ResultCard label="Total verse" value={euro(result.totalVerse)} accent={C.ivoryDim} />
+            <ResultCard label="Interets generes" value={euro(result.interets)} accent={C.success} />
+            <ResultCard label="Rendement net annualise" value={pctFmt(result.rendNetAnnualise)} accent={C.info} sub={`Euro ${pctEuro}% / UC ${pctUC}%`} />
           </div>
 
           <div style={{ background: C.card, borderRadius: 10, padding: '14px 16px', marginBottom: 10 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryDim, textTransform: 'uppercase', marginBottom: 8, fontFamily: FONT_SANS }}>Fiscalité rachat après 8 ans</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: `1px solid ${C.bd}` }}>
-              <span style={{ color: C.ivoryDim }}>Gains totaux</span>
-              <span style={{ color: C.ivory, fontWeight: 600 }}>{euro(result.interetsBruts)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: `1px solid ${C.bd}` }}>
-              <span style={{ color: C.ivoryDim }}>Abattement (célibataire)</span>
-              <span style={{ color: C.success, fontWeight: 600 }}>- {euro(4600)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: `1px solid ${C.bd}` }}>
-              <span style={{ color: C.ivoryDim }}>PFU 24,7% (7,5% IR + 17,2% PS)</span>
-              <span style={{ color: C.danger, fontWeight: 600 }}>- {euro(result.pfuApres8)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '6px 0', fontWeight: 700 }}>
-              <span style={{ color: C.ivory }}>Capital net après rachat</span>
-              <span style={{ color: C.gold }}>{euro(result.netApres8)}</span>
+            <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryDim, textTransform: 'uppercase', marginBottom: 8, fontFamily: FONT_SANS }}>Fiscalite rachat apres 8 ans</div>
+            {[
+              ['Interets generes', euro(result.interets), C.ivory],
+              [`Abattement (${situationFiscale === 'couple' ? 'couple' : 'celibataire'})`, `- ${euro(result.abattement)}`, C.success],
+              ['PS (17,2%)', `- ${euro(result.ps)}`, C.danger],
+              ['IR apres abattement', `- ${euro(result.irApresAbat)}`, C.danger],
+            ].map(([label, val, color], i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: `1px solid ${C.bd}` }}>
+                <span style={{ color: C.ivoryDim }}>{label}</span>
+                <span style={{ color, fontWeight: 600 }}>{val}</span>
+              </div>
+            ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, padding: '8px 0', fontWeight: 700 }}>
+              <span style={{ color: C.ivory }}>Capital net apres fiscalite</span>
+              <span style={{ color: C.success }}>{euro(result.netFiscal)}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <SectionDivider label="Évolution du capital" />
-      <div ref={chartRef} style={{ height: 300, background: '#fff', borderRadius: 10, padding: 16 }}>
+      {/* ── CHART ─────────────────────────────────────────────────── */}
+      <SectionDivider label="Evolution du capital" />
+      <div ref={chartRef} style={{ height: 320, background: '#fff', borderRadius: 10, padding: 16 }}>
         <Line data={chartData} options={{ ...chartDefaults }} />
       </div>
       <div style={{ marginTop: 16 }}>
         <ExportPDFButton onExport={async clientName => {
           const dt = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-          const doc = new jsPDF(); pdfHeader(doc, dt)
-          let y = pdfTitleBlock(doc, 'Assurance Vie', clientName, 'Entasis Conseil', dt)
+          const doc = new jsPDF()
+          const conseiller = 'Louis Music'
+          const email = 'louis@entasis-conseil.fr'
+
+          // Page 1: Cover
+          pdfCoverPage(doc, 'Assurance Vie', clientName, conseiller, email, dt)
+
+          // Page 2: Synthese
+          doc.addPage()
+          pdfHeader(doc, dt)
+          let y = 35
+          y = pdfSec(doc, y, 'Synthese', dt)
+          y = pdfKPIBlocks(doc, y, [
+            { label: 'Capital brut final', value: fmt(result.capitalBrut), accent: navy },
+            { label: 'Total verse', value: fmt(result.totalVerse), accent: dark },
+            { label: 'Interets generes', value: fmt(result.interets), accent: green },
+            { label: 'PS (17,2%)', value: '- ' + fmt(result.ps), accent: red },
+            { label: 'IR apres abattement', value: '- ' + fmt(result.irApresAbat), accent: red },
+            { label: 'Capital net apres fiscalite', value: fmt(result.netFiscal), accent: green },
+          ], dt)
+          y += 5
+          y = pdfSec(doc, y, 'Rendement', dt)
+          y = pdfKPIBlocks(doc, y, [
+            { label: 'Rendement net annualise', value: pPct(result.rendNetAnnualise), accent: navy },
+            { label: 'Taux composite brut', value: pPct(result.tauxComposite), accent: dark },
+          ], dt)
+          y += 5
           y = pdfSec(doc, y, 'Parametres de simulation', dt)
           y = pdfRows(doc, y, [
-            ['Capital initial', pEur(capitalInitial)], ['Versements mensuels', pEur(versementMensuel)],
-            ['Duree', duree + ' ans'], ['Repartition', 'Fonds Euro ' + pctEuro + '% / UC ' + (100 - pctEuro) + '%'],
-            ['Rendement fonds Euro', rendEuro + ' %'], ['Rendement UC', rendUC + ' %'],
+            ['Capital initial', fmt(capitalInitial)],
+            ['Versements mensuels', fmt(versementMensuel)],
+            ['Duree', duree + ' ans'],
+            ['Repartition', 'Fonds Euro ' + pctEuro + '% / UC ' + pctUC + '%'],
+            ['Taux fonds euro', tauxEuro + ' %'],
+            ['Taux UC hypothese', tauxUC + ' %'],
+            ['Frais de gestion', fraisGestion + ' %'],
+            ['Objectif', AV_OBJECTIFS.find(o => o.value === objectif)?.label || ''],
+            ['Situation fiscale', situationFiscale === 'couple' ? 'Couple' : 'Celibataire'],
           ], dt)
-          y += 10
-          y = pdfSec(doc, y, 'Resultats', dt)
-          y = pdfRows(doc, y, [
-            ['Capital final brut', pEur(result.capitalBrut)],
-            ['Total verse', pEur(result.totalVerse)],
-            ['Interets bruts', pEur(result.interetsBruts), 'green'],
-            ['Rendement global pondere', pPct(result.rendGlobal)],
-          ], dt)
-          y += 10
-          y = pdfSec(doc, y, 'Fiscalite rachat apres 8 ans', dt)
-          y = pdfRows(doc, y, [
-            ['Gains totaux', pEur(result.interetsBruts)],
-            ['Abattement (celibataire)', '4 600 EUR'],
-            ['PFU 24,7% (7,5% IR + 17,2% PS)', pEur(result.pfuApres8), 'red'],
-            ['Capital net apres rachat', pEur(result.netApres8)],
-          ], dt)
-          y += 10
-          y = pdfKeyBox(doc, y, 'Points cles de la simulation', [
-            ['Capital final brut', pEur(result.capitalBrut)],
-            ['Interets bruts', pEur(result.interetsBruts), 'green'],
-            ['Capital net (8 ans)', pEur(result.netApres8)],
-            ['PFU estime', pEur(result.pfuApres8), 'red'],
-          ], dt)
+
+          // Page 3: Tableau annuel
+          doc.addPage()
+          pdfHeader(doc, dt)
+          y = 35
+          y = pdfSec(doc, y, 'Tableau annuel detaille', dt)
+          const tableRows = result.yearlyBrut.map((brut, i) => ({
+            cells: [
+              i + 1,
+              fmt(result.yearlyCumVerse[i]),
+              fmt(brut),
+              fmt(brut - result.yearlyCumVerse[i]),
+              fmt(result.yearlyNet[i]),
+            ],
+            _bold: i === result.yearlyBrut.length - 1,
+          }))
+          y = pdfCompTable(doc, y, ['Annee', 'Verse cumule', 'Capital brut', 'Interets', 'Capital net'], tableRows, dt)
+
+          // Page 4: Chart
           const img = await captureChartImage(chartRef)
-          pdfChartAndDisclaimer(doc, img, y, dt)
+          y = pdfChartPage(doc, img, 'Evolution du capital Assurance Vie', y, dt)
+          pdfDisclaimer(doc, y, dt)
+
           pdfFinalize(doc, 'AssuranceVie', clientName)
         }} />
       </div>
@@ -866,29 +1108,27 @@ function SimulateurAssuranceVie() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   TAB 4 — SIMULATEUR SCPI WEMO ONE (données officielles wemo-reim.fr, mars 2026)
+   TAB 3 — SIMULATEUR SCPI WEMO ONE (donnees officielles wemo-reim.fr, mars 2026)
 ═══════════════════════════════════════════════════════════════════════════ */
 const WEMO = {
   prixPart: 200,
-  valeurReconstitution: 218.73,        // au 31/12/2025
-  td2025: 0.1527,                      // taux distribution réel 2025 (exceptionnel)
-  tdCible: 0.07,                       // objectif long terme, non garanti, net de frais de gestion, brut de fiscalité
+  valeurReconstitution: 218.73,
+  td2025: 0.1527,
+  tdCible: 0.07,
   triCible: 0.075,
   perfGlobaleCible: 0.08,
-  foreignPct: 0.8552,                  // Europe hors France
+  foreignPct: 0.8552,
   francePct: 0.145,
   geoItalie: 0.504, geoEspagne: 0.351, geoFrance: 0.145,
   capitalisation: 100_000_000,
   nbAssocies: 3600,
   nbBiens: 31,
-  ticketMin: 1000,                     // 5 parts
+  ticketMin: 1000,
   dureeRecommandee: 8,
-  fraisSouscription: 0.10,             // 10% HT sur capital investi à l'entrée
-  commissionGestion: 0.11,             // 11% HT — déjà incluse dans le TD (net de frais)
-  // Pas de commission de sortie — SCPI à capital variable, retrait par confrontation au marché
-  delaiJouissance: 7,                  // mois
+  fraisSouscription: 0.10,
+  commissionGestion: 0.11,
+  delaiJouissance: 7,
   ps: 0.172,
-  // Classes d'actifs
   actifCommerce: 0.739, actifLogistique: 0.151, actifEducation: 0.073, actifBureaux: 0.038,
 }
 
@@ -910,38 +1150,24 @@ function SimulateurSCPI() {
   const rendementDecimal = rendement / 100
 
   const result = useMemo(() => {
-    // Frais de souscription 10% HT payés EN SUS du capital investi
-    // Capital en parts = montantEffectif (travaille et génère des revenus)
-    // Frais = montantEffectif × 10% (coût additionnel)
-    // Décaissement total = montantEffectif + frais
     const capitalEnParts = montantEffectif
     const fraisE = Math.round(montantEffectif * WEMO.fraisSouscription)
     const decaissementTotal = montantEffectif + fraisE
 
     function calcStructure(isIS) {
       const rate = isIS ? isRate / 100 : tmiRate / 100
-      // TD is already net de frais de gestion, brut de fiscalité
-      // Revenue base = full capital in parts (not reduced by fees)
       const revenusBrutsAn = capitalEnParts * rendementDecimal
-
-      // PS 17.2% applies ONLY on the 14.5% French assets portion
       const psAn = isIS ? 0 : revenusBrutsAn * WEMO.francePct * WEMO.ps
-      // IR/IS on full distribution
       const impotAn = revenusBrutsAn * rate
       const revenusNetsAn = revenusBrutsAn - psAn - impotAn
-
-      // Effective years of distribution (minus jouissance delay)
       const effectiveYears = Math.max(0, duree - WEMO.delaiJouissance / 12)
       const totalBrut = Math.round(revenusBrutsAn * effectiveYears)
       const totalPS = Math.round(psAn * effectiveYears)
       const totalImpot = Math.round(impotAn * effectiveYears)
       const totalNet = Math.round(revenusNetsAn * effectiveYears)
-
-      // Exit: nb parts × prix part at exit (revalorised) — NO exit fees
       const prixPartSortie = WEMO.prixPart * Math.pow(1 + revalo / 100, duree)
       const capitalSortie = nbParts * prixPartSortie
 
-      // TRI: Newton's method — initial outlay = decaissementTotal (capital + fees on top)
       let tri = 0.05
       for (let iter = 0; iter < 50; iter++) {
         let npv = -decaissementTotal
@@ -973,7 +1199,6 @@ function SimulateurSCPI() {
     const ir = calcStructure(false)
     const is = calcStructure(true)
 
-    // Yearly evolution for chart (value of parts + cumulated net revenue)
     const yearly = Array.from({ length: duree }, (_, i) => {
       const an = i + 1
       const prixPartAn = WEMO.prixPart * Math.pow(1 + revalo / 100, an)
@@ -999,25 +1224,25 @@ function SimulateurSCPI() {
     setAiLoading(true)
     try {
       const d = structure === 'IS' || structure === 'SCI_IS' ? result.is : result.ir
-      const prompt = `Rédige une note de synthèse professionnelle (10-12 lignes) pour un client investissant ${euro(montantEffectif)} (${nbParts} parts) en SCPI Wemo One via ${structure}.
+      const prompt = `Redige une note de synthese professionnelle (10-12 lignes) pour un client investissant ${euro(montantEffectif)} (${nbParts} parts) en SCPI Wemo One via ${structure}.
 
-Données officielles Wemo One (source wemo-reim.fr) :
-- TD 2025 réel : 15,27% (exceptionnel, phase de lancement)
-- TD cible long terme : 7% net de frais de gestion (11% HT), brut de fiscalité
+Donnees officielles Wemo One (source wemo-reim.fr) :
+- TD 2025 reel : 15,27% (exceptionnel, phase de lancement)
+- TD cible long terme : 7% net de frais de gestion (11% HT), brut de fiscalite
 - TRI cible : 7,5% — Performance globale cible : 8%
 - Frais de souscription : 10% HT
-- Pas de commission de sortie (SCPI à capital variable, retrait par confrontation au marché)
-- 85,52% patrimoine européen hors France (Italie 50,4%, Espagne 35,1%)
+- Pas de commission de sortie (SCPI a capital variable, retrait par confrontation au marche)
+- 85,52% patrimoine europeen hors France (Italie 50,4%, Espagne 35,1%)
 - Classes d'actifs : Commerce 73,9%, Logistique 15,1%
-- Capitalisation : 100M€, 3600 associés, 31 biens
+- Capitalisation : 100M EUR, 3600 associes, 31 biens
 
-Résultats simulation sur ${duree} ans (hypothèse rendement ${rendement}%) :
-- TRI estimé : ${pctFmt(d.tri)}
+Resultats simulation sur ${duree} ans (hypothese rendement ${rendement}%) :
+- TRI estime : ${pctFmt(d.tri)}
 - Revenus nets annuels : ${euro(d.revenusNetsAn)}
-- Capital à la sortie : ${euro(d.capitalSortie)}
+- Capital a la sortie : ${euro(d.capitalSortie)}
 
-IMPORTANT : Mentionne clairement que le TD 2025 de 15,27% est exceptionnel et ne reflète pas la performance future. Le taux cible long terme est de 7%. Mentionne les risques (liquidité limitée, capital non garanti, marché immobilier européen). Rappelle que les performances passées ne préjugent pas des performances futures.`
-      const text = await callAI('Tu es un CGP senior chez Entasis Conseil. Rédige des notes conformes AMF : pas de promesse de rendement garanti, mention systématique des risques, distinction claire entre performance passée et objectif futur.', prompt)
+IMPORTANT : Mentionne clairement que le TD 2025 de 15,27% est exceptionnel et ne reflete pas la performance future. Le taux cible long terme est de 7%. Mentionne les risques (liquidite limitee, capital non garanti, marche immobilier europeen). Rappelle que les performances passees ne prejudgent pas des performances futures.`
+      const text = await callAI('Tu es un CGP senior chez Entasis Conseil. Redige des notes conformes AMF : pas de promesse de rendement garanti, mention systematique des risques, distinction claire entre performance passee et objectif futur.', prompt)
       setAiNote(text)
     } catch (e) { setAiNote('Erreur : ' + e.message) }
     setAiLoading(false)
@@ -1028,25 +1253,25 @@ IMPORTANT : Mentionne clairement que le TD 2025 de 15,27% est exceptionnel et ne
     const is = result.is
     const text = `SIMULATION SCPI WEMO ONE — Entasis Conseil
 ══════════════════════════════════════════
-Capital en parts : ${euro(montantEffectif)} (${nbParts} parts × ${WEMO.prixPart} €)
+Capital en parts : ${euro(montantEffectif)} (${nbParts} parts x ${WEMO.prixPart} EUR)
 Frais souscription (10% HT, en sus) : ${euro(result.ir.fraisEntree)}
-Décaissement total : ${euro(result.ir.decaissementTotal)}
-Durée : ${duree} ans · Revalorisation : ${revalo}%/an
-Hypothèse rendement : ${rendement}% (cible officielle : 7%)
-Pas de frais de sortie (SCPI à capital variable)
+Decaissement total : ${euro(result.ir.decaissementTotal)}
+Duree : ${duree} ans - Revalorisation : ${revalo}%/an
+Hypothese rendement : ${rendement}% (cible officielle : 7%)
+Pas de frais de sortie (SCPI a capital variable)
 
 COMPARAISON IR vs IS
 ──────────────────
                           IR              IS
 Revenus bruts / an :      ${euro(ir.revenusBrutsAn).padStart(10)}    ${euro(is.revenusBrutsAn).padStart(10)}
 PS (14,5% FR) / an :      ${euro(ir.psAn).padStart(10)}    —
-Impôt / an :              ${euro(ir.impotAn).padStart(10)}    ${euro(is.impotAn).padStart(10)}
+Impot / an :              ${euro(ir.impotAn).padStart(10)}    ${euro(is.impotAn).padStart(10)}
 Revenus nets / an :       ${euro(ir.revenusNetsAn).padStart(10)}    ${euro(is.revenusNetsAn).padStart(10)}
-Revenus cumulés :         ${euro(ir.totalNet).padStart(10)}    ${euro(is.totalNet).padStart(10)}
+Revenus cumules :         ${euro(ir.totalNet).padStart(10)}    ${euro(is.totalNet).padStart(10)}
 Capital sortie :          ${euro(ir.capitalSortie).padStart(10)}    ${euro(is.capitalSortie).padStart(10)}
-TRI estimé :              ${pctFmt(ir.tri).padStart(10)}    ${pctFmt(is.tri).padStart(10)}
+TRI estime :              ${pctFmt(ir.tri).padStart(10)}    ${pctFmt(is.tri).padStart(10)}
 
-⚠ Les performances passées ne préjugent pas des performances futures.
+Les performances passees ne prejudgent pas des performances futures.
 Simulation indicative — Entasis Conseil`
     copyText(text)
     setCopied(true)
@@ -1064,25 +1289,24 @@ Simulation indicative — Entasis Conseil`
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
           <div>
             <div style={{ fontSize: 22, fontWeight: 700, color: C.gold, fontFamily: FONT_SERIF }}>SCPI Wemo One</div>
-            <div style={{ fontSize: 12, color: C.ivoryDim, marginTop: 2 }}>SCPI diversifiée européenne — Wemo REIM · Capitalisation {(WEMO.capitalisation / 1e6).toFixed(0)}M€</div>
+            <div style={{ fontSize: 12, color: C.ivoryDim, marginTop: 2 }}>SCPI diversifiee europeenne — Wemo REIM - Capitalisation {(WEMO.capitalisation / 1e6).toFixed(0)}M EUR</div>
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 10, background: C.goldBg, color: C.gold, border: `1px solid ${C.goldLine}` }}>{WEMO.nbAssocies.toLocaleString('fr-FR')} associés</span>
+            <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 10, background: C.goldBg, color: C.gold, border: `1px solid ${C.goldLine}` }}>{WEMO.nbAssocies.toLocaleString('fr-FR')} associes</span>
             <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 10, background: C.goldBg, color: C.gold, border: `1px solid ${C.goldLine}` }}>{WEMO.nbBiens} biens</span>
           </div>
         </div>
 
-        {/* Key figures row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 8, marginBottom: 16 }}>
           {[
-            { label: 'Prix / part', value: `${WEMO.prixPart} €` },
-            { label: 'Val. reconst.', value: `${WEMO.valeurReconstitution.toFixed(2)} €` },
+            { label: 'Prix / part', value: `${WEMO.prixPart} EUR` },
+            { label: 'Val. reconst.', value: `${WEMO.valeurReconstitution.toFixed(2)} EUR` },
             { label: 'TD 2025', value: '15,27%', accent: C.success },
             { label: 'TD cible LT', value: '7%', accent: C.gold },
             { label: 'TRI cible', value: '7,5%' },
             { label: 'Souscription', value: '10% HT' },
             { label: 'Gestion', value: '11% HT' },
-            { label: 'Délai jouiss.', value: '7 mois' },
+            { label: 'Delai jouiss.', value: '7 mois' },
           ].map(c => (
             <div key={c.label} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 9.5, color: C.ivoryDim, textTransform: 'uppercase', fontWeight: 600, marginBottom: 4, letterSpacing: '.03em' }}>{c.label}</div>
@@ -1091,10 +1315,9 @@ Simulation indicative — Entasis Conseil`
           ))}
         </div>
 
-        {/* Geographic & asset class breakdown */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.ivoryDim, textTransform: 'uppercase', marginBottom: 8, letterSpacing: '.06em' }}>Répartition géographique</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.ivoryDim, textTransform: 'uppercase', marginBottom: 8, letterSpacing: '.06em' }}>Repartition geographique</div>
             {[
               { label: 'Italie', pct: WEMO.geoItalie, color: '#4ade80' },
               { label: 'Espagne', pct: WEMO.geoEspagne, color: '#fb923c' },
@@ -1115,7 +1338,7 @@ Simulation indicative — Entasis Conseil`
             {[
               { label: 'Commerce', pct: WEMO.actifCommerce, color: C.gold },
               { label: 'Logistique', pct: WEMO.actifLogistique, color: '#a78bfa' },
-              { label: 'Éducation', pct: WEMO.actifEducation, color: '#22d3ee' },
+              { label: 'Education', pct: WEMO.actifEducation, color: '#22d3ee' },
               { label: 'Bureaux', pct: WEMO.actifBureaux, color: '#f472b6' },
             ].map(a => (
               <div key={a.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
@@ -1130,57 +1353,55 @@ Simulation indicative — Entasis Conseil`
           </div>
         </div>
 
-        {/* Ticket minimum */}
         <div style={{ marginTop: 12, fontSize: 11, color: C.ivoryDim }}>
-          Ticket minimum : {euro(WEMO.ticketMin)} ({WEMO.ticketMin / WEMO.prixPart} parts) · Durée recommandée : {WEMO.dureeRecommandee} ans
+          Ticket minimum : {euro(WEMO.ticketMin)} ({WEMO.ticketMin / WEMO.prixPart} parts) - Duree recommandee : {WEMO.dureeRecommandee} ans
         </div>
       </div>
 
       {/* ── DISCLAIMER ────────────────────────────────────────────── */}
       <div style={{ background: 'rgba(201,168,76,0.06)', border: `1px solid ${C.goldLine}`, borderRadius: 10, padding: '12px 16px', marginBottom: 20, fontSize: 11.5, lineHeight: 1.7, color: C.ivoryMuted }}>
-        <strong style={{ color: C.gold }}>⚠ Avertissement</strong> — Le taux de distribution 2025 de 15,27% ne reflète pas la performance future. Ce taux exceptionnel s'explique par la phase de lancement de la SCPI et des conditions d'acquisition particulièrement favorables. Le taux cible long terme est de <strong style={{ color: C.ivory }}>7% net de frais de gestion, brut de fiscalité</strong> (non garanti). Les performances passées ne préjugent pas des performances futures. L'investissement en SCPI comporte un risque de perte en capital. Frais de souscription : 10% HT. Commission de gestion : 11% HT (déjà déduite du taux de distribution). Pas de commission de sortie (SCPI à capital variable).
+        <strong style={{ color: C.gold }}>Avertissement</strong> — Le taux de distribution 2025 de 15,27% ne reflete pas la performance future. Ce taux exceptionnel s'explique par la phase de lancement de la SCPI et des conditions d'acquisition particulierement favorables. Le taux cible long terme est de <strong style={{ color: C.ivory }}>7% net de frais de gestion, brut de fiscalite</strong> (non garanti). Les performances passees ne prejudgent pas des performances futures. L'investissement en SCPI comporte un risque de perte en capital. Frais de souscription : 10% HT. Commission de gestion : 11% HT (deja deduite du taux de distribution). Pas de commission de sortie (SCPI a capital variable).
       </div>
 
       {/* ── SIMULATION INPUTS + RESULTS ───────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         <div>
-          <Slider label="Montant investi" value={montant} onChange={setMontant} min={1000} max={500000} step={1000} suffix="€" formatValue={v => `${euro(v)} (${Math.floor(v / WEMO.prixPart)} parts)`} />
+          <Slider label="Montant investi" value={montant} onChange={setMontant} min={1000} max={500000} step={1000} suffix="EUR" formatValue={v => `${euro(v)} (${Math.floor(v / WEMO.prixPart)} parts)`} />
 
           {montantEffectif !== montant && (
             <div style={{ fontSize: 11, color: C.ivoryDim, marginTop: -12, marginBottom: 12 }}>
-              Arrondi à {nbParts} parts = {euro(montantEffectif)}
+              Arrondi a {nbParts} parts = {euro(montantEffectif)}
             </div>
           )}
 
-          <Slider label="Hypothèse de rendement long terme" value={rendement} onChange={setRendement} min={4} max={12} step={0.25} suffix="%" />
+          <Slider label="Hypothese de rendement long terme" value={rendement} onChange={setRendement} min={4} max={12} step={0.25} suffix="%" />
           <div style={{ fontSize: 10.5, color: C.ivoryDim, marginTop: -12, marginBottom: 16, lineHeight: 1.5 }}>
-            Cible officielle Wemo One : <strong style={{ color: C.gold }}>7% net de frais, brut de fiscalité</strong>
+            Cible officielle Wemo One : <strong style={{ color: C.gold }}>7% net de frais, brut de fiscalite</strong>
           </div>
 
           <div style={{ marginBottom: 18 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontFamily: FONT_SANS }}>Structure de détention</div>
-            <PillSelect options={[{ value: 'IR', label: 'IR (personne physique)' }, { value: 'IS', label: 'IS (société)' }, { value: 'AV', label: 'Assurance Vie' }, { value: 'SCI_IS', label: 'SCI à l\'IS' }]} value={structure} onChange={setStructure} />
+            <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontFamily: FONT_SANS }}>Structure de detention</div>
+            <PillSelect options={[{ value: 'IR', label: 'IR (personne physique)' }, { value: 'IS', label: 'IS (societe)' }, { value: 'AV', label: 'Assurance Vie' }, { value: 'SCI_IS', label: 'SCI a l\'IS' }]} value={structure} onChange={setStructure} />
           </div>
 
           {(structure === 'IR' || structure === 'AV') && <Slider label="Votre TMI" value={tmiRate} onChange={setTmiRate} min={0} max={45} step={1} suffix="%" />}
           {(structure === 'IS' || structure === 'SCI_IS') && <Slider label="Taux IS applicable" value={isRate} onChange={setIsRate} min={15} max={33} step={1} suffix="%" />}
-          <Slider label="Durée de détention" value={duree} onChange={setDuree} min={3} max={20} suffix="ans" />
-          <Slider label="Hypothèse revalorisation annuelle" value={revalo} onChange={setRevalo} min={0} max={5} step={0.5} suffix="%" />
+          <Slider label="Duree de detention" value={duree} onChange={setDuree} min={3} max={20} suffix="ans" />
+          <Slider label="Hypothese revalorisation annuelle" value={revalo} onChange={setRevalo} min={0} max={5} step={0.5} suffix="%" />
 
           {duree < 8 && (
             <div style={{ background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: C.warn, marginTop: 8 }}>
-              ⚠ Durée inférieure à la durée recommandée de {WEMO.dureeRecommandee} ans. La liquidité des parts n'est pas garantie et le marché secondaire peut impliquer une décote.
+              Duree inferieure a la duree recommandee de {WEMO.dureeRecommandee} ans. La liquidite des parts n'est pas garantie et le marche secondaire peut impliquer une decote.
             </div>
           )}
 
-          {/* Fiscalité & frais explainer */}
           <div style={{ background: C.card, borderRadius: 8, padding: '12px 14px', marginTop: 16, fontSize: 11.5, lineHeight: 1.6, color: C.ivoryDim }}>
-            <strong style={{ color: C.ivory }}>Frais & Fiscalité</strong><br />
-            • Frais de souscription : <strong style={{ color: C.ivory }}>10% HT en sus</strong> du capital investi ({euro(result.ir.capitalEnParts)} + {euro(result.ir.fraisEntree)} = {euro(result.ir.decaissementTotal)})<br />
-            • Commission de gestion : <strong style={{ color: C.ivory }}>11% HT</strong> — déjà incluse dans le taux de distribution (net de frais)<br />
-            • <strong style={{ color: C.success }}>Pas de commission de sortie</strong> — SCPI à capital variable, retrait par confrontation au marché<br />
-            • PS 17,2% uniquement sur la part française ({(WEMO.francePct * 100).toFixed(1)}%) soit {euro(Math.round(result.ir.revenusBrutsAn * WEMO.francePct))} d'assiette<br />
-            • Les revenus européens ({(WEMO.foreignPct * 100).toFixed(1)}%) sont <strong style={{ color: C.success }}>exonérés de prélèvements sociaux</strong>
+            <strong style={{ color: C.ivory }}>Frais & Fiscalite</strong><br />
+            - Frais de souscription : <strong style={{ color: C.ivory }}>10% HT en sus</strong> du capital investi ({euro(result.ir.capitalEnParts)} + {euro(result.ir.fraisEntree)} = {euro(result.ir.decaissementTotal)})<br />
+            - Commission de gestion : <strong style={{ color: C.ivory }}>11% HT</strong> — deja incluse dans le taux de distribution (net de frais)<br />
+            - <strong style={{ color: C.success }}>Pas de commission de sortie</strong> — SCPI a capital variable, retrait par confrontation au marche<br />
+            - PS 17,2% uniquement sur la part francaise ({(WEMO.francePct * 100).toFixed(1)}%) soit {euro(Math.round(result.ir.revenusBrutsAn * WEMO.francePct))} d'assiette<br />
+            - Les revenus europeens ({(WEMO.foreignPct * 100).toFixed(1)}%) sont <strong style={{ color: C.success }}>exoneres de prelevements sociaux</strong>
           </div>
         </div>
 
@@ -1197,15 +1418,15 @@ Simulation indicative — Entasis Conseil`
               </thead>
               <tbody>
                 {[
-                  ['Capital générateur de revenus', euro(result.ir.capitalEnParts), euro(result.is.capitalEnParts)],
+                  ['Capital generateur de revenus', euro(result.ir.capitalEnParts), euro(result.is.capitalEnParts)],
                   ['Frais souscription (10% HT, en sus)', euro(result.ir.fraisEntree), euro(result.is.fraisEntree)],
-                  ['Décaissement total', euro(result.ir.decaissementTotal), euro(result.is.decaissementTotal)],
+                  ['Decaissement total', euro(result.ir.decaissementTotal), euro(result.is.decaissementTotal)],
                   [`Revenus bruts / an (${rendement}%)`, euro(result.ir.revenusBrutsAn), euro(result.is.revenusBrutsAn)],
                   [`PS 17,2% (part FR ${(WEMO.francePct * 100).toFixed(1)}%)`, euro(result.ir.psAn) + '/an', '—'],
                   [`${structure === 'IS' || structure === 'SCI_IS' ? 'IS' : 'IR'} / an`, euro(result.ir.impotAn) + '/an', euro(result.is.impotAn) + '/an'],
                   ['Revenus nets / an', euro(result.ir.revenusNetsAn), euro(result.is.revenusNetsAn)],
-                  [`Revenus nets cumulés (${duree} ans)`, euro(result.ir.totalNet), euro(result.is.totalNet)],
-                  ['Capital à la sortie', euro(result.ir.capitalSortie), euro(result.is.capitalSortie)],
+                  [`Revenus nets cumules (${duree} ans)`, euro(result.ir.totalNet), euro(result.is.totalNet)],
+                  ['Capital a la sortie', euro(result.ir.capitalSortie), euro(result.is.capitalSortie)],
                 ].map(([label, irVal, isVal], i) => (
                   <tr key={i}>
                     <td style={tdLabel}>{label}</td>
@@ -1214,7 +1435,7 @@ Simulation indicative — Entasis Conseil`
                   </tr>
                 ))}
                 <tr style={{ background: 'rgba(201,168,76,0.05)' }}>
-                  <td style={{ padding: '10px 12px', color: C.gold, fontWeight: 700, fontSize: 13 }}>TRI estimé</td>
+                  <td style={{ padding: '10px 12px', color: C.gold, fontWeight: 700, fontSize: 13 }}>TRI estime</td>
                   <td style={{ padding: '10px 12px', textAlign: 'right', color: C.gold, fontWeight: 700, fontSize: 16, fontFamily: FONT_SERIF }}>{pctFmt(result.ir.tri)}</td>
                   <td style={{ padding: '10px 12px', textAlign: 'right', color: C.gold, fontWeight: 700, fontSize: 16, fontFamily: FONT_SERIF }}>{pctFmt(result.is.tri)}</td>
                 </tr>
@@ -1223,56 +1444,63 @@ Simulation indicative — Entasis Conseil`
           </div>
 
           <div style={{ fontSize: 10, color: C.ivoryDim, marginTop: 8, lineHeight: 1.5 }}>
-            Simulation basée sur une hypothèse de rendement de {rendement}% (cible officielle : 7%, non garanti). TRI calculé par actualisation des flux nets. Pas de frais de sortie (SCPI à capital variable).
+            Simulation basee sur une hypothese de rendement de {rendement}% (cible officielle : 7%, non garanti). TRI calcule par actualisation des flux nets. Pas de frais de sortie (SCPI a capital variable).
           </div>
         </div>
       </div>
 
       {/* ── CHART ─────────────────────────────────────────────────── */}
-      <SectionDivider label="Évolution du patrimoine" />
+      <SectionDivider label="Evolution du patrimoine" />
       <div ref={chartRef} style={{ height: 300, background: '#fff', borderRadius: 10, padding: 16 }}>
         <Line data={chartData} options={{ ...chartDefaults }} />
       </div>
 
       {/* ── ACTIONS ───────────────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-        <Btn onClick={handleCopySim} variant={copied ? 'outline' : 'gold'}>{copied ? '✓ Copié' : 'Copier la simulation'}</Btn>
-        <Btn onClick={handleAINote} variant="outline" disabled={aiLoading}>{aiLoading ? 'Génération…' : 'Générer note IA'}</Btn>
+        <Btn onClick={handleCopySim} variant={copied ? 'outline' : 'gold'}>{copied ? '--- Copie' : 'Copier la simulation'}</Btn>
+        <Btn onClick={handleAINote} variant="outline" disabled={aiLoading}>{aiLoading ? 'Generation...' : 'Generer note IA'}</Btn>
         <ExportPDFButton onExport={async clientName => {
           const dt = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-          const doc = new jsPDF(); pdfHeader(doc, dt)
-          let y = pdfTitleBlock(doc, 'SCPI Wemo One', clientName, 'Entasis Conseil', dt)
+          const doc = new jsPDF()
+          const conseiller = 'Louis Music'
+          const emailC = 'louis@entasis-conseil.fr'
+
+          pdfCoverPage(doc, 'SCPI Wemo One', clientName, conseiller, emailC, dt)
+          doc.addPage()
+          pdfHeader(doc, dt)
+          let y = 35
           y = pdfSec(doc, y, 'Parametres de simulation', dt)
           y = pdfRows(doc, y, [
-            ['Capital en parts', pEur(montantEffectif)], ['Nombre de parts', pNum(nbParts)],
-            ['Frais souscription (10% HT, en sus)', pEur(result.ir.fraisEntree)],
-            ['Decaissement total', pEur(result.ir.decaissementTotal)],
+            ['Capital en parts', fmt(montantEffectif)], ['Nombre de parts', pNum(nbParts)],
+            ['Frais souscription (10% HT, en sus)', fmt(result.ir.fraisEntree)],
+            ['Decaissement total', fmt(result.ir.decaissementTotal)],
             ['Structure de detention', structure], ['Hypothese rendement', rendement + ' %'],
             ['Duree de detention', duree + ' ans'], ['Revalorisation annuelle', revalo + ' %/an'],
           ], dt)
           y += 10
           y = pdfSec(doc, y, 'Comparaison IR vs IS', dt)
           y = pdfCompTable(doc, y, ['', 'IR', 'IS'], [
-            { cells: ['Capital generateur de revenus', pEur(result.ir.capitalEnParts), pEur(result.is.capitalEnParts)] },
-            { cells: ['Frais souscription (en sus)', pEur(result.ir.fraisEntree), pEur(result.is.fraisEntree)] },
-            { cells: ['Decaissement total', pEur(result.ir.decaissementTotal), pEur(result.is.decaissementTotal)] },
-            { cells: ['Revenus bruts / an (' + rendement + '%)', pEur(result.ir.revenusBrutsAn), pEur(result.is.revenusBrutsAn)] },
-            { cells: ['PS 17,2% (part FR 14,5%)', pEur(result.ir.psAn) + '/an', '-'] },
-            { cells: ['Impot / an', pEur(result.ir.impotAn) + '/an', pEur(result.is.impotAn) + '/an'] },
-            { cells: ['Revenus nets / an', pEur(result.ir.revenusNetsAn), pEur(result.is.revenusNetsAn)] },
-            { cells: ['Revenus cumules (' + duree + ' ans)', pEur(result.ir.totalNet), pEur(result.is.totalNet)] },
-            { cells: ['Capital a la sortie', pEur(result.ir.capitalSortie), pEur(result.is.capitalSortie)] },
+            { cells: ['Capital generateur de revenus', fmt(result.ir.capitalEnParts), fmt(result.is.capitalEnParts)] },
+            { cells: ['Frais souscription (en sus)', fmt(result.ir.fraisEntree), fmt(result.is.fraisEntree)] },
+            { cells: ['Decaissement total', fmt(result.ir.decaissementTotal), fmt(result.is.decaissementTotal)] },
+            { cells: ['Revenus bruts / an (' + rendement + '%)', fmt(result.ir.revenusBrutsAn), fmt(result.is.revenusBrutsAn)] },
+            { cells: ['PS 17,2% (part FR 14,5%)', fmt(result.ir.psAn) + '/an', '-'] },
+            { cells: ['Impot / an', fmt(result.ir.impotAn) + '/an', fmt(result.is.impotAn) + '/an'] },
+            { cells: ['Revenus nets / an', fmt(result.ir.revenusNetsAn), fmt(result.is.revenusNetsAn)] },
+            { cells: ['Revenus cumules (' + duree + ' ans)', fmt(result.ir.totalNet), fmt(result.is.totalNet)] },
+            { cells: ['Capital a la sortie', fmt(result.ir.capitalSortie), fmt(result.is.capitalSortie)] },
             { cells: ['TRI estime', pPct(result.ir.tri), pPct(result.is.tri)], _bold: true },
           ], dt)
           y += 10
-          y = pdfKeyBox(doc, y, 'Points cles de la simulation', [
-            ['TRI estime (IR)', pPct(result.ir.tri)],
-            ['Rev. nets / an (IR)', pEur(result.ir.revenusNetsAn), 'green'],
-            ['TRI estime (IS)', pPct(result.is.tri)],
-            ['Rev. nets / an (IS)', pEur(result.is.revenusNetsAn), 'green'],
+          y = pdfKPIBlocks(doc, y, [
+            { label: 'TRI estime (IR)', value: pPct(result.ir.tri), accent: navy },
+            { label: 'Rev. nets / an (IR)', value: fmt(result.ir.revenusNetsAn), accent: green },
+            { label: 'TRI estime (IS)', value: pPct(result.is.tri), accent: navy },
+            { label: 'Rev. nets / an (IS)', value: fmt(result.is.revenusNetsAn), accent: green },
           ], dt)
           const img = await captureChartImage(chartRef)
-          pdfChartAndDisclaimer(doc, img, y, dt)
+          y = pdfChartPage(doc, img, 'Evolution du patrimoine SCPI', y, dt)
+          pdfDisclaimer(doc, y, dt)
           pdfFinalize(doc, 'SCPI_WemoOne', clientName)
         }} />
       </div>
@@ -1288,13 +1516,13 @@ Simulation indicative — Entasis Conseil`
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   TAB 5 — SIMULATEUR ACHAT IMMOBILIER NEUF
+   TAB 4 — SIMULATEUR ACHAT IMMOBILIER NEUF
 ═══════════════════════════════════════════════════════════════════════════ */
 const DISPOSITIFS_IMMO = [
-  { value: 'LLI', label: 'LLI', desc: 'TVA 10%, loyer plafonné, engagement 20 ans' },
-  { value: 'LMNP', label: 'LMNP', desc: 'Amortissement, micro-BIC ou réel' },
-  { value: 'RP', label: 'Résidence principale', desc: 'Pas de dispositif fiscal' },
-  { value: 'PTZ', label: 'PTZ', desc: 'Primo-accédant, prêt à taux zéro' },
+  { value: 'LLI', label: 'LLI', desc: 'TVA 10%, loyer plafonne, engagement 20 ans' },
+  { value: 'LMNP', label: 'LMNP', desc: 'Amortissement, micro-BIC ou reel' },
+  { value: 'RP', label: 'Residence principale', desc: 'Pas de dispositif fiscal' },
+  { value: 'PTZ', label: 'PTZ', desc: 'Primo-accedant, pret a taux zero' },
 ]
 
 function SimulateurImmoNeuf() {
@@ -1322,20 +1550,13 @@ function SimulateurImmoNeuf() {
     const assuranceMensuelle = emprunt * (tauxAssurance / 100) / 12
     const mensualiteTotale = mensualiteCredit + assuranceMensuelle
     const coutCredit = mensualiteTotale * n - emprunt
-
-    // Rendement brut estimé
     const loyerM2 = dispositif === 'LLI' ? 12 : dispositif === 'LMNP' ? 14 : 0
     const loyerMensuel = surface * loyerM2
     const loyerAnnuel = loyerMensuel * 12
     const rendBrut = prixBien > 0 ? loyerAnnuel / prixBien : 0
-
-    // Cashflow
     const cashflowMensuel = loyerMensuel - mensualiteTotale
-
-    // TVA réduite LLI
     const economieTVA = dispositif === 'LLI' ? Math.round(prixBien * 0.10) : 0
 
-    // Tableau amortissement
     const amortTable = []
     let restant = emprunt
     for (let annee = 1; annee <= dureeEmprunt; annee++) {
@@ -1351,7 +1572,6 @@ function SimulateurImmoNeuf() {
       amortTable.push({ annee, interets: Math.round(interetsAn), capital: Math.round(capitalAn), restant: Math.max(0, Math.round(restant)) })
     }
 
-    // Chart data: capital restant dû vs valeur estimée bien (revalo 1.5%/an)
     const yearlyRestant = amortTable.map(a => a.restant)
     const yearlyValeur = Array.from({ length: dureeEmprunt }, (_, i) => Math.round(prixBien * Math.pow(1.015, i + 1)))
 
@@ -1366,16 +1586,16 @@ function SimulateurImmoNeuf() {
   const chartData = {
     labels: Array.from({ length: dureeEmprunt }, (_, i) => `An ${i + 1}`),
     datasets: [
-      { label: 'Capital restant dû', data: result.yearlyRestant, borderColor: C.danger, backgroundColor: `${C.danger}15`, fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
-      { label: 'Valeur estimée du bien', data: result.yearlyValeur, borderColor: C.success, fill: false, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+      { label: 'Capital restant du', data: result.yearlyRestant, borderColor: C.danger, backgroundColor: `${C.danger}15`, fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+      { label: 'Valeur estimee du bien', data: result.yearlyValeur, borderColor: C.success, fill: false, tension: 0.3, pointRadius: 0, borderWidth: 2 },
     ],
   }
 
   async function handleAIEmail() {
     setAiLoading(true)
     try {
-      const prompt = `Rédige un email professionnel pour un client intéressé par un achat immobilier neuf en ${dispositif}. Bien: ${euro(prixBien)}, ${surface}m², mensualité ${euro(result.mensualiteTotale)}, apport ${euro(apport)}, rendement brut ${pctFmt(result.rendBrut)}, cashflow mensuel ${euro(result.cashflowMensuel)}. L'email doit proposer un RDV pour approfondir le projet. Signe "L'équipe Entasis Conseil".`
-      const text = await callAI('Tu es CGP chez Entasis Conseil, spécialisé en immobilier neuf. Rédige des emails professionnels, informatifs et engageants. Mentionne que les projections sont indicatives.', prompt)
+      const prompt = `Redige un email professionnel pour un client interesse par un achat immobilier neuf en ${dispositif}. Bien: ${euro(prixBien)}, ${surface}m2, mensualite ${euro(result.mensualiteTotale)}, apport ${euro(apport)}, rendement brut ${pctFmt(result.rendBrut)}, cashflow mensuel ${euro(result.cashflowMensuel)}. L'email doit proposer un RDV pour approfondir le projet. Signe "L'equipe Entasis Conseil".`
+      const text = await callAI('Tu es CGP chez Entasis Conseil, specialise en immobilier neuf. Redige des emails professionnels, informatifs et engageants. Mentionne que les projections sont indicatives.', prompt)
       setAiEmail(text)
     } catch (e) { setAiEmail('Erreur : ' + e.message) }
     setAiLoading(false)
@@ -1385,18 +1605,18 @@ function SimulateurImmoNeuf() {
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         <div>
-          <Slider label="Prix du bien VEFA" value={prixBien} onChange={setPrixBien} min={100000} max={800000} step={5000} suffix="€" formatValue={v => euro(v)} />
-          <Field label="Surface" value={surface} onChange={setSurface} suffix="m²" />
+          <Slider label="Prix du bien VEFA" value={prixBien} onChange={setPrixBien} min={100000} max={800000} step={5000} suffix="EUR" formatValue={v => euro(v)} />
+          <Field label="Surface" value={surface} onChange={setSurface} suffix="m2" />
           <div style={{ height: 14 }} />
-          <Slider label="Apport personnel" value={apport} onChange={setApport} min={0} max={Math.min(prixBien, 300000)} step={5000} suffix="€" formatValue={v => euro(v)} />
+          <Slider label="Apport personnel" value={apport} onChange={setApport} min={0} max={Math.min(prixBien, 300000)} step={5000} suffix="EUR" formatValue={v => euro(v)} />
 
           <div style={{ marginBottom: 18 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontFamily: FONT_SANS }}>Durée d'emprunt</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontFamily: FONT_SANS }}>Duree d'emprunt</div>
             <PillSelect options={[{ value: 15, label: '15 ans' }, { value: 20, label: '20 ans' }, { value: 25, label: '25 ans' }]} value={dureeEmprunt} onChange={v => setDureeEmprunt(Number(v))} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <Field label="Taux d'intérêt" value={tauxInteret} onChange={setTauxInteret} suffix="%" step="0.05" />
+            <Field label="Taux d'interet" value={tauxInteret} onChange={setTauxInteret} suffix="%" step="0.05" />
             <Field label="Assurance" value={tauxAssurance} onChange={setTauxAssurance} suffix="%" step="0.05" />
           </div>
           <div style={{ height: 14 }} />
@@ -1409,13 +1629,13 @@ function SimulateurImmoNeuf() {
 
         <div>
           <div style={{ background: C.card, borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.gold, marginBottom: 12, fontFamily: FONT_SERIF }}>Récapitulatif acquisition</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.gold, marginBottom: 12, fontFamily: FONT_SERIF }}>Recapitulatif acquisition</div>
             {[
               ['Prix du bien', euro(prixBien)],
               ['Frais de notaire (2,5%)', euro(result.fraisNotaire)],
-              ['Coût total acquisition', euro(result.coutTotal)],
+              ['Cout total acquisition', euro(result.coutTotal)],
               ['Apport', euro(apport)],
-              ['Montant emprunté', euro(result.emprunt)],
+              ['Montant emprunte', euro(result.emprunt)],
             ].map(([label, val], i) => (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: `1px solid ${C.bd}`, fontSize: 12, fontWeight: i === 2 || i === 4 ? 700 : 400 }}>
                 <span style={{ color: C.ivoryMuted }}>{label}</span>
@@ -1425,15 +1645,15 @@ function SimulateurImmoNeuf() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-            <ResultCard label="Mensualité totale" value={euro(result.mensualiteTotale)} accent={C.gold} sub={`Crédit ${euro(result.mensualiteCredit)} + Ass. ${euro(result.assuranceMensuelle)}`} />
-            <ResultCard label="Coût du crédit" value={euro(result.coutCredit)} accent={C.warn} />
+            <ResultCard label="Mensualite totale" value={euro(result.mensualiteTotale)} accent={C.gold} sub={`Credit ${euro(result.mensualiteCredit)} + Ass. ${euro(result.assuranceMensuelle)}`} />
+            <ResultCard label="Cout du credit" value={euro(result.coutCredit)} accent={C.warn} />
             {(dispositif === 'LLI' || dispositif === 'LMNP') && (
               <>
                 <ResultCard label="Rendement brut" value={pctFmt(result.rendBrut)} accent={C.success} sub={`Loyer : ${euro(result.loyerMensuel)}/mois`} />
                 <ResultCard label="Cashflow mensuel" value={euro(result.cashflowMensuel)} accent={result.cashflowMensuel >= 0 ? C.success : C.danger} />
               </>
             )}
-            {dispositif === 'LLI' && <ResultCard label="Économie TVA (10% vs 20%)" value={euro(result.economieTVA)} accent={C.success} />}
+            {dispositif === 'LLI' && <ResultCard label="Economie TVA (10% vs 20%)" value={euro(result.economieTVA)} accent={C.success} />}
           </div>
         </div>
       </div>
@@ -1447,8 +1667,8 @@ function SimulateurImmoNeuf() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
               <tr>
-                {['Année', 'Intérêts', 'Capital remboursé', 'Capital restant dû'].map(h => (
-                  <th key={h} style={{ textAlign: h === 'Année' ? 'left' : 'right', padding: '8px 12px', color: C.ivoryDim, fontSize: 10, textTransform: 'uppercase', fontWeight: 700, borderBottom: `1px solid ${C.bd}`, position: 'sticky', top: 0, background: C.card }}>{h}</th>
+                {['Annee', 'Interets', 'Capital rembourse', 'Capital restant du'].map(h => (
+                  <th key={h} style={{ textAlign: h === 'Annee' ? 'left' : 'right', padding: '8px 12px', color: C.ivoryDim, fontSize: 10, textTransform: 'uppercase', fontWeight: 700, borderBottom: `1px solid ${C.bd}`, position: 'sticky', top: 0, background: C.card }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -1472,82 +1692,83 @@ function SimulateurImmoNeuf() {
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-        <Btn onClick={handleAIEmail} variant="outline" disabled={aiLoading}>{aiLoading ? 'Génération…' : 'Générer email client (IA)'}</Btn>
+        <Btn onClick={handleAIEmail} variant="outline" disabled={aiLoading}>{aiLoading ? 'Generation...' : 'Generer email client (IA)'}</Btn>
         <ExportPDFButton onExport={async clientName => {
           const dt = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-          const doc = new jsPDF(); pdfHeader(doc, dt)
-          let y = pdfTitleBlock(doc, 'Achat Immobilier Neuf', clientName, 'Entasis Conseil', dt)
+          const doc = new jsPDF()
+          const conseiller = 'Louis Music'
+          const emailC = 'louis@entasis-conseil.fr'
+
+          pdfCoverPage(doc, 'Achat Immobilier Neuf', clientName, conseiller, emailC, dt)
+          doc.addPage()
+          pdfHeader(doc, dt)
+          let y = 35
           const tauxApport = result.coutTotal > 0 ? ((apport / result.coutTotal) * 100).toFixed(1) : '0'
-          // Section 1: Parametres du bien
           y = pdfSec(doc, y, 'Parametres du bien', dt)
           y = pdfRows(doc, y, [
-            ['Prix du bien', pEur(prixBien)],
+            ['Prix du bien', fmt(prixBien)],
             ['Surface', surface + ' m2'],
             ['Dispositif fiscal', dispositif],
           ], dt)
           y += 10
-          // Section 2: Acquisition
           y = pdfSec(doc, y, 'Acquisition', dt)
           y = pdfRows(doc, y, [
-            ['Prix du bien FAI', pEur(prixBien)],
-            ['Frais de notaire 2,5% (taux reduit neuf)', pEur(result.fraisNotaire)],
-            ['Cout total acquisition', pEur(result.coutTotal)],
-            ['Apport personnel', pEur(apport)],
+            ['Prix du bien FAI', fmt(prixBien)],
+            ['Frais de notaire 2,5% (taux reduit neuf)', fmt(result.fraisNotaire)],
+            ['Cout total acquisition', fmt(result.coutTotal)],
+            ['Apport personnel', fmt(apport)],
             ['Taux d\'apport', tauxApport + ' %'],
-            ['Montant emprunte', pEur(result.emprunt)],
+            ['Montant emprunte', fmt(result.emprunt)],
           ], dt)
           y += 10
-          // Section 3: Financement
           y = pdfSec(doc, y, 'Financement', dt)
           const coutInterets = Math.round(result.mensualiteCredit * dureeEmprunt * 12 - result.emprunt)
           y = pdfRows(doc, y, [
             ['Duree d\'emprunt', dureeEmprunt + ' ans'],
             ['Taux d\'interet', tauxInteret + ' %'],
             ['Taux assurance emprunteur', tauxAssurance + ' %'],
-            ['Mensualite hors assurance', pEur(result.mensualiteCredit)],
-            ['Assurance mensuelle', pEur(result.assuranceMensuelle)],
-            ['Mensualite totale', pEur(result.mensualiteTotale)],
-            ['Cout total des interets', pEur(coutInterets)],
-            ['Cout total du credit (interets + assurance)', pEur(result.coutCredit)],
+            ['Mensualite hors assurance', fmt(result.mensualiteCredit)],
+            ['Assurance mensuelle', fmt(result.assuranceMensuelle)],
+            ['Mensualite totale', fmt(result.mensualiteTotale)],
+            ['Cout total des interets', fmt(coutInterets)],
+            ['Cout total du credit (interets + assurance)', fmt(result.coutCredit)],
           ], dt)
           y += 10
-          // Section 4: Rendement locatif
           if (dispositif === 'LLI' || dispositif === 'LMNP') {
             y = pdfSec(doc, y, 'Rendement locatif', dt)
             const rendRows = [
-              ['Loyer mensuel estime', pEur(result.loyerMensuel)],
-              ['Cashflow mensuel brut', pEur(result.cashflowMensuel), result.cashflowMensuel >= 0 ? 'green' : 'red'],
+              ['Loyer mensuel estime', fmt(result.loyerMensuel)],
+              ['Cashflow mensuel brut', fmt(result.cashflowMensuel), result.cashflowMensuel >= 0 ? 'green' : 'red'],
               ['Rendement brut', pPct(result.rendBrut)],
             ]
-            if (dispositif === 'LLI') rendRows.push(['Economie TVA (10% vs 20%)', pEur(result.economieTVA), 'green'])
+            if (dispositif === 'LLI') rendRows.push(['Economie TVA (10% vs 20%)', fmt(result.economieTVA), 'green'])
             y = pdfRows(doc, y, rendRows, dt)
             y += 10
           }
-          // Section 5: Synthese patrimoniale
           const valeurFuture = Math.round(prixBien * Math.pow(1.01, dureeEmprunt))
           const capitalRembourse = result.emprunt
           const pvLatente = valeurFuture - prixBien
           const effortMensuel = result.mensualiteTotale - (result.loyerMensuel || 0)
           y = pdfSec(doc, y, 'Synthese patrimoniale', dt)
           y = pdfRows(doc, y, [
-            ['Valeur estimee dans ' + dureeEmprunt + ' ans (+1%/an)', pEur(valeurFuture)],
-            ['Capital rembourse', pEur(capitalRembourse)],
-            ['Plus-value latente estimee', pEur(pvLatente), 'green'],
-            ['Effort d\'epargne mensuel net', pEur(effortMensuel), effortMensuel > 0 ? 'red' : 'green'],
+            ['Valeur estimee dans ' + dureeEmprunt + ' ans (+1%/an)', fmt(valeurFuture)],
+            ['Capital rembourse', fmt(capitalRembourse)],
+            ['Plus-value latente estimee', fmt(pvLatente), 'green'],
+            ['Effort d\'epargne mensuel net', fmt(effortMensuel), effortMensuel > 0 ? 'red' : 'green'],
           ], dt)
           y += 10
-          // Key results box
-          const keyRows = [
-            ['Mensualite totale', pEur(result.mensualiteTotale)],
-            ['Cout du credit', pEur(result.coutCredit), 'red'],
+          const keyKpis = [
+            { label: 'Mensualite totale', value: fmt(result.mensualiteTotale), accent: navy },
+            { label: 'Cout du credit', value: fmt(result.coutCredit), accent: red },
           ]
           if (dispositif === 'LLI' || dispositif === 'LMNP') {
-            keyRows.push(['Rendement brut', pPct(result.rendBrut)])
-            keyRows.push(['Cashflow mensuel', pEur(result.cashflowMensuel), result.cashflowMensuel >= 0 ? 'green' : 'red'])
+            keyKpis.push({ label: 'Rendement brut', value: pPct(result.rendBrut), accent: green })
+            keyKpis.push({ label: 'Cashflow mensuel', value: fmt(result.cashflowMensuel), accent: result.cashflowMensuel >= 0 ? green : red })
           }
-          y = pdfKeyBox(doc, y, 'Points cles de la simulation', keyRows, dt)
+          y = pdfKPIBlocks(doc, y, keyKpis, dt)
           const img = await captureChartImage(chartRef)
-          pdfChartAndDisclaimer(doc, img, y, dt)
+          y = pdfChartPage(doc, img, 'Capital restant vs Valeur du bien', y, dt)
+          pdfDisclaimer(doc, y, dt)
           pdfFinalize(doc, 'AchatImmoNeuf', clientName)
         }} />
       </div>
@@ -1563,11 +1784,11 @@ function SimulateurImmoNeuf() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   TAB 6 — GÉNÉRATEUR DE LETTRE
+   TAB 5 — GENERATEUR DE LETTRE
 ═══════════════════════════════════════════════════════════════════════════ */
 const LETTER_TYPES = [
   { value: 'mission', label: 'Lettre de mission' },
-  { value: 'presentation', label: 'Présentation produit' },
+  { value: 'presentation', label: 'Presentation produit' },
   { value: 'suivi', label: 'Suivi de dossier' },
   { value: 'compte_rendu', label: 'Compte-rendu RDV' },
 ]
@@ -1592,19 +1813,19 @@ function GenerateurLettre() {
     setLoading(true)
     try {
       const typeName = LETTER_TYPES.find(t => t.value === letterType)?.label
-      const prompt = `Rédige une ${typeName} pour le client "${nomClient || '[Nom du client]'}".
-Objet : ${objet || '[Non précisé]'}
-Points clés à aborder :
-${pointsCles || '[Aucun point clé spécifié]'}
-Ton souhaité : ${ton}
+      const prompt = `Redige une ${typeName} pour le client "${nomClient || '[Nom du client]'}".
+Objet : ${objet || '[Non precise]'}
+Points cles a aborder :
+${pointsCles || '[Aucun point cle specifie]'}
+Ton souhaite : ${ton}
 
-La lettre doit être professionnelle, datée du jour, avec en-tête Entasis Conseil et signature du conseiller. Format complet prêt à envoyer.`
+La lettre doit etre professionnelle, datee du jour, avec en-tete Entasis Conseil et signature du conseiller. Format complet pret a envoyer.`
 
-      const system = `Tu es un assistant rédactionnel pour Entasis Conseil, cabinet de gestion de patrimoine.
-Tu rédiges des courriers et documents professionnels conformes aux standards du métier de CGP.
-Utilise un français impeccable et adapte le registre au ton demandé.
-En-tête : Entasis Conseil — Cabinet de Gestion de Patrimoine
-Mentions légales : CIF enregistré sous le n°XXXXXX — ORIAS n°XXXXXX
+      const system = `Tu es un assistant redactionnel pour Entasis Conseil, cabinet de gestion de patrimoine.
+Tu rediges des courriers et documents professionnels conformes aux standards du metier de CGP.
+Utilise un francais impeccable et adapte le registre au ton demande.
+En-tete : Entasis Conseil — Cabinet de Gestion de Patrimoine
+Mentions legales : CIF enregistre sous le n XXXXXX — ORIAS n XXXXXX
 Ne fais jamais de promesse de rendement garanti.`
 
       const text = await callAI(system, prompt)
@@ -1640,11 +1861,11 @@ Ne fais jamais de promesse de rendement garanti.`
           <PillSelect options={LETTER_TYPES} value={letterType} onChange={setLetterType} />
         </div>
 
-        <Field label="Nom du client" value={nomClient} onChange={setNomClient} type="text" placeholder="M. / Mme …" />
+        <Field label="Nom du client" value={nomClient} onChange={setNomClient} type="text" placeholder="M. / Mme ..." />
         <div style={{ height: 14 }} />
-        <Field label="Objet" value={objet} onChange={setObjet} type="text" placeholder="Objet du courrier…" />
+        <Field label="Objet" value={objet} onChange={setObjet} type="text" placeholder="Objet du courrier..." />
         <div style={{ height: 14 }} />
-        <Field label="Points clés à aborder" value={pointsCles} onChange={setPointsCles} type="textarea" placeholder="- Point 1&#10;- Point 2&#10;- Point 3" />
+        <Field label="Points cles a aborder" value={pointsCles} onChange={setPointsCles} type="textarea" placeholder="- Point 1&#10;- Point 2&#10;- Point 3" />
         <div style={{ height: 14 }} />
 
         <div style={{ marginBottom: 18 }}>
@@ -1652,7 +1873,7 @@ Ne fais jamais de promesse de rendement garanti.`
           <PillSelect options={TONES} value={ton} onChange={setTon} />
         </div>
 
-        <Btn onClick={handleGenerate} disabled={loading}>{loading ? 'Génération en cours…' : 'Générer la lettre (IA)'}</Btn>
+        <Btn onClick={handleGenerate} disabled={loading}>{loading ? 'Generation en cours...' : 'Generer la lettre (IA)'}</Btn>
       </div>
 
       {/* Result */}
@@ -1666,17 +1887,17 @@ Ne fais jamais de promesse de rendement garanti.`
                 lineHeight: 1.7, fontFamily: FONT_SANS, resize: 'vertical', outline: 'none',
               }} />
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-              <Btn onClick={handleCopy} variant={copied ? 'outline' : 'gold'}>{copied ? '✓ Copié' : 'Copier'}</Btn>
-              <Btn onClick={handleDownload} variant="outline">Télécharger .txt</Btn>
-              <Btn onClick={handleGenerate} variant="ghost" disabled={loading}>Régénérer</Btn>
+              <Btn onClick={handleCopy} variant={copied ? 'outline' : 'gold'}>{copied ? '--- Copie' : 'Copier'}</Btn>
+              <Btn onClick={handleDownload} variant="outline">Telecharger .txt</Btn>
+              <Btn onClick={handleGenerate} variant="ghost" disabled={loading}>Regenerer</Btn>
             </div>
           </>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 300, background: C.card, borderRadius: 10, border: `1px dashed ${C.bdGold}` }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 36, marginBottom: 8, opacity: 0.3 }}>✎</div>
+              <div style={{ fontSize: 36, marginBottom: 8, opacity: 0.3 }}>*</div>
               <div style={{ fontSize: 13, color: C.ivoryDim }}>Remplissez le formulaire et cliquez sur</div>
-              <div style={{ fontSize: 13, color: C.gold, fontWeight: 600 }}>"Générer la lettre"</div>
+              <div style={{ fontSize: 13, color: C.gold, fontWeight: 600 }}>"Generer la lettre"</div>
             </div>
           </div>
         )}
@@ -1689,16 +1910,14 @@ Ne fais jamais de promesse de rendement garanti.`
    MAIN TABS & EXPORT
 ═══════════════════════════════════════════════════════════════════════════ */
 const TABS = [
-  { id: 'defisc', label: 'Défiscalisation' },
   { id: 'per', label: 'Simulateur PER' },
   { id: 'av', label: 'Assurance Vie' },
   { id: 'scpi', label: 'SCPI Wemo One' },
   { id: 'immo', label: 'Achat Immo Neuf' },
-  { id: 'lettre', label: 'Générateur Lettre' },
+  { id: 'lettre', label: 'Generateur Lettre' },
 ]
 
 const TAB_COMPONENTS = {
-  defisc: CalculateurDefiscalisation,
   per: SimulateurPER,
   av: SimulateurAssuranceVie,
   scpi: SimulateurSCPI,
@@ -1707,7 +1926,7 @@ const TAB_COMPONENTS = {
 }
 
 export default function OutilsCGP() {
-  const [activeTab, setActiveTab] = useState('defisc')
+  const [activeTab, setActiveTab] = useState('per')
   const ActiveComp = TAB_COMPONENTS[activeTab]
 
   return (
