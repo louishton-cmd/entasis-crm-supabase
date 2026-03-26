@@ -245,6 +245,7 @@ function AuthScreen() {
   // États pour les invitations
   const [inviteToken, setInviteToken] = useState(null)
   const [inviteRole, setInviteRole] = useState('advisor')
+  const [inviteAdvisorCode, setInviteAdvisorCode] = useState(null)
 
   const getErrorMessage = (error) => {
     const code = error?.message || ''
@@ -284,6 +285,7 @@ function AuthScreen() {
     setMode('signup')
     setInviteToken(token)
     setInviteRole(data.role)
+    setInviteAdvisorCode(data.advisor_code || null)
     if (data.email) setEmail(data.email)
     setMsg(`Vous avez été invité en tant que ${data.role === 'manager' ? 'Manager' : 'Conseiller CGP'}`)
   }
@@ -356,6 +358,7 @@ function AuthScreen() {
           email: data.user.email,
           full_name: fullName,
           role: profileRole,
+          advisor_code: inviteAdvisorCode || null,
           is_active: true
         })
 
@@ -388,6 +391,7 @@ function AuthScreen() {
       setConfirmPassword('')
       setInviteToken(null)
       setInviteRole('advisor')
+      setInviteAdvisorCode(null)
       setLoading(false)
     }
   }
@@ -2388,6 +2392,7 @@ function TeamView({deals,objectifs,teamProfiles,month,profile}){
   // États pour la gestion des invitations
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('advisor')
+  const [advisorCode, setAdvisorCode] = useState('')
   const [invitations, setInvitations] = useState([])
   const [loadingInvitations, setLoadingInvitations] = useState(false)
 
@@ -2413,7 +2418,7 @@ function TeamView({deals,objectifs,teamProfiles,month,profile}){
   }
 
   // Générer une invitation
-  async function generateInvitation(email, role) {
+  async function generateInvitation(email, role, advisorCode) {
     if (!profile?.id) {
       toast.error('Erreur: profil utilisateur non trouvé')
       return
@@ -2424,6 +2429,7 @@ function TeamView({deals,objectifs,teamProfiles,month,profile}){
       .insert({
         email: email || null,
         role: role,
+        advisor_code: advisorCode || null,
         created_by: profile.id
       })
       .select()
@@ -2453,6 +2459,7 @@ function TeamView({deals,objectifs,teamProfiles,month,profile}){
     // Reset du formulaire
     setInviteEmail('')
     setInviteRole('advisor')
+    setAdvisorCode('')
 
     return link
   }
@@ -2489,7 +2496,7 @@ function TeamView({deals,objectifs,teamProfiles,month,profile}){
   // Gérer la soumission du formulaire d'invitation
   async function handleInviteSubmit(e) {
     e.preventDefault()
-    await generateInvitation(inviteEmail.trim(), inviteRole)
+    await generateInvitation(inviteEmail.trim(), inviteRole, advisorCode.trim().toUpperCase())
   }
 
   // Déterminer le statut d'une invitation
@@ -2516,7 +2523,7 @@ function TeamView({deals,objectifs,teamProfiles,month,profile}){
         </div>
         <div className="panel-body">
           <form onSubmit={handleInviteSubmit}>
-            <div className="form-row form-row-2 mb-16">
+            <div className="form-row form-row-3 mb-16">
               <div className="form-group">
                 <label className="form-label">Email (optionnel)</label>
                 <input
@@ -2525,6 +2532,17 @@ function TeamView({deals,objectifs,teamProfiles,month,profile}){
                   value={inviteEmail}
                   onChange={e => setInviteEmail(e.target.value)}
                   placeholder="exemple@cabinet.fr"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Code conseiller</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={advisorCode}
+                  onChange={e => setAdvisorCode(e.target.value.toUpperCase())}
+                  placeholder="ex: MARTIN, JEAN, DUPONT..."
+                  required={inviteRole === 'advisor'}
                 />
               </div>
               <div className="form-group">
@@ -2566,6 +2584,7 @@ function TeamView({deals,objectifs,teamProfiles,month,profile}){
                   <tr>
                     <th>Email</th>
                     <th>Rôle</th>
+                    <th>Code</th>
                     <th>Statut</th>
                     <th>Créé le</th>
                     <th>Expire le</th>
@@ -2584,6 +2603,7 @@ function TeamView({deals,objectifs,teamProfiles,month,profile}){
                             {invitation.role === 'manager' ? 'Manager' : 'Conseiller'}
                           </span>
                         </td>
+                        <td>{invitation.advisor_code || '—'}</td>
                         <td>
                           <span className={`badge ${
                             status === 'Utilisé' ? 'badge-signed' :
