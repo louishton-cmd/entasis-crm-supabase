@@ -7,6 +7,7 @@ import MesDossiersImmo from './components/MesDossiersImmo'
 import PipelineVEFA from './components/PipelineVEFA'
 import OutilsCGP from './components/OutilsCGP'
 import LinkedInPro from './components/LinkedInPro'
+import WeeklyReview from './components/WeeklyReview.jsx'
 
 /* ─────────────────────────────────────────────────────────────────────────────
    CONSTANTS
@@ -672,7 +673,10 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,leadsAvai
     {key:'agenda',    label:'Agenda',    Icon:Icon.Calendar},
     {key:'market',    label:'Marchés',   Icon:Icon.Market},
     {key:'prospection', label:'Prospection', Icon:Icon.Prospect, badge:prospectsNew},
-    ...(isManager?[{key:'team', label:'Équipe', Icon:Icon.Team}]:[]),
+    ...(isManager?[
+      {key:'team', label:'Équipe', Icon:Icon.Team},
+      {key:'weekly-review', label:'Revue hebdo', Icon:Icon.Forecast}
+    ]:[]),
   ]
 
   const immoItems = [
@@ -3500,6 +3504,7 @@ export default function App(){
           {activeTab==='agenda'&&<AgendaView deals={deals} profile={profile}/>}
           {activeTab==='market'&&<MarketView/>}
           {activeTab==='team'&&isManager&&<TeamView deals={deals} objectifs={objectifs} teamProfiles={teamProfiles} month={month} profile={profile}/>}
+          {activeTab==='weekly-review'&&isManager&&<WeeklyReview deals={deals} teamProfiles={teamProfiles} supabase={supabase}/>}
           {activeTab==='prospection'&&<ProspectionView prospects={prospects} profile={profile} teamProfiles={teamProfiles} onRefresh={fetchProspects} onProspectsChange={setProspects}/>}
           {activeTab==='immo-dashboard'&&<VueImmobilier profile={profile} setActiveTab={setActiveTab}/>}
           {activeTab==='immo-programmes'&&<CatalogueProgrammes setActiveTab={setActiveTab}/>}

@@ -265,6 +265,47 @@ on conflict (month) do update
 set pp_target = excluded.pp_target,
     pu_target = excluded.pu_target;
 
+-- ---------- Weekly objectives table ----------
+
+create table if not exists public.weekly_objectives (
+  id uuid primary key default gen_random_uuid(),
+  week_key text not null,              -- Format: '2026-W12'
+  year integer not null,               -- 2026
+  week_number integer not null,        -- 12 (semaine ISO)
+  pp_target numeric(14,2) not null default 0,
+  pu_target numeric(14,2) not null default 0,
+  created_by uuid references auth.users(id) not null,
+  updated_at timestamptz not null default now(),
+
+  constraint weekly_objectives_week_key_unique unique (week_key)
+);
+
+-- RLS pour weekly_objectives
+alter table public.weekly_objectives enable row level security;
+
+-- Lecture libre pour tous les utilisateurs authentifiés
+drop policy if exists "weekly_objectives_read_authenticated" on public.weekly_objectives;
+create policy "weekly_objectives_read_authenticated"
+on public.weekly_objectives
+for select
+to authenticated
+using (true);
+
+-- Écriture réservée aux managers
+drop policy if exists "weekly_objectives_write_manager" on public.weekly_objectives;
+create policy "weekly_objectives_write_manager"
+on public.weekly_objectives
+for all
+to authenticated
+using (public.is_manager())
+with check (public.is_manager());
+
+-- Trigger pour updated_at
+drop trigger if exists trg_weekly_objectives_updated_at on public.weekly_objectives;
+create trigger trg_weekly_objectives_updated_at
+before update on public.weekly_objectives
+for each row execute procedure public.handle_updated_at();
+
 -- ---------- Optional: assign roles after creating users ----------
 -- update public.profiles set role = 'manager', advisor_code = 'LOUIS', full_name = 'Louis Hatton' where email = 'ton-email@entasis-conseil.fr';
 -- update public.profiles set role = 'advisor', advisor_code = 'JEAN', full_name = 'Jean ...' where email = 'jean@entasis-conseil.fr';
