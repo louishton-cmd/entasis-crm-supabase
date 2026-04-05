@@ -55,6 +55,52 @@ function getPpForAdvisor(deal, advisorCode) {
   return { pp, pu }
 }
 
+// Calcul historique des semaines
+function getWeeklyHistory(deals) {
+  if (!deals || deals.length === 0) return []
+
+  const signedDeals = deals.filter(d => d.status === 'Signé')
+  if (signedDeals.length === 0) return []
+
+  // Grouper par semaine
+  const weekMap = {}
+  signedDeals.forEach(deal => {
+    const signedDate = deal.date_signed
+      ? new Date(deal.date_signed)
+      : new Date(deal.updated_at)
+
+    const weekKey = getWeekKey(signedDate)
+    const weekNum = getISOWeek(signedDate)
+    const year = signedDate.getFullYear()
+    const monday = getMondayOfWeek(signedDate)
+
+    if (!weekMap[weekKey]) {
+      weekMap[weekKey] = {
+        weekKey,
+        weekNum,
+        year,
+        monday,
+        label: `S${String(weekNum).padStart(2,'0')}`,
+        signatures: 0,
+        pp: 0,
+        pu: 0
+      }
+    }
+
+    // Règle 50/50 non applicable ici
+    // (on veut le total cabinet réel)
+    weekMap[weekKey].signatures += 1
+    weekMap[weekKey].pp += (deal.pp_m || 0) * 12
+    weekMap[weekKey].pu += deal.pu || 0
+  })
+
+  // Trier par date chronologique
+  return Object.values(weekMap)
+    .sort((a, b) => new Date(a.monday) - new Date(b.monday))
+    // Garder max 8 semaines (fenêtre glissante)
+    .slice(-8)
+}
+
 const euro = (v) => Number(v||0).toLocaleString('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0})
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -287,6 +333,11 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
     : objectiveProgress >= 60 ? 'orange'
     : 'red'
 
+  // Historique des semaines
+  const weeklyHistory = useMemo(() =>
+    getWeeklyHistory(deals), [deals]
+  )
+
   // Sauvegarde objectif
   async function saveObjective(newObjective) {
     try {
@@ -508,9 +559,56 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
           <h3>Historique des semaines</h3>
         </div>
         <div className="card-body">
-          <p style={{color: 'var(--t3)', fontSize: '14px'}}>
-            Fonctionnalité à venir : graphique des signatures par semaine depuis le début d'année.
-          </p>
+          {weeklyHistory.length === 0 ? (
+            <p style={{color: 'var(--t3)', fontSize: '14px'}}>
+              Aucune donnée historique disponible
+            </p>
+          ) : (
+            <>
+              <div style={{overflowX: 'auto'}}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Semaine</th>
+                      <th>Signatures</th>
+                      <th>PP Annualisée</th>
+                      <th>PU</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {weeklyHistory.map(week => {
+                      const isCurrentWeek = week.weekKey === currentWeekKey
+                      return (
+                        <tr
+                          key={week.weekKey}
+                          style={{
+                            backgroundColor: isCurrentWeek ? 'rgba(192, 155, 90, 0.1)' : 'transparent'
+                          }}
+                        >
+                          <td style={{fontWeight: isCurrentWeek ? 600 : 400}}>
+                            {week.label}
+                          </td>
+                          <td style={{fontWeight: isCurrentWeek ? 600 : 400}}>
+                            {week.signatures}
+                          </td>
+                          <td style={{fontWeight: isCurrentWeek ? 600 : 400}}>
+                            {euro(week.pp)}
+                          </td>
+                          <td style={{fontWeight: isCurrentWeek ? 600 : 400}}>
+                            {euro(week.pu)}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{marginTop: '16px', fontSize: '14px', color: 'var(--t2)'}}>
+                Moyenne sur {weeklyHistory.length} semaine{weeklyHistory.length > 1 ? 's' : ''} : {' '}
+                {Math.round((weeklyHistory.reduce((sum, week) => sum + week.signatures, 0) / weeklyHistory.length) * 10) / 10} signatures/semaine
+              </div>
+            </>
+          )}
         </div>
       </div>
 
