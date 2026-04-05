@@ -1,8 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run build)",
-      "Bash(git add .)"
+      "Bash(git commit -m \"$(cat <<''EOF''\nfix: correction bugs dates et historique WeeklyReview\n\nBUG 1 - Dates semaine incorrectes :\n- Remplacement calcul manuel par formatShortDate()\n- Utilisation toLocaleDateString(''fr-FR'') pour format correct\n- Calcul currentFriday avec setDate() plutôt que getTime()\n\nBUG 2 - Semaines futures dans historique :\n- Ajout filtre .filter(w => new Date(w.monday) <= new Date())\n- Exclusion des deals avec date_signed future\n- Historique limité aux semaines passées et courante\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []
