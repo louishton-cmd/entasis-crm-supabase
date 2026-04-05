@@ -96,6 +96,7 @@ function getWeeklyHistory(deals) {
 
   // Trier par date chronologique
   return Object.values(weekMap)
+    .filter(w => new Date(w.monday) <= new Date()) // Exclure semaines futures
     .sort((a, b) => new Date(a.monday) - new Date(b.monday))
     // Garder max 8 semaines (fenêtre glissante)
     .slice(-8)
@@ -392,8 +393,19 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
   }
 
   // Formatage des dates
-  const mondayStr = `${currentMonday.getDate()}/${currentMonday.getMonth() + 1}`
-  const fridayStr = `${new Date(currentMonday.getTime() + 4*24*60*60*1000).getDate()}/${new Date(currentMonday.getTime() + 4*24*60*60*1000).getMonth() + 1}`
+  // Calcul correct des dates de la semaine
+  const currentFriday = new Date(currentMonday)
+  currentFriday.setDate(currentMonday.getDate() + 4)
+
+  // Format d'affichage
+  const formatShortDate = (date) =>
+    date.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'numeric'
+    })
+
+  const mondayStr = formatShortDate(currentMonday)
+  const fridayStr = formatShortDate(currentFriday)
 
   return (
     <div>
