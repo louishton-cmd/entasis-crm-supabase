@@ -284,6 +284,55 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
     loadObjective()
   }, [currentWeekKey, supabase])
 
+  // Semaines disponibles pour le sélecteur
+  const availableWeeks = useMemo(() => {
+    if (!deals || deals.length === 0) return [currentWeekKey]
+
+    const weeks = new Set()
+    deals.filter(d => d.status === 'Signé').forEach(deal => {
+      const date = deal.date_signed
+        ? new Date(deal.date_signed)
+        : new Date(deal.updated_at)
+      weeks.add(getWeekKey(date))
+    })
+
+    // Toujours inclure la semaine courante
+    weeks.add(currentWeekKey)
+
+    return Array.from(weeks)
+      .filter(w => w <= currentWeekKey)
+      .sort()
+      .reverse() // Plus récent en premier
+  }, [deals, currentWeekKey])
+
+  // Calcul des bornes pour la semaine sélectionnée
+  const selectedBounds = useMemo(() => {
+    if (selectedWeekKey === currentWeekKey) {
+      return {
+        monday: currentMonday,
+        sunday: currentSunday,
+        weekNumber: weekNumber,
+        year: currentYear
+      }
+    } else {
+      const bounds = getWeekBounds(selectedWeekKey)
+      const [year, weekPart] = selectedWeekKey.split('-W')
+      return {
+        ...bounds,
+        weekNumber: parseInt(weekPart),
+        year: parseInt(year)
+      }
+    }
+  }, [selectedWeekKey, currentWeekKey, currentMonday, currentSunday, weekNumber, currentYear])
+
+  // Bornes semaine précédente pour comparaison
+  const previousBounds = useMemo(() => {
+    const prevWeek = new Date(selectedBounds.monday)
+    prevWeek.setDate(prevWeek.getDate() - 7)
+    const prevWeekKey = getWeekKey(prevWeek)
+    return getWeekBounds(prevWeekKey)
+  }, [selectedBounds])
+
   // Calcul des métriques par conseiller (MAJ pour selectedBounds)
   const advisorRows = useMemo(() => {
     const activeAdvisors = teamProfiles.filter(
@@ -379,55 +428,6 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
   const weeklyHistory = useMemo(() =>
     getWeeklyHistory(deals), [deals]
   )
-
-  // Semaines disponibles pour le sélecteur
-  const availableWeeks = useMemo(() => {
-    if (!deals || deals.length === 0) return [currentWeekKey]
-
-    const weeks = new Set()
-    deals.filter(d => d.status === 'Signé').forEach(deal => {
-      const date = deal.date_signed
-        ? new Date(deal.date_signed)
-        : new Date(deal.updated_at)
-      weeks.add(getWeekKey(date))
-    })
-
-    // Toujours inclure la semaine courante
-    weeks.add(currentWeekKey)
-
-    return Array.from(weeks)
-      .filter(w => w <= currentWeekKey)
-      .sort()
-      .reverse() // Plus récent en premier
-  }, [deals, currentWeekKey])
-
-  // Calcul des bornes pour la semaine sélectionnée
-  const selectedBounds = useMemo(() => {
-    if (selectedWeekKey === currentWeekKey) {
-      return {
-        monday: currentMonday,
-        sunday: currentSunday,
-        weekNumber: weekNumber,
-        year: currentYear
-      }
-    } else {
-      const bounds = getWeekBounds(selectedWeekKey)
-      const [year, weekPart] = selectedWeekKey.split('-W')
-      return {
-        ...bounds,
-        weekNumber: parseInt(weekPart),
-        year: parseInt(year)
-      }
-    }
-  }, [selectedWeekKey, currentWeekKey, currentMonday, currentSunday, weekNumber, currentYear])
-
-  // Bornes semaine précédente pour comparaison
-  const previousBounds = useMemo(() => {
-    const prevWeek = new Date(selectedBounds.monday)
-    prevWeek.setDate(prevWeek.getDate() - 7)
-    const prevWeekKey = getWeekKey(prevWeek)
-    return getWeekBounds(prevWeekKey)
-  }, [selectedBounds])
 
   // Statistiques produit pour tous les deals signés
   const productStats = useMemo(() => {
