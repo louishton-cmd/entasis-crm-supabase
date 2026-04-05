@@ -987,7 +987,7 @@ function SimulateurAssuranceVie() {
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         <div>
-          <Slider label="Capital initial" value={capitalInitial} onChange={setCapitalInitial} min={1000} max={500000} step={1000} suffix="EUR" formatValue={v => euro(v)} />
+          <Slider label="Capital initial" value={capitalInitial} onChange={setCapitalInitial} min={0} max={500000} step={1000} suffix="EUR" formatValue={v => euro(v)} />
           <Slider label="Versements mensuels programmes" value={versementMensuel} onChange={setVersementMensuel} min={0} max={5000} step={50} suffix="EUR" formatValue={v => euro(v)} />
           <Slider label="Duree" value={duree} onChange={setDuree} min={1} max={30} suffix="ans" />
 

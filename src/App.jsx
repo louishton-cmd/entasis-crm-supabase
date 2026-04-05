@@ -47,22 +47,62 @@ const PRIORITY_CLASS = {
 
 function dealMatchesAdvisor(d,c){return d.advisor_code===c||d.co_advisor_code===c}
 function isPipeline(s){return s==='En cours'||s==='Prévu'}
-function sumAnnualPp(deals){return deals.reduce((s,d)=>s+annualize(d.pp_m),0)}
-function sumPu(deals){return deals.reduce((s,d)=>s+Number(d.pu||0),0)}
+function sumAnnualPp(deals, advisorCode) {
+  return deals.reduce((s, d) => {
+    const pp = annualize(d.pp_m)
+    // Si advisorCode est fourni, appliquer la règle 50/50
+    if (advisorCode && d.co_advisor_code) {
+      return s + pp * 0.5
+    }
+    return s + pp
+  }, 0)
+}
+function sumPu(deals, advisorCode) {
+  return deals.reduce((s, d) => {
+    const pu = Number(d.pu || 0)
+    if (advisorCode && d.co_advisor_code) {
+      return s + pu * 0.5
+    }
+    return s + pu
+  }, 0)
+}
 
-function advisorMetrics(deals,month,code){
-  const scoped=deals.filter(d=>d.month===month&&dealMatchesAdvisor(d,code))
-  const signed=scoped.filter(d=>d.status==='Signé')
-  const pipeline=scoped.filter(d=>isPipeline(d.status))
-  const ppS=sumAnnualPp(signed), puS=sumPu(signed)
-  const ppP=sumAnnualPp(pipeline), puP=sumPu(pipeline)
+function advisorMetrics(deals, month, code) {
+  const scoped = deals.filter(d =>
+    d.month === month && dealMatchesAdvisor(d, code)
+  )
+  const signed = scoped.filter(d => d.status === 'Signé')
+  const pipeline = scoped.filter(d => isPipeline(d.status))
+
+  // Appliquer 50/50 en passant le code conseiller
+  const ppS = sumAnnualPp(signed, code)
+  const puS = sumPu(signed, code)
+  const ppP = sumAnnualPp(pipeline, code)
+  const puP = sumPu(pipeline, code)
+
+  // Nombre de dossiers : 0.5 si co-conseil, 1 sinon
+  const signedCount = signed.reduce((s, d) =>
+    s + (d.co_advisor_code ? 0.5 : 1), 0
+  )
+  const pipelineCount = pipeline.reduce((s, d) =>
+    s + (d.co_advisor_code ? 0.5 : 1), 0
+  )
+
   return {
-    total:scoped.length,signedCount:signed.length,pipelineCount:pipeline.length,
-    ppSigned:ppS,puSigned:puS,ppPipeline:ppP,puPipeline:puP,
-    ppProjected:ppS+ppP,puProjected:puS+puP,
-    signRate:scoped.length>0?Math.round((signed.length/scoped.length)*100):0,
-    avgPp:signed.length>0?ppS/signed.length:0,
-    hotDeals:scoped.filter(d=>d.priority==='Urgente'||d.priority==='Haute'),
+    total: scoped.length,
+    signedCount,
+    pipelineCount,
+    ppSigned: ppS,
+    puSigned: puS,
+    ppPipeline: ppP,
+    puPipeline: puP,
+    ppProjected: ppS + ppP,
+    puProjected: puS + puP,
+    signRate: scoped.length > 0
+      ? Math.round((signedCount / scoped.length) * 100)
+      : 0,
+    avgPp: signedCount > 0 ? ppS / signedCount : 0,
+    hotDeals: scoped.filter(d => d.priority === 'Urgente' || d.priority === 'Haute'),
   }
 }
 
@@ -1581,14 +1621,21 @@ function AdvisorDashboard({deals,objectifs,month,profile}){
 function ManagerDashboard({deals,objectifs,month,teamProfiles}){
   const monthDeals=deals.filter(d=>d.month===month)
   const signed=monthDeals.filter(d=>d.status==='Signé'),pipeline=monthDeals.filter(d=>isPipeline(d.status))
-  const ppS=sumAnnualPp(signed),puS=sumPu(signed),ppP=sumAnnualPp(pipeline),puP=sumPu(pipeline)
+  // Total cabinet : compter chaque deal une seule fois (pas de 50/50 ici)
+  // car on veut le CA total du cabinet, pas par conseiller
+  const ppS = signed.reduce((s, d) => s + annualize(d.pp_m), 0)
+  const puS = signed.reduce((s, d) => s + Number(d.pu || 0), 0)
+  const ppP = pipeline.reduce((s, d) => s + annualize(d.pp_m), 0)
+  const puP = pipeline.reduce((s, d) => s + Number(d.pu || 0), 0)
   const targets=objectifs[month]||{pp_target:0,pu_target:0}
   const ppTarget=Number(targets.pp_target||0),puTarget=Number(targets.pu_target||0)
   const activeAdvisors=teamProfiles.filter(p=>p.is_active&&p.advisor_code)
   const prevIdx=MONTHS.indexOf(month)-1,prevMonth=prevIdx>=0?MONTHS[prevIdx]:null
   const prevDeals=prevMonth?deals.filter(d=>d.month===prevMonth):[]
   const prevSigned=prevDeals.filter(d=>d.status==='Signé'),prevPipeline=prevDeals.filter(d=>isPipeline(d.status))
-  const prevPpS=sumAnnualPp(prevSigned),prevPuS=sumPu(prevSigned),prevPpP=sumAnnualPp(prevPipeline)
+  const prevPpS = prevSigned.reduce((s, d) => s + annualize(d.pp_m), 0)
+  const prevPuS = prevSigned.reduce((s, d) => s + Number(d.pu || 0), 0)
+  const prevPpP = prevPipeline.reduce((s, d) => s + annualize(d.pp_m), 0)
   const dPpS={raw:ppS-prevPpS,label:euro(Math.abs(ppS-prevPpS))}
   const dPuS={raw:puS-prevPuS,label:euro(Math.abs(puS-prevPuS))}
   const dPpProj={raw:(ppS+ppP)-(prevPpS+prevPpP),label:euro(Math.abs((ppS+ppP)-(prevPpS+prevPpP)))}
@@ -2697,6 +2744,12 @@ function TeamView({deals,objectifs,teamProfiles,month,profile}){
       <div className="section-header"><div><div className="section-kicker">Vue direction</div><div className="section-title">Performance par conseiller</div><div className="section-sub">{activeAdvisors.length} conseiller{activeAdvisors.length!==1?'s':''} actifs · {month}</div></div></div>
       {rows.map((row,i)=>{
         const ppPct=pct(row.ppSigned,ppTarget),ppProjPct=pct(row.ppProjected,ppTarget)
+        // Après le calcul des métriques de chaque conseiller
+        const hasCoDeals = deals.some(d =>
+          d.month === month &&
+          dealMatchesAdvisor(d, row.advisor_code) &&
+          d.co_advisor_code
+        )
         return (
           <div key={row.id} className="card mb-16">
             <div className="panel-head">
@@ -2712,7 +2765,19 @@ function TeamView({deals,objectifs,teamProfiles,month,profile}){
             </div>
             <div className="panel-body">
               <div className="kpi-grid mb-16">
-                <KpiCard label="PP signée" value={euro(row.ppSigned)} accent="gold" progressValue={ppPct}/>
+                <KpiCard label={
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    PP signée
+                    {hasCoDeals && (
+                      <span
+                        title="PP calculée à 50% sur les dossiers en co-conseil"
+                        style={{ cursor: 'help', marginLeft: 4, opacity: 0.6 }}
+                      >
+                        ⚡
+                      </span>
+                    )}
+                  </div>
+                } value={euro(row.ppSigned)} accent="gold" progressValue={ppPct}/>
                 <KpiCard label="PP pipeline" value={euro(row.ppPipeline)} hint={`${row.pipelineCount} dossier${row.pipelineCount!==1?'s':''}`} accent="amber"/>
                 <KpiCard label="PU signée" value={euro(row.puSigned)} accent="green"/>
                 <KpiCard label="Dossiers" value={String(row.total)} hint={`${row.signedCount} signés`}/>
