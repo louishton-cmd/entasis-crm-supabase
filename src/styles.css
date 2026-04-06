@@ -749,12 +749,14 @@ a { color: inherit; text-decoration: none; }
 }
 .form-section {
   margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--bd);
+  padding: 20px;
+  background: white;
+  border-radius: var(--rad);
+  border: 1px solid var(--bd);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .form-section:last-child {
-  border-bottom: none;
   margin-bottom: 0;
 }
 

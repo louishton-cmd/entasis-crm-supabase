@@ -3628,7 +3628,9 @@ export default function App(){
       const { data: { user }, error } = await supabase.auth.getUser()
       if (error || !user) throw new Error('Session expirée')
 
-      const payload={...deal,advisor_code:profile?.role==='manager'?deal.advisor_code:(profile?.advisor_code||deal.advisor_code),created_by:user.id}
+      // Supprimer les champs de jointure avant sauvegarde
+      const { clients, client_data, ...cleanDeal } = deal
+      const payload={...cleanDeal,advisor_code:profile?.role==='manager'?deal.advisor_code:(profile?.advisor_code||deal.advisor_code),created_by:user.id}
       const existing=deals.some(d=>d.id===deal.id)
       const q=existing?supabase.from('deals').update(payload).eq('id',deal.id):supabase.from('deals').insert(payload)
       const{error:e}=await q
@@ -3740,7 +3742,7 @@ export default function App(){
                   }}
                   onAddDeal={(clientData, reloadCallback) => {
                     setEditingDeal({
-                      ...newDeal(profile?.advisor_code),
+                      ...emptyDeal(profile?.advisor_code),
                       ...clientData
                     })
                     setModalOpen(true)
