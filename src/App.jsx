@@ -2962,7 +2962,38 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
     notes: ''
   })
 
-  const [products, setProducts] = useState([emptyProduct()])
+  // Vérifier si le client est verrouillé (client_id pré-rempli)
+  const isClientLocked = !!deal?.client_id && !!deal?.client
+
+  const [products, setProducts] = useState(() => {
+    // Si client verrouillé (ajout depuis fiche client)
+    // → toujours commencer avec un produit vide
+    if (isClientLocked) {
+      return [{
+        product: '',
+        company: '',
+        pp_m: 0,
+        pu: 0,
+        status: 'En cours',
+        priority: deal?.priority || 'Normale',
+        date_expected: '',
+        date_signed: '',
+        notes: ''
+      }]
+    }
+    // Sinon comportement normal
+    return [{
+      product: deal?.product || '',
+      company: deal?.company || '',
+      pp_m: deal?.pp_m || 0,
+      pu: deal?.pu || 0,
+      status: deal?.status || 'En cours',
+      priority: deal?.priority || 'Normale',
+      date_expected: deal?.date_expected || '',
+      date_signed: deal?.date_signed || '',
+      notes: deal?.notes || ''
+    }]
+  })
 
   function setProductField(index, field, value) {
     setProducts(prev => prev.map((p, i) =>
@@ -3043,13 +3074,11 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
   if(!open||!deal)return null
   const set=(k,v)=>setDeal(p=>({...p,[k]:v}))
   const isManager=profile?.role==='manager'
-  // Vérifier si le client est verrouillé (client_id pré-rempli)
-  const isClientLocked = !!deal?.client_id && !!deal?.client
   async function submit(e) {
     e.preventDefault();
 
-    if (showMultiProducts) {
-      // Mode multi-produits : valider qu'au moins un produit est sélectionné
+    if (showMultiProducts || isClientLocked) {
+      // Mode multi-produits ou ajout depuis fiche client
       const validProducts = products.filter(p => p.product.trim());
       if (validProducts.length === 0) {
         toast.error('Veuillez sélectionner au moins un produit');
@@ -3059,17 +3088,15 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
       // Créer un deal pour chaque produit avec les infos communes
       const deals = validProducts.map(prod => {
         const newDeal = {
-          ...deal, // Infos communes (client, month, advisor_code, source, etc.)
-          id: `D-${Date.now()}-${Math.random().toString(36).substr(2,5)}`, // ID unique
+          ...deal,           // Infos communes (client_id, client, advisor_code, month)
+          ...prod,           // Infos produit (product, pp_m, pu, status)
           product: prod.product,
-          company: prod.company,
           pp_m: prod.pp_m,
           pu: prod.pu,
+          company: prod.company,
           status: prod.status,
-          priority: prod.priority || 'Normale',
-          date_expected: prod.date_expected,
-          date_signed: prod.date_signed,
-          notes: (prod.notes || '').trim()
+          id: undefined,
+          created_at: undefined
         };
         return normalizeDeal(newDeal);
       });
