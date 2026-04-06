@@ -43,6 +43,7 @@ export default function ClientView({ clientId, onBack, supabase, profile, onEdit
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [editModalOpen, setEditModalOpen] = useState(false)
+  const [expandedDeal, setExpandedDeal] = useState(null)
 
   const isManager = profile?.role === 'manager'
 
@@ -213,34 +214,34 @@ export default function ClientView({ clientId, onBack, supabase, profile, onEdit
       {/* Cards résumé */}
       <div className="grid grid-4" style={{ marginBottom: '32px' }}>
         <div className="card">
-          <div className="card-header">
+          <div className="card-header" style={{ padding: '20px 24px 12px 24px' }}>
             <h3>Produits financiers</h3>
           </div>
-          <div className="card-body">
+          <div className="card-body" style={{ padding: '0 24px 20px 24px' }}>
             <div className="kpi-value">{clientDeals.length}</div>
           </div>
         </div>
         <div className="card">
-          <div className="card-header">
+          <div className="card-header" style={{ padding: '20px 24px 12px 24px' }}>
             <h3>CA total</h3>
           </div>
-          <div className="card-body">
+          <div className="card-body" style={{ padding: '0 24px 20px 24px' }}>
             <div className="kpi-value">{euro(caTotal)}</div>
           </div>
         </div>
         <div className="card">
-          <div className="card-header">
+          <div className="card-header" style={{ padding: '20px 24px 12px 24px' }}>
             <h3>Dossiers immobilier</h3>
           </div>
-          <div className="card-body">
+          <div className="card-body" style={{ padding: '0 24px 20px 24px' }}>
             <div className="kpi-value">{clientDossiers.length}</div>
           </div>
         </div>
         <div className="card">
-          <div className="card-header">
+          <div className="card-header" style={{ padding: '20px 24px 12px 24px' }}>
             <h3>Patrimoine estimé</h3>
           </div>
-          <div className="card-body">
+          <div className="card-body" style={{ padding: '0 24px 20px 24px' }}>
             <div className="kpi-value">{euro(client.patrimoine_estime)}</div>
           </div>
         </div>
@@ -249,47 +250,47 @@ export default function ClientView({ clientId, onBack, supabase, profile, onEdit
       {/* Section Informations client */}
       <div className="grid grid-2" style={{ marginBottom: '32px' }}>
         {/* Colonne gauche - Identité */}
-        <div className="card">
-          <div className="card-header">
+        <div className="card" style={{ marginBottom: '16px' }}>
+          <div className="card-header" style={{ padding: '24px 28px 16px 28px' }}>
             <h3>Identité</h3>
           </div>
-          <div className="card-body">
+          <div className="card-body" style={{ padding: '0 28px 24px 28px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
+              <div style={{ marginBottom: '12px' }}>
                 <strong>Nom complet:</strong> {client.prenom} {client.nom}
               </div>
               {client.email && (
-                <div>
+                <div style={{ marginBottom: '12px' }}>
                   <strong>Email:</strong> {client.email}
                 </div>
               )}
               {client.telephone && (
-                <div>
+                <div style={{ marginBottom: '12px' }}>
                   <strong>Téléphone:</strong> {client.telephone}
                 </div>
               )}
               {client.age && (
-                <div>
+                <div style={{ marginBottom: '12px' }}>
                   <strong>Âge:</strong> {client.age} ans
                 </div>
               )}
               {client.situation_familiale && (
-                <div>
+                <div style={{ marginBottom: '12px' }}>
                   <strong>Situation:</strong> {client.situation_familiale}
                 </div>
               )}
               {client.nb_enfants > 0 && (
-                <div>
+                <div style={{ marginBottom: '12px' }}>
                   <strong>Enfants:</strong> {client.nb_enfants}
                 </div>
               )}
               {client.profession && (
-                <div>
+                <div style={{ marginBottom: '12px' }}>
                   <strong>Profession:</strong> {client.profession}
                 </div>
               )}
               {(client.adresse || client.ville) && (
-                <div>
+                <div style={{ marginBottom: '12px' }}>
                   <strong>Adresse:</strong> {[client.adresse, client.code_postal, client.ville].filter(Boolean).join(', ')}
                 </div>
               )}
@@ -298,24 +299,24 @@ export default function ClientView({ clientId, onBack, supabase, profile, onEdit
         </div>
 
         {/* Colonne droite - Patrimoine */}
-        <div className="card">
-          <div className="card-header">
+        <div className="card" style={{ marginBottom: '16px' }}>
+          <div className="card-header" style={{ padding: '24px 28px 16px 28px' }}>
             <h3>Patrimoine & Objectifs</h3>
           </div>
-          <div className="card-body">
+          <div className="card-body" style={{ padding: '0 28px 24px 28px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {client.revenus_annuels && (
-                <div>
+                <div style={{ marginBottom: '12px' }}>
                   <strong>Revenus annuels:</strong> {euro(client.revenus_annuels)}
                 </div>
               )}
               {client.patrimoine_estime && (
-                <div>
+                <div style={{ marginBottom: '12px' }}>
                   <strong>Patrimoine estimé:</strong> {euro(client.patrimoine_estime)}
                 </div>
               )}
               {client.objectifs?.length > 0 && (
-                <div>
+                <div style={{ marginBottom: '12px' }}>
                   <strong>Objectifs:</strong>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
                     {client.objectifs.map(obj => (
@@ -331,7 +332,7 @@ export default function ClientView({ clientId, onBack, supabase, profile, onEdit
                 </div>
               )}
               {client.notes && (
-                <div>
+                <div style={{ marginBottom: '12px' }}>
                   <strong>Notes:</strong>
                   <div style={{
                     marginTop: '6px',
@@ -352,7 +353,7 @@ export default function ClientView({ clientId, onBack, supabase, profile, onEdit
 
       {/* Section Produits financiers */}
       <div className="card" style={{ marginBottom: '32px' }}>
-        <div className="card-header">
+        <div className="card-header" style={{ padding: '24px 28px 16px 28px' }}>
           <h3>Produits financiers ({clientDeals.length})</h3>
           <button
             className="btn btn-secondary btn-sm"
@@ -366,54 +367,144 @@ export default function ClientView({ clientId, onBack, supabase, profile, onEdit
             + Ajouter un produit
           </button>
         </div>
-        <div className="card-body">
+        <div className="card-body" style={{ padding: '0 28px 24px 28px' }}>
           {clientDeals.length === 0 ? (
             <div style={{ textAlign: 'center', color: 'var(--t2)', padding: '40px' }}>
               Aucun produit financier
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {clientDeals.map(deal => (
-                <div key={deal.id} style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '16px',
-                  backgroundColor: 'var(--bg)',
-                  borderRadius: 'var(--rad)',
-                  border: '1px solid var(--bd)'
-                }}>
-                  <div>
-                    <div style={{ fontWeight: '600', fontSize: '14px', marginBottom: '4px' }}>
-                      {deal.product}
+              {clientDeals.map(deal => {
+                const isExpanded = expandedDeal === deal.id
+                return (
+                  <div key={deal.id}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '16px',
+                        backgroundColor: isExpanded ? 'rgba(192, 155, 90, 0.05)' : 'var(--bg)',
+                        borderRadius: 'var(--rad)',
+                        border: isExpanded ? '2px solid #C09B5A' : '1px solid var(--bd)',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => setExpandedDeal(isExpanded ? null : deal.id)}
+                    >
+                      <div>
+                        <div style={{ fontWeight: '600', fontSize: '14px', marginBottom: '4px' }}>
+                          {deal.product}
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--t2)' }}>
+                          PP: {euro(annualize(deal.pp_m || 0))} | PU: {euro(deal.pu || 0)}
+                        </div>
+                        {deal.co_advisor_code && (
+                          <div style={{ fontSize: '11px', color: 'var(--t3)' }}>
+                            Co-conseiller: {deal.co_advisor_code}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span className={STATUS_CLASS[deal.status]}>
+                          {deal.status}
+                        </span>
+                        {deal.date_signed && (
+                          <span style={{ fontSize: '12px', color: 'var(--t2)' }}>
+                            {deal.date_signed}
+                          </span>
+                        )}
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onEditDeal && onEditDeal(deal, reloadClientDeals)
+                          }}
+                        >
+                          Modifier
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ fontSize: '12px', color: 'var(--t2)' }}>
-                      PP: {euro(annualize(deal.pp_m || 0))} | PU: {euro(deal.pu || 0)}
-                    </div>
-                    {deal.co_advisor_code && (
-                      <div style={{ fontSize: '11px', color: 'var(--t3)' }}>
-                        Co-conseiller: {deal.co_advisor_code}
+
+                    {/* Détails expandés */}
+                    {isExpanded && (
+                      <div style={{
+                        marginTop: '8px',
+                        padding: '16px',
+                        backgroundColor: '#F9F8F6',
+                        borderRadius: 'var(--rad)',
+                        border: '1px solid #E8E4DC',
+                        marginLeft: '20px'
+                      }}>
+                        <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '600' }}>
+                          Détails du produit
+                        </h4>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                          <div>
+                            <strong>Mois:</strong> {deal.month || '—'}
+                          </div>
+                          <div>
+                            <strong>Compagnie:</strong> {deal.company || '—'}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                          <div>
+                            <strong>Source:</strong> {deal.source || '—'}
+                          </div>
+                          <div>
+                            <strong>Priorité:</strong> {deal.priority || 'Normale'}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                          <div>
+                            <strong>Date prévue:</strong> {deal.date_expected || '—'}
+                          </div>
+                          <div>
+                            <strong>Date signée:</strong> {deal.date_signed || '—'}
+                          </div>
+                        </div>
+
+                        {deal.tags && deal.tags.length > 0 && (
+                          <div style={{ marginBottom: '12px' }}>
+                            <strong>Tags:</strong>
+                            <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                              {deal.tags.map(tag => (
+                                <span key={tag} style={{
+                                  background: 'var(--gold)',
+                                  color: 'white',
+                                  padding: '2px 8px',
+                                  borderRadius: '12px',
+                                  fontSize: '11px'
+                                }}>
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {deal.notes && (
+                          <div>
+                            <strong>Notes:</strong>
+                            <div style={{
+                              marginTop: '4px',
+                              padding: '8px',
+                              backgroundColor: 'white',
+                              borderRadius: '4px',
+                              fontSize: '13px',
+                              lineHeight: '1.4'
+                            }}>
+                              {deal.notes}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span className={STATUS_CLASS[deal.status]}>
-                      {deal.status}
-                    </span>
-                    {deal.date_signed && (
-                      <span style={{ fontSize: '12px', color: 'var(--t2)' }}>
-                        {deal.date_signed}
-                      </span>
-                    )}
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => onEditDeal && onEditDeal(deal, reloadClientDeals)}
-                    >
-                      Modifier
-                    </button>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

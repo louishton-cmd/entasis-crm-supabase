@@ -1789,19 +1789,64 @@ function PipelineBoard({deals,month,profile,onEdit}){
 /* ─────────────────────────────────────────────────────────────────────────────
    DEALS TABLE
 ───────────────────────────────────────────────────────────────────────────── */
-function DealsTable({deals,month,profile,onEdit,onDelete,onRefresh}){
+function DealsTable({deals,month,profile,onEdit,onDelete,onRefresh,onSelectClient}){
   const [search,setSearch]=useState('')
   const [statusF,setStatusF]=useState('Tous')
   const [productF,setProductF]=useState('Tous')
   const [priorityF,setPriorityF]=useState('Tous')
   const [allMonths,setAllMonths]=useState(false)
+  const [expandedGroups,setExpandedGroups]=useState(new Set())
   const filtered=useMemo(()=>deals.filter(d=>allMonths||d.month===month).filter(d=>statusF==='Tous'||d.status===statusF).filter(d=>productF==='Tous'||d.product===productF).filter(d=>priorityF==='Tous'||d.priority===priorityF).filter(d=>`${getClientName(d)} ${d.product} ${d.company} ${d.advisor_code} ${d.co_advisor_code||''}`.toLowerCase().includes(search.toLowerCase())),[deals,month,allMonths,search,statusF,productF,priorityF])
+
+  const groupedDeals = useMemo(() => {
+    const groups = {}
+
+    filtered.forEach(deal => {
+      const key = deal.client_id || deal.id
+      if (!groups[key]) {
+        groups[key] = {
+          client_id: deal.client_id,
+          clientName: deal.clients?.nom || deal.client,
+          advisor_code: deal.advisor_code,
+          co_advisor_code: deal.co_advisor_code,
+          deals: [],
+          globalStatus: null,
+          totalPp: 0,
+          totalPu: 0
+        }
+      }
+      groups[key].deals.push(deal)
+      groups[key].totalPp += (deal.pp_m || 0) * 12
+      groups[key].totalPu += deal.pu || 0
+    })
+
+    // Calculer statut global
+    const statusOrder = { 'En cours': 0, 'Prévu': 1, 'Signé': 2, 'Annulé': 3 }
+    Object.values(groups).forEach(group => {
+      group.globalStatus = group.deals.reduce((worst, deal) => {
+        return statusOrder[deal.status] < statusOrder[worst]
+          ? deal.status : worst
+      }, group.deals[0].status)
+    })
+
+    return Object.values(groups)
+  }, [filtered])
   const ppTotal=sumAnnualPp(filtered.filter(d=>d.status==='Signé'))
   const puTotal=sumPu(filtered.filter(d=>d.status==='Signé'))
 
+  const toggleGroup = (key) => {
+    const newExpanded = new Set(expandedGroups)
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key)
+    } else {
+      newExpanded.add(key)
+    }
+    setExpandedGroups(newExpanded)
+  }
+
   return (
     <div>
-      <div className="section-header"><div><div className="section-kicker">Référentiel</div><div className="section-title">Dossiers clients</div><div className="section-sub">{filtered.length} dossier{filtered.length!==1?'s':''} · PP signée {euro(ppTotal)} · PU signée {euro(puTotal)}</div></div></div>
+      <div className="section-header"><div><div className="section-kicker">Référentiel</div><div className="section-title">Dossiers clients</div><div className="section-sub">{groupedDeals.length} client{groupedDeals.length!==1?'s':''} · {filtered.length} dossier{filtered.length!==1?'s':''} · PP signée {euro(ppTotal)} · PU signée {euro(puTotal)}</div></div></div>
       <div className="card card-p mb-16">
         <div className="table-toolbar">
           <input className="search-input" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Recherche client, produit, conseiller…"/>
@@ -1816,25 +1861,102 @@ function DealsTable({deals,month,profile,onEdit,onDelete,onRefresh}){
         </div>
       </div>
       <div className="table-wrap">
-        {filtered.length>0?(
+        {groupedDeals.length>0?(
           <table className="data-table">
-            <thead><tr><th>Client</th><th>Produit</th><th>PP annualisée</th><th>PU</th><th>Conseiller</th><th>Mois</th><th>Statut</th><th>Priorité</th><th>Ancienneté</th><th>Compagnie</th><th></th></tr></thead>
+            <thead><tr><th>Client</th><th>Produits</th><th>PP annualisée</th><th>PU</th><th>Conseiller</th><th>Statut global</th><th>Actions</th></tr></thead>
             <tbody>
-              {filtered.map(deal=>(
-                <tr key={deal.id}>
-                  <td><div className="cell-primary">{getClientName(deal)}</div><div className="cell-sub">{deal.source||'—'}</div></td>
-                  <td>{deal.product}</td>
-                  <td className="cell-mono"><strong>{euro(annualize(deal.pp_m))}</strong><div className="cell-sub">{euro(deal.pp_m)}/mois</div></td>
-                  <td className="cell-mono">{deal.pu>0?euro(deal.pu):'—'}</td>
-                  <td>{deal.advisor_code}{deal.co_advisor_code&&<span className="cell-sub"> co: {deal.co_advisor_code}</span>}</td>
-                  <td><span style={{fontSize:12,color:'var(--t3)'}}>{deal.month}</span></td>
-                  <td><span className={STATUS_CLASS[deal.status]||'badge'}>{deal.status}</span></td>
-                  <td><span className={PRIORITY_CLASS[deal.priority]||'badge'}>{deal.priority}</span></td>
-                  <td><AgeBadge deal={deal}/></td>
-                  <td><span style={{fontSize:12,color:'var(--t3)'}}>{deal.company||'—'}</span></td>
-                  <td><div className="table-actions"><button className="btn btn-outline btn-sm" onClick={()=>onEdit(deal)}><Icon.Edit/></button><button className="btn btn-danger btn-sm" onClick={()=>onDelete(deal)}><Icon.Trash/></button></div></td>
-                </tr>
-              ))}
+              {groupedDeals.map(group=>{
+                const groupKey = group.client_id || group.deals[0].id
+                const isExpanded = expandedGroups.has(groupKey)
+                return (
+                  <React.Fragment key={groupKey}>
+                    <tr
+                      onClick={() => group.client_id && onSelectClient && onSelectClient(group.client_id)}
+                      style={{
+                        cursor: group.client_id && onSelectClient ? 'pointer' : 'default',
+                        backgroundColor: isExpanded ? 'rgba(192, 155, 90, 0.05)' : 'transparent'
+                      }}
+                    >
+                      <td>
+                        <div className="cell-primary">{group.clientName}</div>
+                        {group.deals.length > 1 && (
+                          <button
+                            className="btn btn-ghost btn-xs"
+                            onClick={(e) => { e.stopPropagation(); toggleGroup(groupKey) }}
+                            style={{ marginTop: '4px' }}
+                          >
+                            {isExpanded ? '🔽' : '▶️'} Détails
+                          </button>
+                        )}
+                      </td>
+                      <td>
+                        <div className="cell-primary">{group.deals.length} produit{group.deals.length > 1 ? 's' : ''}</div>
+                        <div className="cell-sub">{group.deals.map(d => d.product).join(', ')}</div>
+                      </td>
+                      <td className="cell-mono">
+                        <strong>{euro(group.totalPp)}</strong>
+                      </td>
+                      <td className="cell-mono">{group.totalPu > 0 ? euro(group.totalPu) : '—'}</td>
+                      <td>
+                        {group.advisor_code}
+                        {group.co_advisor_code && <span className="cell-sub"> co: {group.co_advisor_code}</span>}
+                      </td>
+                      <td><span className={STATUS_CLASS[group.globalStatus]||'badge'}>{group.globalStatus}</span></td>
+                      <td>
+                        <div className="table-actions">
+                          {group.client_id && onSelectClient && (
+                            <button
+                              className="btn btn-outline btn-sm"
+                              onClick={(e) => { e.stopPropagation(); onSelectClient(group.client_id) }}
+                            >
+                              Voir
+                            </button>
+                          )}
+                          {group.deals.length === 1 && (
+                            <button
+                              className="btn btn-danger btn-sm"
+                              onClick={(e) => { e.stopPropagation(); onDelete(group.deals[0]) }}
+                            >
+                              <Icon.Trash/>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                    {isExpanded && group.deals.map(deal => (
+                      <tr key={`${groupKey}-${deal.id}`} style={{ backgroundColor: '#F9F8F6' }}>
+                        <td style={{ paddingLeft: '40px' }}>
+                          <div className="cell-sub">└─ {deal.product}</div>
+                        </td>
+                        <td><span style={{fontSize:12,color:'var(--t3)'}}>{deal.month}</span></td>
+                        <td className="cell-mono">
+                          <strong>{euro(annualize(deal.pp_m))}</strong>
+                          <div className="cell-sub">{euro(deal.pp_m)}/mois</div>
+                        </td>
+                        <td className="cell-mono">{deal.pu>0?euro(deal.pu):'—'}</td>
+                        <td><span style={{fontSize:12,color:'var(--t3)'}}>{deal.company||'—'}</span></td>
+                        <td><span className={STATUS_CLASS[deal.status]||'badge'}>{deal.status}</span></td>
+                        <td>
+                          <div className="table-actions">
+                            <button
+                              className="btn btn-outline btn-sm"
+                              onClick={(e) => { e.stopPropagation(); onEdit(deal) }}
+                            >
+                              <Icon.Edit/>
+                            </button>
+                            <button
+                              className="btn btn-danger btn-sm"
+                              onClick={(e) => { e.stopPropagation(); onDelete(deal) }}
+                            >
+                              <Icon.Trash/>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                )
+              })}
             </tbody>
           </table>
         ):(
@@ -2879,6 +3001,8 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
   const set=(k,v)=>setDeal(p=>({...p,[k]:v}))
   const isManager=profile?.role==='manager'
   const isNew=!initialDeal?.created_at
+  // Vérifier si le client est verrouillé (client_id pré-rempli)
+  const isClientLocked = !!deal?.client_id && !!deal?.client
   async function submit(e){e.preventDefault();await onSave(normalizeDeal(deal))}
 
   return (
@@ -2897,7 +3021,17 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label className="form-label">Client</label>
 
-                {selectedClient ? (
+                {isClientLocked ? (
+                  <div style={{
+                    padding: '10px 14px',
+                    background: '#F5F2EC',
+                    borderRadius: '6px',
+                    border: '1px solid #E8E4DC',
+                    color: '#555'
+                  }}>
+                    🔒 {deal.client}
+                  </div>
+                ) : selectedClient ? (
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -3728,7 +3862,10 @@ export default function App(){
           {activeTab==='dashboard'&&(isManager?<ManagerDashboard deals={deals} objectifs={objectifs} month={month} teamProfiles={teamProfiles}/>:<AdvisorDashboard deals={deals} objectifs={objectifs} month={month} profile={profile}/>)}
           {activeTab==='leads'&&<LeadRoom leads={leads} profile={profile} onLeadsChange={setLeads} onConvertDeal={convertLeadToDeal} onRefresh={fetchLeads}/>}
           {activeTab==='pipeline'&&<PipelineBoard deals={deals} month={month} profile={profile} onEdit={startEdit}/>}
-          {activeTab==='dossiers'&&<DealsTable deals={deals} month={month} profile={profile} onEdit={startEdit} onDelete={deleteDeal} onRefresh={loadAll}/>}
+          {activeTab==='dossiers'&&<DealsTable deals={deals} month={month} profile={profile} onEdit={startEdit} onDelete={deleteDeal} onRefresh={loadAll} onSelectClient={(clientId) => {
+            setSelectedClientId(clientId)
+            setActiveTab('clients')
+          }}/>}
           {activeTab==='clients'&&(
             selectedClientId
               ? <ClientView
