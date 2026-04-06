@@ -36,7 +36,7 @@ const PIPELINE_STATUS_CLASS = {
   'honoraires': 'badge badge-signed'
 }
 
-export default function ClientView({ clientId, onBack, supabase, profile }) {
+export default function ClientView({ clientId, onBack, supabase, profile, onEditDeal, onAddDeal }) {
   const [client, setClient] = useState(null)
   const [clientDeals, setClientDeals] = useState([])
   const [clientDossiers, setClientDossiers] = useState([])
@@ -126,6 +126,21 @@ export default function ClientView({ clientId, onBack, supabase, profile }) {
         statusPriority[status] === Math.min(...clientDeals.map(d => statusPriority[d.status] || 1))
       ) || 'En cours'
     : 'Aucun deal'
+
+  // Recharger les deals du client après sauvegarde
+  const reloadClientDeals = async () => {
+    if (!client?.id) return
+    try {
+      const { data } = await supabase
+        .from('deals')
+        .select('*')
+        .eq('client_id', client.id)
+        .order('created_at', { ascending: false })
+      setClientDeals(data || [])
+    } catch (error) {
+      console.error('Erreur rechargement deals:', error)
+    }
+  }
 
   if (loading) {
     return (
@@ -339,7 +354,17 @@ export default function ClientView({ clientId, onBack, supabase, profile }) {
       <div className="card" style={{ marginBottom: '32px' }}>
         <div className="card-header">
           <h3>Produits financiers ({clientDeals.length})</h3>
-          <button className="btn btn-secondary btn-sm">+ Ajouter un produit</button>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => onAddDeal && onAddDeal({
+              client_id: client.id,
+              client: `${client.prenom || ''} ${client.nom}`.trim(),
+              client_email: client.email || '',
+              client_phone: client.telephone || ''
+            }, reloadClientDeals)}
+          >
+            + Ajouter un produit
+          </button>
         </div>
         <div className="card-body">
           {clientDeals.length === 0 ? (
@@ -380,7 +405,12 @@ export default function ClientView({ clientId, onBack, supabase, profile }) {
                         {deal.date_signed}
                       </span>
                     )}
-                    <button className="btn btn-secondary btn-sm">Modifier</button>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => onEditDeal && onEditDeal(deal, reloadClientDeals)}
+                    >
+                      Modifier
+                    </button>
                   </div>
                 </div>
               ))}

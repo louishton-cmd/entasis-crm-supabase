@@ -217,15 +217,15 @@ export default function ClientsView({ supabase, onSelectClient, profile }) {
       ) : (
         <div className="card">
           <div className="table-container">
-            <table className="table">
+            <table className="table" style={{ width: '100%' }}>
               <thead>
-                <tr>
-                  <th>Client</th>
-                  <th>Conseiller</th>
-                  <th>Produits</th>
-                  <th>Statut global</th>
-                  <th>CA total</th>
-                  <th>Actions</th>
+                <tr style={{ backgroundColor: '#F5F2EC' }}>
+                  <th style={{ fontWeight: '600', width: '35%' }}>Client</th>
+                  <th style={{ fontWeight: '600', width: '15%' }}>Conseiller</th>
+                  <th style={{ fontWeight: '600', width: '10%' }}>Produits</th>
+                  <th style={{ fontWeight: '600', width: '15%' }}>Statut global</th>
+                  <th style={{ fontWeight: '600', width: '15%' }}>CA total</th>
+                  <th style={{ fontWeight: '600', width: '10%' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -233,17 +233,21 @@ export default function ClientsView({ supabase, onSelectClient, profile }) {
                   <tr
                     key={client.id}
                     onClick={() => onSelectClient(client.id)}
-                    style={{ cursor: 'pointer' }}
-                    onMouseEnter={e => e.target.closest('tr').style.backgroundColor = 'var(--bg)'}
+                    style={{
+                      cursor: 'pointer',
+                      padding: '16px 20px',
+                      borderBottom: '1px solid #E8E4DC'
+                    }}
+                    onMouseEnter={e => e.target.closest('tr').style.backgroundColor = 'rgba(192, 155, 90, 0.05)'}
                     onMouseLeave={e => e.target.closest('tr').style.backgroundColor = 'transparent'}
                   >
-                    <td>
-                      <div className="cell-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <td style={{ padding: '16px 20px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <div>
-                          <div style={{ fontWeight: '600' }}>
+                          <div style={{ fontWeight: '600', fontSize: '14px' }}>
                             {client.prenom} {client.nom}
                           </div>
-                          <div className="cell-sub">
+                          <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>
                             {client.email || client.telephone || '—'}
                           </div>
                         </div>
@@ -263,31 +267,33 @@ export default function ClientsView({ supabase, onSelectClient, profile }) {
                         )}
                       </div>
                     </td>
-                    <td>
-                      <div className="cell-primary">{client.advisor_code || '—'}</div>
+                    <td style={{ padding: '16px 20px' }}>
+                      <div style={{ fontWeight: '600', fontSize: '14px' }}>{client.advisor_code || '—'}</div>
                       {client.co_advisor_code && (
-                        <div className="cell-sub">Co: {client.co_advisor_code}</div>
+                        <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>
+                          Co: {client.co_advisor_code}
+                        </div>
                       )}
                     </td>
-                    <td>
-                      <div className="cell-primary">
+                    <td style={{ padding: '16px 20px' }}>
+                      <div style={{ fontWeight: '600', fontSize: '14px' }}>
                         {(client.deals || []).length} produit{(client.deals || []).length > 1 ? 's' : ''}
                       </div>
-                      <div className="cell-sub">
+                      <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>
                         {client.dossiers_immo?.length > 0 && `${client.dossiers_immo.length} immo`}
                       </div>
                     </td>
-                    <td>
+                    <td style={{ padding: '16px 20px' }}>
                       <span className={`badge ${getStatusBadgeClass(client.globalStatus)}`}>
                         {client.globalStatus}
                       </span>
                     </td>
-                    <td>
-                      <div className="cell-primary" style={{ fontWeight: '600' }}>
+                    <td style={{ padding: '16px 20px' }}>
+                      <div style={{ fontWeight: '600', fontSize: '14px' }}>
                         {euro(client.caTotal)}
                       </div>
                     </td>
-                    <td>
+                    <td style={{ padding: '16px 20px' }}>
                       <button
                         className="btn btn-secondary btn-sm"
                         onClick={e => {

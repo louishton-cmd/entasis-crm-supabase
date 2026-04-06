@@ -52,7 +52,7 @@ function dealMatchesAdvisor(d,c){return d.advisor_code===c||d.co_advisor_code===
 
 // Helper pour récupérer le nom client avec fallback
 function getClientName(deal) {
-  return deal.client_data?.nom || deal.client || 'Client'
+  return deal.clients?.nom || deal.client || 'Client'
 }
 function isPipeline(s){return s==='En cours'||s==='Prévu'}
 function sumAnnualPp(deals, advisorCode) {
@@ -2842,11 +2842,11 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
   useEffect(() => {
     if (deal?.client_data && !selectedClient) {
       setSelectedClient({
-        id: deal.client_data.id,
-        nom: deal.client_data.nom,
-        prenom: deal.client_data.prenom,
-        email: deal.client_data.email,
-        telephone: deal.client_data.telephone
+        id: deal.clients.id,
+        nom: deal.clients.nom,
+        prenom: deal.clients.prenom,
+        email: deal.clients.email,
+        telephone: deal.clients.telephone
       })
     }
   }, [deal?.client_data])
@@ -3548,7 +3548,7 @@ export default function App(){
         supabase.from('profiles').select('id,email,full_name,role,advisor_code,is_active').order('full_name', {ascending: true}),
         supabase.from('deals').select(`
           *,
-          client_data:clients(
+          clients(
             id, nom, prenom, email, telephone, age,
             situation_familiale, nb_enfants, profession,
             revenus_annuels, patrimoine_estime, objectifs,
@@ -3734,6 +3734,17 @@ export default function App(){
                   onBack={() => setSelectedClientId(null)}
                   supabase={supabase}
                   profile={profile}
+                  onEditDeal={(deal, reloadCallback) => {
+                    setEditingDeal(deal)
+                    setModalOpen(true)
+                  }}
+                  onAddDeal={(clientData, reloadCallback) => {
+                    setEditingDeal({
+                      ...newDeal(profile?.advisor_code),
+                      ...clientData
+                    })
+                    setModalOpen(true)
+                  }}
                 />
               : <ClientsView
                   supabase={supabase}

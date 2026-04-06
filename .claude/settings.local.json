@@ -1,8 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx supabase db connect --no-browser)",
-      "Bash(npx supabase projects list)"
+      "Bash(git add src/components/clients/ClientsView.jsx)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfix: correction requête ClientsView avec 3 requêtes séparées\n\nProblème : Jointure imbriquée clients → dossiers_immo échouait\ncar Supabase ne trouvait pas la relation.\n\nSolution : Remplacement par 3 requêtes séparées + assemblage manuel\n- Requête 1 : clients uniquement\n- Requête 2 : deals liés (client_id not null)\n- Requête 3 : dossiers_immo liés (client_id not null)\n- Assemblage : filter + map pour reconstruire la structure\n\nBuild testé : ✅ 1,087.22 kB stable\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []
