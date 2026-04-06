@@ -2962,8 +2962,8 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
     notes: ''
   })
 
-  // Vérifier si le client est verrouillé (client_id pré-rempli)
-  const isClientLocked = !!deal?.client_id && !!deal?.client
+  // Vérifier si le client est verrouillé (ajout depuis fiche client uniquement, pas en édition)
+  const isClientLocked = isNew && !!deal?.client_id && !!deal?.client
 
   const [products, setProducts] = useState(() => {
     // Si client verrouillé (ajout depuis fiche client)
