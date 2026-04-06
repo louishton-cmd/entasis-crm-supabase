@@ -2936,9 +2936,9 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
   const [selectedClient,setSelectedClient]=useState(null)
   const [showClientSearch,setShowClientSearch]=useState(false)
 
+  // Multi-produits pour création de nouveaux deals
   const isNew=!initialDeal?.created_at
-  const isClientLocked = !!deal?.client_id && !!deal?.client
-  const showMultiProducts = isNew && isClientLocked
+  const showMultiProducts = isNew
 
   const emptyProduct = () => ({
     product: '',
@@ -2947,8 +2947,6 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
     pu: 0,
     status: 'En cours',
     priority: 'Normale',
-    source: deal?.source || '',
-    month: deal?.month || '',
     date_expected: '',
     date_signed: '',
     notes: ''
@@ -3035,30 +3033,41 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
   if(!open||!deal)return null
   const set=(k,v)=>setDeal(p=>({...p,[k]:v}))
   const isManager=profile?.role==='manager'
+  // Vérifier si le client est verrouillé (client_id pré-rempli)
+  const isClientLocked = !!deal?.client_id && !!deal?.client
   async function submit(e) {
-    e.preventDefault()
+    e.preventDefault();
 
-    if (showMultiProducts && products.length > 0) {
-      // Vérifier qu'au moins le premier produit a un produit sélectionné
-      if (!products[0].product) {
-        toast.error('Veuillez sélectionner au moins un produit')
-        return
+    if (showMultiProducts) {
+      // Mode multi-produits : valider qu'au moins un produit est sélectionné
+      const validProducts = products.filter(p => p.product.trim());
+      if (validProducts.length === 0) {
+        toast.error('Veuillez sélectionner au moins un produit');
+        return;
       }
 
-      // Créer un deal par produit
-      const dealsToCreate = products
-        .filter(p => p.product) // Ignorer les produits vides
-        .map(prod => normalizeDeal({
-          ...deal,           // Infos communes (client, mois, conseiller, etc.)
-          ...prod,           // Infos spécifiques au produit
-          id: Math.random().toString(36).substr(2, 9) // ID unique par deal
-        }))
+      // Créer un deal pour chaque produit avec les infos communes
+      const deals = validProducts.map(prod => {
+        const newDeal = {
+          ...deal, // Infos communes (client, month, advisor_code, source, etc.)
+          id: `D-${Date.now()}-${Math.random().toString(36).substr(2,5)}`, // ID unique
+          product: prod.product,
+          company: prod.company,
+          pp_m: prod.pp_m,
+          pu: prod.pu,
+          status: prod.status,
+          priority: prod.priority || 'Normale',
+          date_expected: prod.date_expected,
+          date_signed: prod.date_signed,
+          notes: (prod.notes || '').trim()
+        };
+        return normalizeDeal(newDeal);
+      });
 
-      // Appeler onSave avec le tableau
-      await onSave(dealsToCreate)
+      await onSave(deals); // Passer le tableau de deals
     } else {
-      // Comportement existant inchangé
-      await onSave(normalizeDeal(deal))
+      // Mode classique : un seul deal
+      await onSave(normalizeDeal(deal));
     }
   }
 
@@ -3244,22 +3253,16 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  marginBottom: 12
+                  marginBottom: 16
                 }}>
-                  <label style={{ fontWeight: 600 }}>
-                    Produits financiers
-                  </label>
+                  <div className="form-section-title">Produits</div>
                   <button
                     type="button"
                     onClick={addProduct}
+                    className="btn btn-ghost btn-sm"
                     style={{
-                      background: 'none',
-                      border: '1px dashed #C09B5A',
-                      color: '#C09B5A',
-                      borderRadius: 6,
-                      padding: '4px 12px',
-                      cursor: 'pointer',
-                      fontSize: 13
+                      border: '1px dashed var(--gold)',
+                      color: 'var(--gold)'
                     }}
                   >
                     + Ajouter un produit
@@ -3268,46 +3271,48 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
 
                 {products.map((prod, index) => (
                   <div key={index} style={{
-                    border: '1px solid #E8E4DC',
+                    border: '1px solid var(--bd)',
                     borderRadius: 8,
-                    padding: '16px',
-                    marginBottom: 12,
-                    background: '#FAFAF8'
+                    padding: 16,
+                    marginBottom: 16,
+                    backgroundColor: 'var(--bg)'
                   }}>
                     <div style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      marginBottom: 8
+                      alignItems: 'center',
+                      marginBottom: 12
                     }}>
-                      <span style={{ fontWeight: 500, fontSize: 13, color: '#888' }}>
+                      <span style={{
+                        fontWeight: 600,
+                        fontSize: 14,
+                        color: 'var(--t2)'
+                      }}>
                         Produit {index + 1}
                       </span>
                       {products.length > 1 && (
                         <button
                           type="button"
                           onClick={() => removeProduct(index)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#c0392b',
-                            cursor: 'pointer',
-                            fontSize: 13
-                          }}
+                          className="btn btn-ghost btn-xs"
+                          style={{ color: '#c0392b' }}
                         >
                           ✕ Retirer
                         </button>
                       )}
                     </div>
 
-                    {/* Produit */}
+                    {/* Ligne 1: Produit et Compagnie */}
                     <div className="form-row form-row-2">
                       <div className="form-group">
-                        <label className="form-label">Produit *</label>
+                        <label className="form-label">
+                          Produit {index === 0 ? '*' : ''}
+                        </label>
                         <select
                           className="form-select"
                           value={prod.product}
                           onChange={e => setProductField(index, 'product', e.target.value)}
-                          required
+                          required={index === 0}
                         >
                           <option value="">-- Choisir --</option>
                           {PRODUCTS.map(p => (
@@ -3330,8 +3335,8 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
                       </div>
                     </div>
 
-                    {/* Montants */}
-                    <div className="form-row form-row-2 mt-16">
+                    {/* Ligne 2: Montants et Statut */}
+                    <div className="form-row form-row-3 mt-16">
                       <div className="form-group">
                         <label className="form-label">PP mensuelle (€)</label>
                         <input
@@ -3353,20 +3358,18 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
                           onChange={e => setProductField(index, 'pu', e.target.value)}
                         />
                       </div>
-                    </div>
-
-                    {/* Statut */}
-                    <div className="form-group">
-                      <label className="form-label">Statut</label>
-                      <select
-                        className="form-select"
-                        value={prod.status}
-                        onChange={e => setProductField(index, 'status', e.target.value)}
-                      >
-                        {STATUS_OPTIONS.map(s => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
+                      <div className="form-group">
+                        <label className="form-label">Statut</label>
+                        <select
+                          className="form-select"
+                          value={prod.status}
+                          onChange={e => setProductField(index, 'status', e.target.value)}
+                        >
+                          {STATUS_OPTIONS.map(s => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -3949,35 +3952,43 @@ export default function App(){
   }
 
   // ✅ Fix stale session : getUser() au lieu de session.user.id
-  async function saveDeal(dealOrDeals) {
+  async function saveDeal(dealOrDeals){
     try {
       const { data: { user }, error } = await supabase.auth.getUser()
       if (error || !user) throw new Error('Session expirée')
 
-      // Normaliser en tableau
-      const dealsArray = Array.isArray(dealOrDeals)
-        ? dealOrDeals
-        : [dealOrDeals]
+      // Gérer mode multi-produits (tableau) ou mode classique (objet unique)
+      if (Array.isArray(dealOrDeals)) {
+        // Mode multi-produits : créer plusieurs deals
+        const dealsToInsert = dealOrDeals.map(deal => {
+          const { clients, client_data, ...cleanDeal } = deal
+          return {
+            ...cleanDeal,
+            advisor_code: profile?.role === 'manager' ? deal.advisor_code : (profile?.advisor_code || deal.advisor_code),
+            created_by: user.id
+          }
+        })
 
-      for (const d of dealsArray) {
-        // Supprimer les champs de jointure avant sauvegarde
-        const { clients, client_data, ...cleanDeal } = d
-        const payload={...cleanDeal,advisor_code:profile?.role==='manager'?d.advisor_code:(profile?.advisor_code||d.advisor_code),created_by:user.id}
+        const { error: e } = await supabase.from('deals').insert(dealsToInsert)
+        if (e) { alert(e.message); return }
 
-        const existing=deals.some(deal=>deal.id===d.id)
-        const q=existing?supabase.from('deals').update(payload).eq('id',d.id):supabase.from('deals').insert(payload)
-        const{error:e}=await q
-        if(e){
-          alert(e.message)
-          return
+        toast.success(`${dealsToInsert.length} produit${dealsToInsert.length > 1 ? 's créés' : ' créé'}`)
+      } else {
+        // Mode classique : un seul deal
+        const deal = dealOrDeals
+        const { clients, client_data, ...cleanDeal } = deal
+        const payload = {
+          ...cleanDeal,
+          advisor_code: profile?.role === 'manager' ? deal.advisor_code : (profile?.advisor_code || deal.advisor_code),
+          created_by: user.id
         }
-      }
+        const existing = deals.some(d => d.id === deal.id)
+        const q = existing ? supabase.from('deals').update(payload).eq('id',deal.id) : supabase.from('deals').insert(payload)
+        const { error: e } = await q
+        if (e) { alert(e.message); return }
 
-      toast.success(
-        dealsArray.length > 1
-          ? `${dealsArray.length} produits créés`
-          : 'Dossier sauvegardé'
-      )
+        toast.success(existing ? 'Dossier mis à jour' : 'Dossier créé')
+      }
 
       setModalOpen(false);setEditingDeal(null);await loadAll()
     } catch(e) {
