@@ -32,17 +32,38 @@ export default function ClientsView({ supabase, onSelectClient, profile }) {
     async function loadClients() {
       setLoading(true)
       try {
-        const { data: clientsData, error } = await supabase
+        // Requête 1 : clients uniquement
+        const { data: clientsData, error: clientsError } = await supabase
           .from('clients')
-          .select(`
-            *,
-            deals(id, product, status, pp_m, pu, co_advisor_code),
-            dossiers_immo(id, statut_pipeline)
-          `)
+          .select('*')
           .order('created_at', { ascending: false })
 
-        if (error) throw error
-        setClients(clientsData || [])
+        if (clientsError) throw clientsError
+
+        // Requête 2 : deals liés
+        const { data: dealsData, error: dealsError } = await supabase
+          .from('deals')
+          .select('id, client_id, product, status, pp_m, pu, co_advisor_code')
+          .not('client_id', 'is', null)
+
+        if (dealsError) throw dealsError
+
+        // Requête 3 : dossiers immo liés
+        const { data: dossiersData, error: dossiersError } = await supabase
+          .from('dossiers_immo')
+          .select('id, client_id, statut_pipeline')
+          .not('client_id', 'is', null)
+
+        if (dossiersError) throw dossiersError
+
+        // Assembler manuellement
+        const clients = (clientsData || []).map(c => ({
+          ...c,
+          deals: (dealsData || []).filter(d => d.client_id === c.id),
+          dossiers_immo: (dossiersData || []).filter(d => d.client_id === c.id)
+        }))
+
+        setClients(clients)
       } catch (error) {
         console.error('Erreur chargement clients:', error)
         toast.error('Erreur lors du chargement des clients')
