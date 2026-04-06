@@ -3770,6 +3770,7 @@ export default function App(){
   const [prospects,setProspects]=useState([])
   const [prospectsNew,setProspectsNew]=useState(0)
   const [dossiersImmoCount,setDossiersImmoCount]=useState(0)
+  const [reloadCallback,setReloadCallback]=useState(null) // Callback après sauvegarde deal
 
   // Anti race condition ref
   const loadAllInProgress = useRef(false)
@@ -3951,6 +3952,42 @@ export default function App(){
     }
   }
 
+  // Fonction helper pour créer ou récupérer un client
+  async function getOrCreateClient(dealData, userId) {
+    if (dealData.client_id) return dealData.client_id // Client déjà existant
+
+    if (!dealData.client || !dealData.client.trim()) return null // Pas de nom client
+
+    // Chercher client existant par nom
+    const { data: existing } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('nom', dealData.client.trim())
+      .maybeSingle()
+
+    if (existing) return existing.id
+
+    // Créer nouveau client
+    const { data: newClient, error } = await supabase
+      .from('clients')
+      .insert({
+        nom: dealData.client.trim(),
+        email: dealData.client_email || null,
+        telephone: dealData.client_phone || null,
+        advisor_code: dealData.advisor_code,
+        created_by: userId
+      })
+      .select('id')
+      .single()
+
+    if (error) {
+      console.error('Erreur création client:', error)
+      return null
+    }
+
+    return newClient?.id || null
+  }
+
   // ✅ Fix stale session : getUser() au lieu de session.user.id
   async function saveDeal(dealOrDeals){
     try {
@@ -3959,11 +3996,17 @@ export default function App(){
 
       // Gérer mode multi-produits (tableau) ou mode classique (objet unique)
       if (Array.isArray(dealOrDeals)) {
-        // Mode multi-produits : créer plusieurs deals
+        // Mode multi-produits : créer un client commun et plusieurs deals
+        if (dealOrDeals.length === 0) return
+
+        // Créer ou récupérer le client une seule fois
+        const clientId = await getOrCreateClient(dealOrDeals[0], user.id)
+
         const dealsToInsert = dealOrDeals.map(deal => {
           const { clients, client_data, ...cleanDeal } = deal
           return {
             ...cleanDeal,
+            client_id: clientId, // Même client_id pour tous les deals
             advisor_code: profile?.role === 'manager' ? deal.advisor_code : (profile?.advisor_code || deal.advisor_code),
             created_by: user.id
           }
@@ -3990,7 +4033,18 @@ export default function App(){
         toast.success(existing ? 'Dossier mis à jour' : 'Dossier créé')
       }
 
-      setModalOpen(false);setEditingDeal(null);await loadAll()
+      setModalOpen(false);setEditingDeal(null);
+      await loadAll()
+
+      // Appeler le callback de rechargement si présent (pour ClientView)
+      if (reloadCallback) {
+        try {
+          await reloadCallback()
+        } catch (error) {
+          console.error('Erreur callback reload:', error)
+        }
+        setReloadCallback(null)
+      }
     } catch(e) {
       console.error('[saveDeal] Auth error:', e)
       alert('Session expirée, veuillez vous reconnecter')
@@ -4094,15 +4148,17 @@ export default function App(){
                   onBack={() => setSelectedClientId(null)}
                   supabase={supabase}
                   profile={profile}
-                  onEditDeal={(deal, reloadCallback) => {
+                  onEditDeal={(deal, reloadCallbackFunc) => {
                     setEditingDeal(deal)
+                    setReloadCallback(() => reloadCallbackFunc)
                     setModalOpen(true)
                   }}
-                  onAddDeal={(clientData, reloadCallback) => {
+                  onAddDeal={(clientData, reloadCallbackFunc) => {
                     setEditingDeal({
                       ...emptyDeal(profile?.advisor_code),
                       ...clientData
                     })
+                    setReloadCallback(() => reloadCallbackFunc)
                     setModalOpen(true)
                   }}
                 />
