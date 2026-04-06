@@ -2936,6 +2936,41 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
   const [selectedClient,setSelectedClient]=useState(null)
   const [showClientSearch,setShowClientSearch]=useState(false)
 
+  const isNew=!initialDeal?.created_at
+  const isClientLocked = !!deal?.client_id && !!deal?.client
+  const showMultiProducts = isNew && isClientLocked
+
+  const emptyProduct = () => ({
+    product: '',
+    company: '',
+    pp_m: 0,
+    pu: 0,
+    status: 'En cours',
+    priority: 'Normale',
+    source: deal?.source || '',
+    month: deal?.month || '',
+    date_expected: '',
+    date_signed: '',
+    notes: ''
+  })
+
+  const [products, setProducts] = useState([emptyProduct()])
+
+  function setProductField(index, field, value) {
+    setProducts(prev => prev.map((p, i) =>
+      i === index ? { ...p, [field]: value } : p
+    ))
+  }
+
+  function addProduct() {
+    setProducts(prev => [...prev, emptyProduct()])
+  }
+
+  function removeProduct(index) {
+    if (products.length === 1) return
+    setProducts(prev => prev.filter((_, i) => i !== index))
+  }
+
   useEffect(()=>setDeal(initialDeal),[initialDeal])
   useEffect(()=>{if(deal&&!deal.advisor_code&&profile?.advisor_code)setDeal(p=>({...p,advisor_code:profile.advisor_code}))},[profile?.advisor_code])
 
@@ -3000,10 +3035,32 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
   if(!open||!deal)return null
   const set=(k,v)=>setDeal(p=>({...p,[k]:v}))
   const isManager=profile?.role==='manager'
-  const isNew=!initialDeal?.created_at
-  // Vérifier si le client est verrouillé (client_id pré-rempli)
-  const isClientLocked = !!deal?.client_id && !!deal?.client
-  async function submit(e){e.preventDefault();await onSave(normalizeDeal(deal))}
+  async function submit(e) {
+    e.preventDefault()
+
+    if (showMultiProducts && products.length > 0) {
+      // Vérifier qu'au moins le premier produit a un produit sélectionné
+      if (!products[0].product) {
+        toast.error('Veuillez sélectionner au moins un produit')
+        return
+      }
+
+      // Créer un deal par produit
+      const dealsToCreate = products
+        .filter(p => p.product) // Ignorer les produits vides
+        .map(prod => normalizeDeal({
+          ...deal,           // Infos communes (client, mois, conseiller, etc.)
+          ...prod,           // Infos spécifiques au produit
+          id: Math.random().toString(36).substr(2, 9) // ID unique par deal
+        }))
+
+      // Appeler onSave avec le tableau
+      await onSave(dealsToCreate)
+    } else {
+      // Comportement existant inchangé
+      await onSave(normalizeDeal(deal))
+    }
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -3181,18 +3238,153 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
                 </div>
               </div>
             </div>
-            <div>
-              <div className="form-section-title mb-16">Dossier</div>
-              <div className="form-row form-row-2">
-                <div className="form-group"><label className="form-label">Produit</label><select className="form-select" value={deal.product} onChange={e=>set('product',e.target.value)}>{PRODUCTS.map(p=><option key={p}>{p}</option>)}</select></div>
-                <div className="form-group"><label className="form-label">Compagnie</label><select className="form-select" value={deal.company||''} onChange={e=>set('company',e.target.value)}>{COMPANIES.map(c=><option key={c}>{c}</option>)}</select></div>
+{showMultiProducts ? (
+              <div>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 12
+                }}>
+                  <label style={{ fontWeight: 600 }}>
+                    Produits financiers
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addProduct}
+                    style={{
+                      background: 'none',
+                      border: '1px dashed #C09B5A',
+                      color: '#C09B5A',
+                      borderRadius: 6,
+                      padding: '4px 12px',
+                      cursor: 'pointer',
+                      fontSize: 13
+                    }}
+                  >
+                    + Ajouter un produit
+                  </button>
+                </div>
+
+                {products.map((prod, index) => (
+                  <div key={index} style={{
+                    border: '1px solid #E8E4DC',
+                    borderRadius: 8,
+                    padding: '16px',
+                    marginBottom: 12,
+                    background: '#FAFAF8'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      marginBottom: 8
+                    }}>
+                      <span style={{ fontWeight: 500, fontSize: 13, color: '#888' }}>
+                        Produit {index + 1}
+                      </span>
+                      {products.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeProduct(index)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#c0392b',
+                            cursor: 'pointer',
+                            fontSize: 13
+                          }}
+                        >
+                          ✕ Retirer
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Produit */}
+                    <div className="form-row form-row-2">
+                      <div className="form-group">
+                        <label className="form-label">Produit *</label>
+                        <select
+                          className="form-select"
+                          value={prod.product}
+                          onChange={e => setProductField(index, 'product', e.target.value)}
+                          required
+                        >
+                          <option value="">-- Choisir --</option>
+                          {PRODUCTS.map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Compagnie</label>
+                        <select
+                          className="form-select"
+                          value={prod.company || ''}
+                          onChange={e => setProductField(index, 'company', e.target.value)}
+                        >
+                          <option value="">-- Choisir --</option>
+                          {COMPANIES.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Montants */}
+                    <div className="form-row form-row-2 mt-16">
+                      <div className="form-group">
+                        <label className="form-label">PP mensuelle (€)</label>
+                        <input
+                          className="form-input"
+                          type="number"
+                          min="0"
+                          value={prod.pp_m || 0}
+                          onChange={e => setProductField(index, 'pp_m', e.target.value)}
+                        />
+                        <div className="form-hint">→ PP annualisée : <strong>{euro(annualize(prod.pp_m))}</strong></div>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">PU (€)</label>
+                        <input
+                          className="form-input"
+                          type="number"
+                          min="0"
+                          value={prod.pu || 0}
+                          onChange={e => setProductField(index, 'pu', e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Statut */}
+                    <div className="form-group">
+                      <label className="form-label">Statut</label>
+                      <select
+                        className="form-select"
+                        value={prod.status}
+                        onChange={e => setProductField(index, 'status', e.target.value)}
+                      >
+                        {STATUS_OPTIONS.map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="form-row form-row-3 mt-16">
-                <div className="form-group"><label className="form-label">PP mensuelle (€)</label><input className="form-input" type="number" min="0" value={deal.pp_m||0} onChange={e=>set('pp_m',e.target.value)}/><div className="form-hint">→ PP annualisée : <strong>{euro(annualize(deal.pp_m))}</strong></div></div>
-                <div className="form-group"><label className="form-label">PU (€)</label><input className="form-input" type="number" min="0" value={deal.pu||0} onChange={e=>set('pu',e.target.value)}/></div>
-                <div className="form-group"><label className="form-label">Statut</label><select className="form-select" value={deal.status} onChange={e=>set('status',e.target.value)}>{STATUS_OPTIONS.map(s=><option key={s}>{s}</option>)}</select></div>
+            ) : (
+              <div>
+                <div className="form-section-title mb-16">Dossier</div>
+                <div className="form-row form-row-2">
+                  <div className="form-group"><label className="form-label">Produit</label><select className="form-select" value={deal.product} onChange={e=>set('product',e.target.value)}>{PRODUCTS.map(p=><option key={p}>{p}</option>)}</select></div>
+                  <div className="form-group"><label className="form-label">Compagnie</label><select className="form-select" value={deal.company||''} onChange={e=>set('company',e.target.value)}>{COMPANIES.map(c=><option key={c}>{c}</option>)}</select></div>
+                </div>
+                <div className="form-row form-row-3 mt-16">
+                  <div className="form-group"><label className="form-label">PP mensuelle (€)</label><input className="form-input" type="number" min="0" value={deal.pp_m||0} onChange={e=>set('pp_m',e.target.value)}/><div className="form-hint">→ PP annualisée : <strong>{euro(annualize(deal.pp_m))}</strong></div></div>
+                  <div className="form-group"><label className="form-label">PU (€)</label><input className="form-input" type="number" min="0" value={deal.pu||0} onChange={e=>set('pu',e.target.value)}/></div>
+                  <div className="form-group"><label className="form-label">Statut</label><select className="form-select" value={deal.status} onChange={e=>set('status',e.target.value)}>{STATUS_OPTIONS.map(s=><option key={s}>{s}</option>)}</select></div>
+                </div>
               </div>
-            </div>
+            )}
             <div className="form-row form-row-2">
               <div className="form-group"><label className="form-label">Date de signature prévue</label><input className="form-input" type="date" value={deal.date_expected||''} onChange={e=>set('date_expected',e.target.value)}/></div>
               <div className="form-group"><label className="form-label">Date de signature effective</label><input className="form-input" type="date" value={deal.date_signed||''} onChange={e=>set('date_signed',e.target.value)}/></div>
@@ -3757,18 +3949,36 @@ export default function App(){
   }
 
   // ✅ Fix stale session : getUser() au lieu de session.user.id
-  async function saveDeal(deal){
+  async function saveDeal(dealOrDeals) {
     try {
       const { data: { user }, error } = await supabase.auth.getUser()
       if (error || !user) throw new Error('Session expirée')
 
-      // Supprimer les champs de jointure avant sauvegarde
-      const { clients, client_data, ...cleanDeal } = deal
-      const payload={...cleanDeal,advisor_code:profile?.role==='manager'?deal.advisor_code:(profile?.advisor_code||deal.advisor_code),created_by:user.id}
-      const existing=deals.some(d=>d.id===deal.id)
-      const q=existing?supabase.from('deals').update(payload).eq('id',deal.id):supabase.from('deals').insert(payload)
-      const{error:e}=await q
-      if(e){alert(e.message);return}
+      // Normaliser en tableau
+      const dealsArray = Array.isArray(dealOrDeals)
+        ? dealOrDeals
+        : [dealOrDeals]
+
+      for (const d of dealsArray) {
+        // Supprimer les champs de jointure avant sauvegarde
+        const { clients, client_data, ...cleanDeal } = d
+        const payload={...cleanDeal,advisor_code:profile?.role==='manager'?d.advisor_code:(profile?.advisor_code||d.advisor_code),created_by:user.id}
+
+        const existing=deals.some(deal=>deal.id===d.id)
+        const q=existing?supabase.from('deals').update(payload).eq('id',d.id):supabase.from('deals').insert(payload)
+        const{error:e}=await q
+        if(e){
+          alert(e.message)
+          return
+        }
+      }
+
+      toast.success(
+        dealsArray.length > 1
+          ? `${dealsArray.length} produits créés`
+          : 'Dossier sauvegardé'
+      )
+
       setModalOpen(false);setEditingDeal(null);await loadAll()
     } catch(e) {
       console.error('[saveDeal] Auth error:', e)
