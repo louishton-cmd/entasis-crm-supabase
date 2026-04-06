@@ -7,6 +7,8 @@ import MesDossiersImmo from './components/MesDossiersImmo'
 import PipelineVEFA from './components/PipelineVEFA'
 import OutilsCGP from './components/OutilsCGP'
 import LinkedInPro from './components/LinkedInPro'
+import ClientsView from './components/clients/ClientsView'
+import ClientView from './components/clients/ClientView'
 import WeeklyReview from './components/WeeklyReview.jsx'
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -47,6 +49,11 @@ const PRIORITY_CLASS = {
 }
 
 function dealMatchesAdvisor(d,c){return d.advisor_code===c||d.co_advisor_code===c}
+
+// Helper pour récupérer le nom client avec fallback
+function getClientName(deal) {
+  return deal.client_data?.nom || deal.client || 'Client'
+}
 function isPipeline(s){return s==='En cours'||s==='Prévu'}
 function sumAnnualPp(deals, advisorCode) {
   return deals.reduce((s, d) => {
@@ -233,7 +240,7 @@ function StalePipelineAlert({deals,onEdit}){
             onMouseLeave={e=>e.currentTarget.style.boxShadow='none'}
           >
             <AgeBadge deal={deal} compact/>
-            <span style={{fontWeight:600,fontSize:13,color:'var(--t1)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{deal.client}</span>
+            <span style={{fontWeight:600,fontSize:13,color:'var(--t1)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{getClientName(deal)}</span>
             <span style={{fontSize:12,color:'var(--t3)'}}>{deal.product}</span>
             <span className={STATUS_CLASS[deal.status]||'badge'}>{deal.status}</span>
             <span style={{fontSize:12,fontWeight:600,color:'var(--t1)',minWidth:80,textAlign:'right'}}>{euro(annualize(deal.pp_m))}</span>
@@ -669,6 +676,7 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,leadsAvai
     {key:'leads',     label:'Leads Live',  Icon:Icon.Leads, badge:leadsAvailable||0, badgeGold:true},
     {key:'pipeline',  label:'Pipeline',  Icon:Icon.Pipeline,  badge:isManager?pipelineCount:hotCount},
     {key:'dossiers',  label:'Dossiers',  Icon:Icon.Dossiers},
+    {key:'clients',   label:'Clients',   Icon:Icon.Team},
     {key:'forecast',  label:'Prévisionnel', Icon:Icon.Forecast},
     {key:'agenda',    label:'Agenda',    Icon:Icon.Calendar},
     {key:'market',    label:'Marchés',   Icon:Icon.Market},
@@ -1591,7 +1599,7 @@ function AdvisorDashboard({deals,objectifs,month,profile}){
                 <div key={deal.id} className="priority-item">
                   <div className={`priority-item-dot ${deal.priority==='Urgente'?'urgent':deal.priority==='Haute'?'high':'normal'}`}/>
                   <div style={{flex:1,minWidth:0}}>
-                    <div className="priority-item-client truncate">{deal.client}</div>
+                    <div className="priority-item-client truncate">{getClientName(deal)}</div>
                     <div className="priority-item-detail">{deal.product} · <span className={STATUS_CLASS[deal.status]||'badge'}>{deal.status}</span></div>
                   </div>
                   <div className="priority-item-amount">{euro(annualize(deal.pp_m))}</div>
@@ -1693,7 +1701,7 @@ function ManagerDashboard({deals,objectifs,month,teamProfiles}){
             <tbody>
               {hotDeals.map(deal=>(
                 <tr key={deal.id}>
-                  <td><div className="cell-primary">{deal.client}</div><div className="cell-sub">{deal.source||'—'}</div></td>
+                  <td><div className="cell-primary">{getClientName(deal)}</div><div className="cell-sub">{deal.source||'—'}</div></td>
                   <td>{deal.product}</td>
                   <td className="cell-mono"><strong>{euro(annualize(deal.pp_m))}</strong></td>
                   <td className="cell-mono">{euro(deal.pu)}</td>
@@ -1726,7 +1734,7 @@ function PipelineBoard({deals,month,profile,onEdit}){
   const visible=useMemo(()=>{
     let list=deals.filter(d=>d.month===month)
     if(!isManager&&profile?.advisor_code)list=list.filter(d=>dealMatchesAdvisor(d,profile.advisor_code))
-    if(search)list=list.filter(d=>`${d.client} ${d.product} ${d.advisor_code}`.toLowerCase().includes(search.toLowerCase()))
+    if(search)list=list.filter(d=>`${getClientName(d)} ${d.product} ${d.advisor_code}`.toLowerCase().includes(search.toLowerCase()))
     return list
   },[deals,month,profile,isManager,search])
   const byStatus=useMemo(()=>{
@@ -1756,7 +1764,7 @@ function PipelineBoard({deals,month,profile,onEdit}){
               <div className="pipeline-cards">
                 {items.map(deal=>(
                   <div key={deal.id} className="pipeline-deal-card" onClick={()=>onEdit(deal)}>
-                    <div className="pipeline-deal-client">{deal.client}</div>
+                    <div className="pipeline-deal-client">{getClientName(deal)}</div>
                     <div className="pipeline-deal-product">{deal.product} · {deal.company||'—'}</div>
                     <div className="pipeline-deal-amounts">
                       {deal.pp_m>0&&<div className="pipeline-amount">PP <strong>{euro(annualize(deal.pp_m))}</strong></div>}
@@ -1787,7 +1795,7 @@ function DealsTable({deals,month,profile,onEdit,onDelete,onRefresh}){
   const [productF,setProductF]=useState('Tous')
   const [priorityF,setPriorityF]=useState('Tous')
   const [allMonths,setAllMonths]=useState(false)
-  const filtered=useMemo(()=>deals.filter(d=>allMonths||d.month===month).filter(d=>statusF==='Tous'||d.status===statusF).filter(d=>productF==='Tous'||d.product===productF).filter(d=>priorityF==='Tous'||d.priority===priorityF).filter(d=>`${d.client} ${d.product} ${d.company} ${d.advisor_code} ${d.co_advisor_code||''}`.toLowerCase().includes(search.toLowerCase())),[deals,month,allMonths,search,statusF,productF,priorityF])
+  const filtered=useMemo(()=>deals.filter(d=>allMonths||d.month===month).filter(d=>statusF==='Tous'||d.status===statusF).filter(d=>productF==='Tous'||d.product===productF).filter(d=>priorityF==='Tous'||d.priority===priorityF).filter(d=>`${getClientName(d)} ${d.product} ${d.company} ${d.advisor_code} ${d.co_advisor_code||''}`.toLowerCase().includes(search.toLowerCase())),[deals,month,allMonths,search,statusF,productF,priorityF])
   const ppTotal=sumAnnualPp(filtered.filter(d=>d.status==='Signé'))
   const puTotal=sumPu(filtered.filter(d=>d.status==='Signé'))
 
@@ -1814,7 +1822,7 @@ function DealsTable({deals,month,profile,onEdit,onDelete,onRefresh}){
             <tbody>
               {filtered.map(deal=>(
                 <tr key={deal.id}>
-                  <td><div className="cell-primary">{deal.client}</div><div className="cell-sub">{deal.source||'—'}</div></td>
+                  <td><div className="cell-primary">{getClientName(deal)}</div><div className="cell-sub">{deal.source||'—'}</div></td>
                   <td>{deal.product}</td>
                   <td className="cell-mono"><strong>{euro(annualize(deal.pp_m))}</strong><div className="cell-sub">{euro(deal.pp_m)}/mois</div></td>
                   <td className="cell-mono">{deal.pu>0?euro(deal.pu):'—'}</td>
@@ -1931,7 +1939,7 @@ function RelanceModal({open,onClose,deals,defaultDate}){
   function handleCreate(){
     if(!title||!date)return
     const deal=deals.find(d=>d.id===dealId)
-    const description=[notes||'',deal?`\n📎 Dossier : ${deal.client} — ${deal.product} — ${deal.advisor_code}\nPP : ${euro(annualize(deal.pp_m))} | Statut : ${deal.status}`:''].filter(Boolean).join('\n').trim()
+    const description=[notes||'',deal?`\n📎 Dossier : ${getClientName(deal)} — ${deal.product} — ${deal.advisor_code}\nPP : ${euro(annualize(deal.pp_m))} | Statut : ${deal.status}`:''].filter(Boolean).join('\n').trim()
     openGCalEvent({title,startDate:date,startTime:time,durationMin:Number(duration),description})
     onClose()
   }
@@ -2799,10 +2807,74 @@ function TeamView({deals,objectifs,teamProfiles,month,profile}){
 /* ─────────────────────────────────────────────────────────────────────────────
    DEAL MODAL
 ───────────────────────────────────────────────────────────────────────────── */
-function DealModal({open,initialDeal,profile,onClose,onSave}){
+function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
   const [deal,setDeal]=useState(initialDeal)
+  const [clientSearch,setClientSearch]=useState('')
+  const [clientResults,setClientResults]=useState([])
+  const [selectedClient,setSelectedClient]=useState(null)
+  const [showClientSearch,setShowClientSearch]=useState(false)
+
   useEffect(()=>setDeal(initialDeal),[initialDeal])
   useEffect(()=>{if(deal&&!deal.advisor_code&&profile?.advisor_code)setDeal(p=>({...p,advisor_code:profile.advisor_code}))},[profile?.advisor_code])
+
+  // Recherche clients au fur et à mesure de la frappe
+  useEffect(() => {
+    if (clientSearch.length < 2) { setClientResults([]); return }
+
+    const timer = setTimeout(async () => {
+      try {
+        const { data } = await supabase
+          .from('clients')
+          .select('id, nom, prenom, email, telephone')
+          .or(`nom.ilike.%${clientSearch}%,email.ilike.%${clientSearch}%,telephone.ilike.%${clientSearch}%`)
+          .limit(5)
+        setClientResults(data || [])
+      } catch (error) {
+        console.error('Erreur recherche clients:', error)
+        setClientResults([])
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [clientSearch])
+
+  // Initialiser selectedClient si deal a déjà un client_id
+  useEffect(() => {
+    if (deal?.client_data && !selectedClient) {
+      setSelectedClient({
+        id: deal.client_data.id,
+        nom: deal.client_data.nom,
+        prenom: deal.client_data.prenom,
+        email: deal.client_data.email,
+        telephone: deal.client_data.telephone
+      })
+    }
+  }, [deal?.client_data])
+
+  const selectClient = (client) => {
+    setSelectedClient(client)
+    setShowClientSearch(false)
+    setClientSearch('')
+    setClientResults([])
+
+    // Mettre à jour les champs du deal
+    setDeal(prev => ({
+      ...prev,
+      client_id: client.id,
+      client: `${client.prenom || ''} ${client.nom}`.trim(),
+      client_email: client.email || '',
+      client_phone: client.telephone || ''
+    }))
+  }
+
+  const clearSelectedClient = () => {
+    setSelectedClient(null)
+    setDeal(prev => ({
+      ...prev,
+      client_id: null,
+      // Garder les champs client/email/phone pour compatibilité
+    }))
+  }
   if(!open||!deal)return null
   const set=(k,v)=>setDeal(p=>({...p,[k]:v}))
   const isManager=profile?.role==='manager'
@@ -2813,20 +2885,166 @@ function DealModal({open,initialDeal,profile,onClose,onSave}){
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={e=>e.stopPropagation()}>
         <div className="modal-head">
-          <div><div className="modal-title">{isNew?'Nouveau dossier':'Éditer le dossier'}</div>{deal.client&&<div className="modal-subtitle">{deal.client}</div>}</div>
+          <div><div className="modal-title">{isNew?'Nouveau dossier':'Éditer le dossier'}</div>{getClientName(deal) !== 'Client' && <div className="modal-subtitle">{getClientName(deal)}</div>}</div>
           <button className="btn btn-ghost btn-icon" onClick={onClose}><Icon.Close/></button>
         </div>
         <form onSubmit={submit}>
           <div className="modal-body">
             <div>
               <div className="form-section-title mb-16">Informations client</div>
+
+              {/* Recherche/sélection client */}
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label">Client</label>
+
+                {selectedClient ? (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    backgroundColor: 'var(--bg)',
+                    border: '1px solid var(--gold)',
+                    borderRadius: 'var(--rad)',
+                  }}>
+                    <div>
+                      <div style={{ fontWeight: '600', fontSize: '14px' }}>
+                        {selectedClient.prenom} {selectedClient.nom}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--t2)' }}>
+                        {selectedClient.email || selectedClient.telephone || '—'}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={clearSelectedClient}
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: '12px',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--t3)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : showClientSearch ? (
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      className="form-input"
+                      placeholder="Rechercher un client existant (nom, email, téléphone...)"
+                      value={clientSearch}
+                      onChange={e => setClientSearch(e.target.value)}
+                      autoFocus
+                    />
+
+                    {clientResults.length > 0 && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        backgroundColor: 'var(--card)',
+                        border: '1px solid var(--bd)',
+                        borderTop: 'none',
+                        borderRadius: '0 0 var(--rad) var(--rad)',
+                        boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                        maxHeight: '200px',
+                        overflowY: 'auto',
+                        zIndex: 1000
+                      }}>
+                        {clientResults.map(client => (
+                          <div
+                            key={client.id}
+                            onClick={() => selectClient(client)}
+                            style={{
+                              padding: '12px',
+                              borderBottom: '1px solid var(--bd)',
+                              cursor: 'pointer',
+                              ':hover': { backgroundColor: 'var(--bg)' }
+                            }}
+                            onMouseEnter={e => e.target.style.backgroundColor = 'var(--bg)'}
+                            onMouseLeave={e => e.target.style.backgroundColor = 'transparent'}
+                          >
+                            <div style={{ fontWeight: '600', fontSize: '13px' }}>
+                              {client.prenom} {client.nom}
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--t2)' }}>
+                              {client.email || client.telephone || '—'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowClientSearch(false)}
+                        className="btn btn-secondary btn-sm"
+                      >
+                        Annuler
+                      </button>
+                      <span style={{ fontSize: '12px', color: 'var(--t2)', alignSelf: 'center' }}>
+                        ou créer un nouveau client avec le formulaire ci-dessous
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setShowClientSearch(true)}
+                      className="btn btn-secondary"
+                      style={{ width: '100%', marginBottom: '8px' }}
+                    >
+                      🔍 Rechercher un client existant
+                    </button>
+                    <div style={{ fontSize: '12px', color: 'var(--t2)', textAlign: 'center' }}>
+                      ou remplir les informations ci-dessous pour un nouveau client
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="form-row form-row-2">
-                <div className="form-group"><label className="form-label">Nom du client *</label><input className="form-input" value={deal.client||''} onChange={e=>set('client',e.target.value)} required placeholder="Prénom Nom"/></div>
+                <div className="form-group">
+                  <label className="form-label">Nom du client *</label>
+                  <input
+                    className="form-input"
+                    value={deal.client||''}
+                    onChange={e=>set('client',e.target.value)}
+                    required
+                    placeholder="Prénom Nom"
+                    disabled={!!selectedClient}
+                  />
+                </div>
                 <div className="form-group"><label className="form-label">Mois</label><select className="form-select" value={deal.month} onChange={e=>set('month',e.target.value)}>{MONTHS.map(m=><option key={m}>{m}</option>)}</select></div>
               </div>
               <div className="form-row form-row-2 mt-16">
-                <div className="form-group"><label className="form-label">Email</label><input className="form-input" value={deal.client_email||''} onChange={e=>set('client_email',e.target.value)} type="email" placeholder="client@exemple.fr"/></div>
-                <div className="form-group"><label className="form-label">Téléphone</label><input className="form-input" value={deal.client_phone||''} onChange={e=>set('client_phone',e.target.value)} placeholder="06 00 00 00 00"/></div>
+                <div className="form-group">
+                  <label className="form-label">Email</label>
+                  <input
+                    className="form-input"
+                    value={deal.client_email||''}
+                    onChange={e=>set('client_email',e.target.value)}
+                    type="email"
+                    placeholder="client@exemple.fr"
+                    disabled={!!selectedClient}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Téléphone</label>
+                  <input
+                    className="form-input"
+                    value={deal.client_phone||''}
+                    onChange={e=>set('client_phone',e.target.value)}
+                    placeholder="06 00 00 00 00"
+                    disabled={!!selectedClient}
+                  />
+                </div>
               </div>
             </div>
             <div>
@@ -3219,6 +3437,7 @@ export default function App(){
   const [editingDeal,setEditingDeal]=useState(null)
   const [error,setError]=useState('')
   const [activeTab,setActiveTab]=useState('dashboard')
+  const [selectedClientId,setSelectedClientId]=useState(null)
   const [prospects,setProspects]=useState([])
   const [prospectsNew,setProspectsNew]=useState(0)
   const [dossiersImmoCount,setDossiersImmoCount]=useState(0)
@@ -3327,7 +3546,15 @@ export default function App(){
       const [profRes, teamRes, dealsRes, objRes, leadsRes] = await Promise.allSettled([
         supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
         supabase.from('profiles').select('id,email,full_name,role,advisor_code,is_active').order('full_name', {ascending: true}),
-        supabase.from('deals').select('*').order('created_at', {ascending: false}),
+        supabase.from('deals').select(`
+          *,
+          client_data:clients(
+            id, nom, prenom, email, telephone, age,
+            situation_familiale, nb_enfants, profession,
+            revenus_annuels, patrimoine_estime, objectifs,
+            notes, advisor_code, co_advisor_code
+          )
+        `).order('created_at', {ascending: false}),
         supabase.from('objectifs').select('*').order('month'),
         supabase.from('leads').select('*').order('created_at', {ascending: false})
       ])
@@ -3416,7 +3643,7 @@ export default function App(){
   }
 
   async function deleteDeal(deal){
-    if(!window.confirm(`Supprimer définitivement le dossier de ${deal.client} ?`))return
+    if(!window.confirm(`Supprimer définitivement le dossier de ${getClientName(deal)} ?`))return
     const{error:e}=await supabase.from('deals').delete().eq('id',deal.id)
     if(e){alert(e.message);return}
     await loadAll()
@@ -3500,6 +3727,20 @@ export default function App(){
           {activeTab==='leads'&&<LeadRoom leads={leads} profile={profile} onLeadsChange={setLeads} onConvertDeal={convertLeadToDeal} onRefresh={fetchLeads}/>}
           {activeTab==='pipeline'&&<PipelineBoard deals={deals} month={month} profile={profile} onEdit={startEdit}/>}
           {activeTab==='dossiers'&&<DealsTable deals={deals} month={month} profile={profile} onEdit={startEdit} onDelete={deleteDeal} onRefresh={loadAll}/>}
+          {activeTab==='clients'&&(
+            selectedClientId
+              ? <ClientView
+                  clientId={selectedClientId}
+                  onBack={() => setSelectedClientId(null)}
+                  supabase={supabase}
+                  profile={profile}
+                />
+              : <ClientsView
+                  supabase={supabase}
+                  onSelectClient={setSelectedClientId}
+                  profile={profile}
+                />
+          )}
           {activeTab==='forecast'&&<ForecastView deals={deals} objectifs={objectifs} month={month} profile={profile} teamProfiles={teamProfiles} canEditObjectifs={isManager} onSaveObjectif={saveObjectif}/>}
           {activeTab==='agenda'&&<AgendaView deals={deals} profile={profile}/>}
           {activeTab==='market'&&<MarketView/>}
@@ -3519,6 +3760,7 @@ export default function App(){
         open={modalOpen}
         initialDeal={editingDeal}
         profile={profile}
+        supabase={supabase}
         onClose={()=>{setModalOpen(false);setEditingDeal(null)}}
         onSave={saveDeal}
       />
