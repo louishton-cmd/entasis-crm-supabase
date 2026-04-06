@@ -1798,11 +1798,31 @@ function DealsTable({deals,month,profile,onEdit,onDelete,onRefresh,onSelectClien
   const [expandedGroups,setExpandedGroups]=useState(new Set())
   const filtered=useMemo(()=>deals.filter(d=>allMonths||d.month===month).filter(d=>statusF==='Tous'||d.status===statusF).filter(d=>productF==='Tous'||d.product===productF).filter(d=>priorityF==='Tous'||d.priority===priorityF).filter(d=>`${getClientName(d)} ${d.product} ${d.company} ${d.advisor_code} ${d.co_advisor_code||''}`.toLowerCase().includes(search.toLowerCase())),[deals,month,allMonths,search,statusF,productF,priorityF])
 
+  // Fonction helper pour générer clé de regroupement
+  const groupKey = (deal) => {
+    if (deal.client_id) return deal.client_id
+    // Fallback : grouper par nom normalisé + advisor_code
+    const nom = (deal.clients?.nom || deal.client || '').toLowerCase().trim()
+    const advisor = deal.advisor_code || ''
+    return `${nom}__${advisor}`
+  }
+
+  // Fonction pour gérer l'expansion des groupes
+  const toggleGroup = (key) => {
+    const newExpanded = new Set(expandedGroups)
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key)
+    } else {
+      newExpanded.add(key)
+    }
+    setExpandedGroups(newExpanded)
+  }
+
   const groupedDeals = useMemo(() => {
     const groups = {}
 
     filtered.forEach(deal => {
-      const key = deal.client_id || deal.id
+      const key = groupKey(deal)
       if (!groups[key]) {
         groups[key] = {
           client_id: deal.client_id,
@@ -1834,16 +1854,6 @@ function DealsTable({deals,month,profile,onEdit,onDelete,onRefresh,onSelectClien
   const ppTotal=sumAnnualPp(filtered.filter(d=>d.status==='Signé'))
   const puTotal=sumPu(filtered.filter(d=>d.status==='Signé'))
 
-  const toggleGroup = (key) => {
-    const newExpanded = new Set(expandedGroups)
-    if (newExpanded.has(key)) {
-      newExpanded.delete(key)
-    } else {
-      newExpanded.add(key)
-    }
-    setExpandedGroups(newExpanded)
-  }
-
   return (
     <div>
       <div className="section-header"><div><div className="section-kicker">Référentiel</div><div className="section-title">Dossiers clients</div><div className="section-sub">{groupedDeals.length} client{groupedDeals.length!==1?'s':''} · {filtered.length} dossier{filtered.length!==1?'s':''} · PP signée {euro(ppTotal)} · PU signée {euro(puTotal)}</div></div></div>
@@ -1866,10 +1876,10 @@ function DealsTable({deals,month,profile,onEdit,onDelete,onRefresh,onSelectClien
             <thead><tr><th>Client</th><th>Produits</th><th>PP annualisée</th><th>PU</th><th>Conseiller</th><th>Statut global</th><th>Actions</th></tr></thead>
             <tbody>
               {groupedDeals.map(group=>{
-                const groupKey = group.client_id || group.deals[0].id
-                const isExpanded = expandedGroups.has(groupKey)
+                const currentGroupKey = groupKey(group.deals[0])
+                const isExpanded = expandedGroups.has(currentGroupKey)
                 return (
-                  <React.Fragment key={groupKey}>
+                  <React.Fragment key={currentGroupKey}>
                     <tr
                       onClick={() => group.client_id && onSelectClient && onSelectClient(group.client_id)}
                       style={{
@@ -1882,7 +1892,7 @@ function DealsTable({deals,month,profile,onEdit,onDelete,onRefresh,onSelectClien
                         {group.deals.length > 1 && (
                           <button
                             className="btn btn-ghost btn-xs"
-                            onClick={(e) => { e.stopPropagation(); toggleGroup(groupKey) }}
+                            onClick={(e) => { e.stopPropagation(); toggleGroup(currentGroupKey) }}
                             style={{ marginTop: '4px' }}
                           >
                             {isExpanded ? '🔽' : '▶️'} Détails
@@ -3953,16 +3963,20 @@ export default function App(){
   }
 
   // Fonction helper pour créer ou récupérer un client
-  async function getOrCreateClient(dealData, userId) {
-    if (dealData.client_id) return dealData.client_id // Client déjà existant
+  async function getOrCreateClient(clientData, userId) {
+    if (clientData.client_id) return clientData.client_id // Client déjà existant
 
-    if (!dealData.client || !dealData.client.trim()) return null // Pas de nom client
+    if (!clientData.nom && !clientData.client) return null // Pas de nom client
 
-    // Chercher client existant par nom
+    const nom = (clientData.nom || clientData.client || '').trim()
+    if (!nom) return null
+
+    // Chercher client existant par nom + advisor_code
     const { data: existing } = await supabase
       .from('clients')
       .select('id')
-      .eq('nom', dealData.client.trim())
+      .eq('nom', nom)
+      .eq('advisor_code', clientData.advisor_code || '')
       .maybeSingle()
 
     if (existing) return existing.id
@@ -3971,11 +3985,12 @@ export default function App(){
     const { data: newClient, error } = await supabase
       .from('clients')
       .insert({
-        nom: dealData.client.trim(),
-        email: dealData.client_email || null,
-        telephone: dealData.client_phone || null,
-        advisor_code: dealData.advisor_code,
-        created_by: userId
+        nom: nom,
+        email: clientData.email || clientData.client_email || null,
+        telephone: clientData.telephone || clientData.client_phone || null,
+        age: clientData.age || clientData.client_age || null,
+        advisor_code: clientData.advisor_code || null,
+        created_by: userId || profile?.id || null
       })
       .select('id')
       .single()
@@ -3994,43 +4009,63 @@ export default function App(){
       const { data: { user }, error } = await supabase.auth.getUser()
       if (error || !user) throw new Error('Session expirée')
 
-      // Gérer mode multi-produits (tableau) ou mode classique (objet unique)
-      if (Array.isArray(dealOrDeals)) {
-        // Mode multi-produits : créer un client commun et plusieurs deals
-        if (dealOrDeals.length === 0) return
+      // Normaliser en tableau pour traitement uniforme
+      const dealsArray = Array.isArray(dealOrDeals) ? dealOrDeals : [dealOrDeals]
+      if (dealsArray.length === 0) return
 
-        // Créer ou récupérer le client une seule fois
-        const clientId = await getOrCreateClient(dealOrDeals[0], user.id)
+      // Nettoyer les champs de jointure
+      const cleanDeals = dealsArray.map(d => {
+        const { clients, client_data, ...clean } = d
+        return clean
+      })
 
-        const dealsToInsert = dealOrDeals.map(deal => {
-          const { clients, client_data, ...cleanDeal } = deal
-          return {
-            ...cleanDeal,
-            client_id: clientId, // Même client_id pour tous les deals
-            advisor_code: profile?.role === 'manager' ? deal.advisor_code : (profile?.advisor_code || deal.advisor_code),
-            created_by: user.id
-          }
-        })
+      // Si pas de client_id → créer ou retrouver le client
+      let clientId = cleanDeals[0].client_id
 
-        const { error: e } = await supabase.from('deals').insert(dealsToInsert)
-        if (e) { alert(e.message); return }
+      if (!clientId && cleanDeals[0].client) {
+        clientId = await getOrCreateClient({
+          nom: cleanDeals[0].client,
+          email: cleanDeals[0].client_email || null,
+          telephone: cleanDeals[0].client_phone || null,
+          age: cleanDeals[0].client_age || null,
+          advisor_code: profile?.role === 'manager' ? cleanDeals[0].advisor_code : (profile?.advisor_code || cleanDeals[0].advisor_code),
+        }, user.id)
+      }
 
-        toast.success(`${dealsToInsert.length} produit${dealsToInsert.length > 1 ? 's créés' : ' créé'}`)
-      } else {
-        // Mode classique : un seul deal
-        const deal = dealOrDeals
-        const { clients, client_data, ...cleanDeal } = deal
-        const payload = {
-          ...cleanDeal,
-          advisor_code: profile?.role === 'manager' ? deal.advisor_code : (profile?.advisor_code || deal.advisor_code),
-          created_by: user.id
+      // Appliquer le même client_id à tous les deals
+      const dealsWithClientId = cleanDeals.map(d => ({
+        ...d,
+        client_id: clientId || null,
+        advisor_code: profile?.role === 'manager' ? d.advisor_code : (profile?.advisor_code || d.advisor_code),
+        created_by: user.id
+      }))
+
+      // Insérer ou mettre à jour
+      for (const deal of dealsWithClientId) {
+        const isExisting = deal.created_at && deals.some(existingDeal => existingDeal.id === deal.id)
+
+        if (isExisting) {
+          const { error: e } = await supabase
+            .from('deals')
+            .update(deal)
+            .eq('id', deal.id)
+          if (e) { alert(e.message); return }
+        } else {
+          const newId = deal.id || `D-${Date.now()}-${Math.random().toString(36).substr(2,5)}`
+          const { error: e } = await supabase
+            .from('deals')
+            .insert({ ...deal, id: newId })
+          if (e) { alert(e.message); return }
         }
-        const existing = deals.some(d => d.id === deal.id)
-        const q = existing ? supabase.from('deals').update(payload).eq('id',deal.id) : supabase.from('deals').insert(payload)
-        const { error: e } = await q
-        if (e) { alert(e.message); return }
+      }
 
-        toast.success(existing ? 'Dossier mis à jour' : 'Dossier créé')
+      const isMultiple = dealsArray.length > 1
+      const hasExisting = dealsArray.some(d => d.created_at && deals.some(existing => existing.id === d.id))
+
+      if (isMultiple) {
+        toast.success(`${dealsArray.length} produits créés`)
+      } else {
+        toast.success(hasExisting ? 'Dossier mis à jour' : 'Dossier créé')
       }
 
       setModalOpen(false);setEditingDeal(null);
@@ -4155,8 +4190,32 @@ export default function App(){
                   }}
                   onAddDeal={(clientData, reloadCallbackFunc) => {
                     setEditingDeal({
-                      ...emptyDeal(profile?.advisor_code),
-                      ...clientData
+                      // Infos client pré-remplies
+                      client_id: clientData.client_id,
+                      client: clientData.client,
+                      client_email: clientData.client_email || '',
+                      client_phone: clientData.client_phone || '',
+                      advisor_code: clientData.advisor_code || profile?.advisor_code || '',
+
+                      // Champs produit VIDES
+                      product: '',
+                      company: '',
+                      pp_m: 0,
+                      pu: 0,
+                      status: 'En cours',
+                      priority: 'Normale',
+                      month: currentMonth(),
+                      source: '',
+                      notes: '',
+                      date_expected: '',
+                      date_signed: '',
+                      tags: [],
+                      client_age: '',
+                      co_advisor_code: '',
+
+                      // Pas d'id → mode création
+                      id: undefined,
+                      created_at: undefined
                     })
                     setReloadCallback(() => reloadCallbackFunc)
                     setModalOpen(true)

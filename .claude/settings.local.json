@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(psql $VITE_SUPABASE_URL/rest/v1 -c \"SELECT id, client, client_id, advisor_code FROM deals ORDER BY created_at DESC LIMIT 5;\")"
+      "Bash(psql $VITE_SUPABASE_URL/rest/v1 -c \"SELECT id, client, client_id, advisor_code FROM deals ORDER BY created_at DESC LIMIT 5;\")",
+      "Bash(git commit -m \"fix: client_id manquant multi-deals, reload après ajout produit\")"
     ],
     "deny": [],
     "ask": []
