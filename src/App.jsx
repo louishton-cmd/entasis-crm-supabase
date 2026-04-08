@@ -3380,8 +3380,11 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
                           className="form-input"
                           type="number"
                           min="0"
-                          value={prod.pp_m || 0}
-                          onChange={e => setProductField(index, 'pp_m', e.target.value)}
+                          value={prod.pp_m === 0 ? '' : prod.pp_m}
+                          onChange={e => setProductField(index, 'pp_m',
+                            e.target.value === '' ? 0 : Number(e.target.value)
+                          )}
+                          onFocus={e => e.target.select()}
                         />
                         <div className="form-hint">→ PP annualisée : <strong>{euro(annualize(prod.pp_m))}</strong></div>
                       </div>
@@ -3391,8 +3394,11 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
                           className="form-input"
                           type="number"
                           min="0"
-                          value={prod.pu || 0}
-                          onChange={e => setProductField(index, 'pu', e.target.value)}
+                          value={prod.pu === 0 ? '' : prod.pu}
+                          onChange={e => setProductField(index, 'pu',
+                            e.target.value === '' ? 0 : Number(e.target.value)
+                          )}
+                          onFocus={e => e.target.select()}
                         />
                       </div>
                       <div className="form-group">
@@ -3419,8 +3425,8 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
                   <div className="form-group"><label className="form-label">Compagnie</label><select className="form-select" value={deal.company||''} onChange={e=>set('company',e.target.value)}>{COMPANIES.map(c=><option key={c}>{c}</option>)}</select></div>
                 </div>
                 <div className="form-row form-row-3 mt-16">
-                  <div className="form-group"><label className="form-label">PP mensuelle (€)</label><input className="form-input" type="number" min="0" value={deal.pp_m||0} onChange={e=>set('pp_m',e.target.value)}/><div className="form-hint">→ PP annualisée : <strong>{euro(annualize(deal.pp_m))}</strong></div></div>
-                  <div className="form-group"><label className="form-label">PU (€)</label><input className="form-input" type="number" min="0" value={deal.pu||0} onChange={e=>set('pu',e.target.value)}/></div>
+                  <div className="form-group"><label className="form-label">PP mensuelle (€)</label><input className="form-input" type="number" min="0" value={deal.pp_m === 0 ? '' : deal.pp_m} onChange={e=>set('pp_m', e.target.value === '' ? 0 : Number(e.target.value))} onFocus={e => e.target.select()}/><div className="form-hint">→ PP annualisée : <strong>{euro(annualize(deal.pp_m))}</strong></div></div>
+                  <div className="form-group"><label className="form-label">PU (€)</label><input className="form-input" type="number" min="0" value={deal.pu === 0 ? '' : deal.pu} onChange={e=>set('pu', e.target.value === '' ? 0 : Number(e.target.value))} onFocus={e => e.target.select()}/></div>
                   <div className="form-group"><label className="form-label">Statut</label><select className="form-select" value={deal.status} onChange={e=>set('status',e.target.value)}>{STATUS_OPTIONS.map(s=><option key={s}>{s}</option>)}</select></div>
                 </div>
               </div>
