@@ -25,6 +25,9 @@ const FONT_SANS = "'DM Sans', system-ui, sans-serif"
 /* ─────────────────────────────────────────────────────────────────────────────
    TAX ENGINE (bareme 2025 sur revenus 2024)
 ───────────────────────────────────────────────────────────────────────────── */
+// PASS 2026
+const PASS_2026 = 48060
+
 const TRANCHES_IR = [
   { min: 0, max: 11497, taux: 0 },
   { min: 11497, max: 29315, taux: 0.11 },
@@ -34,13 +37,23 @@ const TRANCHES_IR = [
 ]
 
 function calcIR(revenuImposable, parts) {
-  const q = revenuImposable / parts
-  let imp = 0
-  for (const tr of TRANCHES_IR) {
-    if (q <= tr.min) break
-    imp += (Math.min(q, tr.max) - tr.min) * tr.taux
-  }
-  return Math.round(imp * parts)
+  const revenuParPart = revenuImposable / parts
+  let impotParPart = 0
+
+  // Barème 2026 officiel
+  if (revenuParPart <= 11497) impotParPart = 0
+  else if (revenuParPart <= 29315)
+    impotParPart = (revenuParPart - 11497) * 0.11
+  else if (revenuParPart <= 83823)
+    impotParPart = 17818 * 0.11 + (revenuParPart - 29315) * 0.30
+  else if (revenuParPart <= 180294)
+    impotParPart = 17818 * 0.11 + 54508 * 0.30 +
+                  (revenuParPart - 83823) * 0.41
+  else
+    impotParPart = 17818 * 0.11 + 54508 * 0.30 +
+                  96471 * 0.41 + (revenuParPart - 180294) * 0.45
+
+  return Math.round(impotParPart * parts)
 }
 
 function getTMI(revenuImposable, parts) {
@@ -544,6 +557,12 @@ const PROFIL_RENDEMENTS = [
   { value: 'dynamique', label: 'Dynamique 7%', taux: 0.07 },
 ]
 
+const MODES_SORTIE_PER = [
+  { value: 'rente', label: 'Rente viagère' },
+  { value: 'capital', label: 'Capital en une fois' },
+  { value: 'capital_fractionne', label: 'Capital fractionné (10 ans)' },
+]
+
 function SimulateurPER() {
   const chartRef = useRef(null)
   const [revenu, setRevenu] = useState(80000)
@@ -556,11 +575,18 @@ function SimulateurPER() {
   const [profil, setProfil] = useState('equilibre')
   const [fraisGestion, setFraisGestion] = useState(1)
   const [showDetail, setShowDetail] = useState(false)
+  const [modeSortie, setModeSortie] = useState('rente')
 
   const duree = Math.max(1, ageRetraite - age)
 
-  // Plafond PER 2025
-  const plafondBase = Math.max(4637, Math.min(revenu * 0.10, 37094))
+  // Plafond PER 2026
+  const plafondBase = Math.max(
+    PASS_2026 * 0.10,           // minimum = 4 806€
+    Math.min(
+      revenu * 0.10,            // 10% des revenus
+      PASS_2026 * 8 * 0.10      // maximum = 38 448€
+    )
+  )
   const plafondTotal = plafondBase + plafondReportable
 
   // Versements PER envisages (capped at plafond)
@@ -609,6 +635,43 @@ function SimulateurPER() {
       const plusValue = Math.round(capital - totalVerse)
       const renteMensuelle = Math.round(capital * 0.032 / 12)
 
+      // Fiscalité de sortie selon le mode choisi
+      let sortieData = { renteMensuelle }
+
+      if (modeSortie === 'capital') {
+        // Capital en une fois : versements imposés au barème IR + PFU 30% sur plus-values
+        const impotVersements = calcIR(totalVerse * 0.9, nbParts) // Abattement 10% sur versements
+        const impotPlusValues = plusValue * 0.30 // PFU 30%
+        const capitalNet = capital - impotVersements - impotPlusValues
+        sortieData = {
+          capitalBrut: capital,
+          impotVersements: Math.round(impotVersements),
+          impotPlusValues: Math.round(impotPlusValues),
+          capitalNet: Math.round(capitalNet)
+        }
+      } else if (modeSortie === 'capital_fractionne') {
+        // Capital fractionné sur 10 ans
+        const impotVersements = calcIR(totalVerse * 0.9, nbParts)
+        const impotPlusValues = plusValue * 0.30
+        const capitalNet = capital - impotVersements - impotPlusValues
+        const capitalNetAnnuel = capitalNet / 10
+        sortieData = {
+          capitalBrut: capital,
+          impotVersements: Math.round(impotVersements),
+          impotPlusValues: Math.round(impotPlusValues),
+          capitalNet: Math.round(capitalNet),
+          capitalNetAnnuel: Math.round(capitalNetAnnuel),
+          capitalNetMensuel: Math.round(capitalNetAnnuel / 12)
+        }
+      } else {
+        // Rente viagère (mode par défaut)
+        const renteImposable = renteMensuelle * 0.9 // Abattement 10%
+        sortieData = {
+          renteBrute: renteMensuelle,
+          renteImposable: Math.round(renteImposable)
+        }
+      }
+
       // TRI net calculation
       let tri = taux
       for (let iter = 0; iter < 50; iter++) {
@@ -639,11 +702,12 @@ function SimulateurPER() {
         renteMensuelle,
         tri: isFinite(tri) ? tri : 0,
         yearly,
+        sortieData,
       }
     })
 
     return { impotSans, impotAvec, economieFiscale, effortReel, tmi, plafondTotal, scenarios }
-  }, [revenu, nbParts, versement2025, versementMensuel, versementInitial, age, ageRetraite, duree, fraisGestion, plafondReportable, plafondTotal])
+  }, [revenu, nbParts, versement2025, versementMensuel, versementInitial, age, ageRetraite, duree, fraisGestion, plafondReportable, plafondTotal, modeSortie])
 
   const selectedScenario = result.scenarios.find(s => s.value === profil) || result.scenarios[1]
 
@@ -709,7 +773,22 @@ function SimulateurPER() {
     <div>
       {/* ── FISCAL BLOCK ─────────────────────────────────────────── */}
       <div style={{ background: C.card, border: `1px solid ${C.bdGold}`, borderRadius: 14, padding: '20px 24px', marginBottom: 20 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: C.gold, fontFamily: FONT_SERIF, marginBottom: 16 }}>Calcul fiscal PER 2025</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.gold, fontFamily: FONT_SERIF, marginBottom: 16 }}>Calcul fiscal PER 2026</div>
+
+        {age >= 70 && (
+          <div style={{
+            background: '#FFF3CD',
+            border: '1px solid #FFC107',
+            borderRadius: 6,
+            padding: '8px 12px',
+            fontSize: 13,
+            marginBottom: 12
+          }}>
+            ⚠️ Depuis la LF 2026, les versements PER ne sont plus
+            déductibles après 70 ans. La simulation affiche
+            l'économie fiscale à titre indicatif uniquement.
+          </div>
+        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 16 }}>
           <div>
@@ -751,6 +830,11 @@ function SimulateurPER() {
             <PillSelect options={PROFIL_RENDEMENTS} value={profil} onChange={setProfil} />
           </div>
 
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontFamily: FONT_SANS }}>Mode de sortie à la retraite</div>
+            <PillSelect options={MODES_SORTIE_PER} value={modeSortie} onChange={setModeSortie} />
+          </div>
+
           <Slider label="Frais de gestion annuels" value={fraisGestion} onChange={setFraisGestion} min={0} max={3} step={0.1} suffix="%" />
         </div>
 
@@ -764,7 +848,24 @@ function SimulateurPER() {
             <ResultCard label="Economie fiscale cumulee" value={euro(selectedScenario.econFiscaleCumulee)} accent={C.gold} />
             <ResultCard label="Effort reel net total" value={euro(selectedScenario.effortReelTotal)} accent={C.warn} />
             <ResultCard label="TRI net" value={pctFmt(selectedScenario.tri)} accent={C.info} />
-            <ResultCard label="Rente mensuelle estimee" value={euro(selectedScenario.renteMensuelle)} accent={C.gold} sub="Taux conversion 3.2% viager" />
+            {modeSortie === 'rente' && (
+              <ResultCard label="Rente mensuelle estimee" value={euro(selectedScenario.sortieData.renteBrute)} accent={C.gold} sub={`Après abattement 10% : ${euro(selectedScenario.sortieData.renteImposable)}/mois imposable`} />
+            )}
+            {modeSortie === 'capital' && (
+              <>
+                <ResultCard label="Capital brut" value={euro(selectedScenario.sortieData.capitalBrut)} accent={C.gold} />
+                <ResultCard label="Impôt sur versements" value={euro(selectedScenario.sortieData.impotVersements)} accent={C.danger} sub="Barème IR après abattement 10%" />
+                <ResultCard label="PFU sur plus-values" value={euro(selectedScenario.sortieData.impotPlusValues)} accent={C.danger} sub="30% (12.8% IR + 17.2% PS)" />
+                <ResultCard label="Capital net disponible" value={euro(selectedScenario.sortieData.capitalNet)} accent={C.success} />
+              </>
+            )}
+            {modeSortie === 'capital_fractionne' && (
+              <>
+                <ResultCard label="Capital net total" value={euro(selectedScenario.sortieData.capitalNet)} accent={C.gold} />
+                <ResultCard label="Capital net annuel" value={euro(selectedScenario.sortieData.capitalNetAnnuel)} accent={C.success} sub="Pendant 10 ans" />
+                <ResultCard label="Capital net mensuel" value={euro(selectedScenario.sortieData.capitalNetMensuel)} accent={C.success} sub="Pendant 10 ans" />
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -867,6 +968,12 @@ function SimulateurPER() {
           pdfFinalize(doc, 'PER', clientName)
         }} />
       </div>
+
+      {/* Disclaimer */}
+      <div style={{ background: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: 6, padding: '12px 16px', marginTop: 16, fontSize: 12, color: '#666' }}>
+        <strong>Disclaimer</strong> : Simulation à titre indicatif — les résultats ne constituent pas un conseil en investissement.
+        Les performances passées ne préjugent pas des performances futures.
+      </div>
     </div>
   )
 }
@@ -891,23 +998,75 @@ function SimulateurAssuranceVie() {
   const [fraisGestion, setFraisGestion] = useState(0.85)
   const [objectif, setObjectif] = useState('capitalisation')
   const [situationFiscale, setSituationFiscale] = useState('celibataire')
+  const [rachatAnnuel, setRachatAnnuel] = useState(0)
+  const [anneeRachat, setAnneeRachat] = useState(8)
+  const [typeRachat, setTypeRachat] = useState('aucun')
 
   const pctUC = 100 - pctEuro
+
+  const TYPES_RACHAT = [
+    { value: 'aucun', label: 'Pas de rachat' },
+    { value: 'ponctuel', label: 'Rachat ponctuel' },
+    { value: 'regulier', label: 'Rachats réguliers' },
+  ]
 
   const result = useMemo(() => {
     const tauxComposite = (pctEuro * tauxEuro + pctUC * tauxUC) / 10000 - fraisGestion / 100
     const versementAnnuel = versementMensuel * 12
 
     let capital = capitalInitial
+    let totalVersements = capitalInitial
+    let totalRachats = 0
+    let impotRachatsTotal = 0
     const yearlyBrut = []
     const yearlyNet = []
     const yearlyCumVerse = []
+    const rachatData = []
 
     for (let an = 1; an <= duree; an++) {
       capital = capital * (1 + tauxComposite) + versementAnnuel
-      yearlyBrut.push(Math.round(capital))
+      totalVersements += versementAnnuel
 
-      const totalVerseAnN = capitalInitial + versementAnnuel * an
+      // Gestion des rachats
+      let rachatAnne = 0
+      let impotRachatAnne = 0
+
+      if (typeRachat === 'ponctuel' && an === anneeRachat) {
+        rachatAnne = Math.min(rachatAnnuel, capital)
+      } else if (typeRachat === 'regulier' && an >= anneeRachat) {
+        rachatAnne = Math.min(rachatAnnuel, capital)
+      }
+
+      if (rachatAnne > 0) {
+        // Calcul de la part imposable du rachat
+        const totalGains = Math.max(0, capital - totalVersements)
+        const partImposable = totalGains > 0 ? rachatAnne * (totalGains / capital) : 0
+
+        // Fiscalité du rachat selon l'année
+        if (an < 8) {
+          // Avant 8 ans : PFU 12.8% + PS 17.2%
+          impotRachatAnne = partImposable * (0.128 + 0.172)
+        } else {
+          // Après 8 ans avec abattement
+          const abattement = situationFiscale === 'couple' ? 9200 : 4600
+          const gainImposable = Math.max(0, partImposable - abattement)
+          const tauxIR = totalVersements < 150000 ? 0.075 : 0.128
+          impotRachatAnne = gainImposable * tauxIR + partImposable * 0.172
+        }
+
+        capital -= rachatAnne
+        totalRachats += rachatAnne
+        impotRachatsTotal += impotRachatAnne
+      }
+
+      rachatData.push({
+        annee: an,
+        rachat: Math.round(rachatAnne),
+        impotRachat: Math.round(impotRachatAnne)
+      })
+
+      yearlyBrut.push(Math.round(capital))
+      const totalVerseAnN = totalVersements
       yearlyCumVerse.push(totalVerseAnN)
 
       // Fiscal calc at each year for net curve
@@ -956,8 +1115,12 @@ function SimulateurAssuranceVie() {
       capitalBrut, totalVerse, interets, abattement, irApresAbat, ps, netFiscal,
       rendNetAnnualise, tauxComposite,
       yearlyBrut, yearlyNet, yearlyCumVerse,
+      totalRachats: Math.round(totalRachats),
+      impotRachatsTotal: Math.round(impotRachatsTotal),
+      capitalDisponible: Math.round(capitalBrut + totalRachats),
+      rachatData,
     }
-  }, [capitalInitial, versementMensuel, duree, pctEuro, tauxEuro, tauxUC, fraisGestion, situationFiscale, pctUC])
+  }, [capitalInitial, versementMensuel, duree, pctEuro, tauxEuro, tauxUC, fraisGestion, situationFiscale, pctUC, typeRachat, rachatAnnuel, anneeRachat])
 
   const chartData = {
     labels: Array.from({ length: duree }, (_, i) => `An ${i + 1}`),
@@ -1011,6 +1174,23 @@ function SimulateurAssuranceVie() {
             <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontFamily: FONT_SANS }}>Situation fiscale</div>
             <PillSelect options={[{ value: 'celibataire', label: 'Celibataire' }, { value: 'couple', label: 'Couple' }]} value={situationFiscale} onChange={setSituationFiscale} />
           </div>
+
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontFamily: FONT_SANS }}>Simulation de rachat</div>
+            <PillSelect options={TYPES_RACHAT} value={typeRachat} onChange={setTypeRachat} />
+
+            {(typeRachat === 'ponctuel' || typeRachat === 'regulier') && (
+              <div style={{ marginTop: 12 }}>
+                <Field label="Montant du rachat" value={rachatAnnuel} onChange={setRachatAnnuel} suffix="EUR" />
+                {typeRachat === 'ponctuel' && (
+                  <Field label="Année du rachat" value={anneeRachat} onChange={setAnneeRachat} suffix="ans" />
+                )}
+                {typeRachat === 'regulier' && (
+                  <Field label="À partir de l'année" value={anneeRachat} onChange={setAnneeRachat} suffix="ans" />
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <div>
@@ -1019,6 +1199,13 @@ function SimulateurAssuranceVie() {
             <ResultCard label="Total verse" value={euro(result.totalVerse)} accent={C.ivoryDim} />
             <ResultCard label="Interets generes" value={euro(result.interets)} accent={C.success} />
             <ResultCard label="Rendement net annualise" value={pctFmt(result.rendNetAnnualise)} accent={C.info} sub={`Euro ${pctEuro}% / UC ${pctUC}%`} />
+            {typeRachat !== 'aucun' && (
+              <>
+                <ResultCard label="Total des rachats" value={euro(result.totalRachats)} accent={C.info} />
+                <ResultCard label="Impot paye sur rachats" value={euro(result.impotRachatsTotal)} accent={C.danger} />
+                <ResultCard label="Capital disponible total" value={euro(result.capitalDisponible)} accent={C.success} sub="Capital final + rachats effectués" />
+              </>
+            )}
           </div>
 
           <div style={{ background: C.card, borderRadius: 10, padding: '14px 16px', marginBottom: 10 }}>
@@ -1039,6 +1226,19 @@ function SimulateurAssuranceVie() {
               <span style={{ color: C.success }}>{euro(result.netFiscal)}</span>
             </div>
           </div>
+
+          {objectif === 'transmission' && (
+            <div style={{ background: C.card, borderRadius: 10, padding: '14px 16px', marginTop: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryDim, textTransform: 'uppercase', marginBottom: 8, fontFamily: FONT_SANS }}>Objectif Transmission</div>
+              <div style={{ fontSize: 12, color: '#666', lineHeight: 1.6 }}>
+                ℹ️ <strong>Versements avant 70 ans</strong> : exonération jusqu'à
+                152 500 € par bénéficiaire (art. 990 I CGI).<br/>
+                <strong>Versements après 70 ans</strong> : abattement global 30 500 €
+                tous bénéficiaires (art. 757 B CGI), plus-values exonérées.<br/>
+                <strong>Capital actuel exonéré</strong> : {euro(Math.min(result.capitalBrut, 152500))} par bénéficiaire.
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1114,6 +1314,12 @@ function SimulateurAssuranceVie() {
 
           pdfFinalize(doc, 'AssuranceVie', clientName)
         }} />
+      </div>
+
+      {/* Disclaimer */}
+      <div style={{ background: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: 6, padding: '12px 16px', marginTop: 16, fontSize: 12, color: '#666' }}>
+        <strong>Disclaimer</strong> : Simulation à titre indicatif — les résultats ne constituent pas un conseil en investissement.
+        Les performances passées ne préjugent pas des performances futures.
       </div>
     </div>
   )
@@ -1549,13 +1755,17 @@ function SimulateurImmoNeuf() {
   const [showAmort, setShowAmort] = useState(false)
   const [aiEmail, setAiEmail] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
+  const [regimeLMNP, setRegimeLMNP] = useState('micro')
+  const [tmiImmo, setTmiImmo] = useState(30)
+  const [vacanceLocative, setVacanceLocative] = useState(5)
 
   const NOTAIRE_PCT = 0.025
 
   const result = useMemo(() => {
     const fraisNotaire = Math.round(prixBien * NOTAIRE_PCT)
-    const coutTotal = prixBien + fraisNotaire
-    const emprunt = Math.max(0, coutTotal - apport)
+    const fraisGarantie = Math.round((prixBien - apport) * 0.01) // Caution bancaire 1%
+    const coutTotal = prixBien + fraisNotaire + fraisGarantie
+    const emprunt = Math.max(0, prixBien + fraisNotaire - apport)
     const r = tauxInteret / 100 / 12
     const n = dureeEmprunt * 12
     const mensualiteCredit = r > 0 ? emprunt * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1) : emprunt / n
@@ -1563,11 +1773,51 @@ function SimulateurImmoNeuf() {
     const mensualiteTotale = mensualiteCredit + assuranceMensuelle
     const coutCredit = mensualiteTotale * n - emprunt
     const loyerM2 = dispositif === 'LLI' ? 12 : dispositif === 'LMNP' ? 14 : 0
-    const loyerMensuel = surface * loyerM2
+    const loyerMensuelBrut = surface * loyerM2
+    const loyerMensuel = loyerMensuelBrut * (1 - vacanceLocative/100) // Application vacance locative
     const loyerAnnuel = loyerMensuel * 12
-    const rendBrut = prixBien > 0 ? loyerAnnuel / prixBien : 0
+    const loyerAnnuelBrut = loyerMensuelBrut * 12
+    const rendBrut = prixBien > 0 ? loyerAnnuelBrut / prixBien : 0
     const cashflowMensuel = loyerMensuel - mensualiteTotale
     const economieTVA = dispositif === 'LLI' ? Math.round(prixBien * 0.10) : 0
+
+    // Calculs LMNP selon régime (si dispositif LMNP)
+    let lmnpData = null
+    if (dispositif === 'LMNP') {
+      const loyersAnnuelsBruts = loyerAnnuelBrut
+
+      // Micro-BIC
+      const revenuImposableMicroBIC = loyersAnnuelsBruts * 0.50
+      const impotMicroBIC = revenuImposableMicroBIC * (tmiImmo / 100) + revenuImposableMicroBIC * 0.172
+
+      // Régime réel (estimation)
+      const chargesReelles = loyersAnnuelsBruts * 0.20  // charges ~20%
+      const amortissementBien = (prixBien * 0.85) / 30  // hors terrain, 30 ans
+      const amortissementMobilier = prixBien * 0.05 / 7  // mobilier 7 ans
+      const revenuImposableReel = Math.max(0,
+        loyersAnnuelsBruts - chargesReelles - amortissementBien - amortissementMobilier
+      )
+      const impotReel = revenuImposableReel * (tmiImmo / 100) + revenuImposableReel * 0.172
+
+      const cashflowNetMicroBIC = loyerMensuel - mensualiteTotale - impotMicroBIC / 12
+      const cashflowNetReel = loyerMensuel - mensualiteTotale - impotReel / 12
+
+      lmnpData = {
+        microBIC: {
+          revenuImposable: Math.round(revenuImposableMicroBIC),
+          impotAnnuel: Math.round(impotMicroBIC),
+          cashflowNet: Math.round(cashflowNetMicroBIC)
+        },
+        reel: {
+          revenuImposable: Math.round(revenuImposableReel),
+          impotAnnuel: Math.round(impotReel),
+          cashflowNet: Math.round(cashflowNetReel),
+          chargesReelles: Math.round(chargesReelles),
+          amortissement: Math.round(amortissementBien + amortissementMobilier)
+        },
+        recommandation: impotReel < impotMicroBIC ? 'reel' : 'micro'
+      }
+    }
 
     const amortTable = []
     let restant = emprunt
@@ -1588,12 +1838,13 @@ function SimulateurImmoNeuf() {
     const yearlyValeur = Array.from({ length: dureeEmprunt }, (_, i) => Math.round(prixBien * Math.pow(1.015, i + 1)))
 
     return {
-      fraisNotaire, coutTotal, emprunt, mensualiteCredit: Math.round(mensualiteCredit),
+      fraisNotaire, fraisGarantie, coutTotal, emprunt, mensualiteCredit: Math.round(mensualiteCredit),
       assuranceMensuelle: Math.round(assuranceMensuelle), mensualiteTotale: Math.round(mensualiteTotale),
-      coutCredit: Math.round(coutCredit), loyerMensuel, loyerAnnuel, rendBrut, cashflowMensuel: Math.round(cashflowMensuel),
-      economieTVA, amortTable, yearlyRestant, yearlyValeur,
+      coutCredit: Math.round(coutCredit), loyerMensuel: Math.round(loyerMensuel), loyerAnnuel: Math.round(loyerAnnuel),
+      rendBrut, cashflowMensuel: Math.round(cashflowMensuel),
+      economieTVA, amortTable, yearlyRestant, yearlyValeur, lmnpData,
     }
-  }, [prixBien, surface, apport, dureeEmprunt, tauxInteret, tauxAssurance, dispositif])
+  }, [prixBien, surface, apport, dureeEmprunt, tauxInteret, tauxAssurance, dispositif, tmiImmo, vacanceLocative, regimeLMNP])
 
   const chartData = {
     labels: Array.from({ length: dureeEmprunt }, (_, i) => `An ${i + 1}`),
@@ -1637,6 +1888,29 @@ function SimulateurImmoNeuf() {
             <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontFamily: FONT_SANS }}>Dispositif</div>
             <PillSelect options={DISPOSITIFS_IMMO} value={dispositif} onChange={setDispositif} />
           </div>
+
+          <Slider label="Votre TMI" value={tmiImmo} onChange={setTmiImmo} min={0} max={45} step={1} suffix="%" />
+          <Slider label="Vacance locative" value={vacanceLocative} onChange={setVacanceLocative} min={0} max={15} step={1} suffix="%" />
+
+          {dispositif === 'LMNP' && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.ivoryMuted, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8, fontFamily: FONT_SANS }}>Régime fiscal LMNP</div>
+              <PillSelect options={[{ value: 'micro', label: 'Micro-BIC' }, { value: 'reel', label: 'Régime réel' }]} value={regimeLMNP} onChange={setRegimeLMNP} />
+
+              {regimeLMNP === 'micro' && (
+                <div style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
+                  Abattement forfaitaire 50% sur les loyers.
+                  Recommandé si charges &lt; 50% des loyers.
+                </div>
+              )}
+              {regimeLMNP === 'reel' && (
+                <div style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
+                  Déduction des charges réelles + amortissement
+                  du bien. Recommandé si charges &gt; 50% des loyers.
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div>
@@ -1645,13 +1919,14 @@ function SimulateurImmoNeuf() {
             {[
               ['Prix du bien', euro(prixBien)],
               ['Frais de notaire (2,5%)', euro(result.fraisNotaire)],
+              ['Frais de garantie (1%)', euro(result.fraisGarantie)],
               ['Cout total acquisition', euro(result.coutTotal)],
               ['Apport', euro(apport)],
               ['Montant emprunte', euro(result.emprunt)],
             ].map(([label, val], i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: `1px solid ${C.bd}`, fontSize: 12, fontWeight: i === 2 || i === 4 ? 700 : 400 }}>
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: `1px solid ${C.bd}`, fontSize: 12, fontWeight: i === 3 || i === 5 ? 700 : 400 }}>
                 <span style={{ color: C.ivoryMuted }}>{label}</span>
-                <span style={{ color: i === 2 || i === 4 ? C.ivory : C.ivoryMuted }}>{val}</span>
+                <span style={{ color: i === 3 || i === 5 ? C.ivory : C.ivoryMuted }}>{val}</span>
               </div>
             ))}
           </div>
@@ -1669,6 +1944,44 @@ function SimulateurImmoNeuf() {
           </div>
         </div>
       </div>
+
+      {/* Comparaison fiscale LMNP */}
+      {dispositif === 'LMNP' && result.lmnpData && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.gold, fontFamily: FONT_SERIF, marginBottom: 12 }}>Comparaison fiscale LMNP</div>
+          <div style={{ background: C.card, borderRadius: 10, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: 10, textTransform: 'uppercase', fontWeight: 700, borderBottom: `1px solid ${C.bd}`, color: C.ivoryDim }}></th>
+                  <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: 10, textTransform: 'uppercase', fontWeight: 700, borderBottom: `1px solid ${C.bd}`, color: C.info }}>Micro-BIC</th>
+                  <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: 10, textTransform: 'uppercase', fontWeight: 700, borderBottom: `1px solid ${C.bd}`, color: C.warn }}>Régime réel</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['Loyers annuels bruts', euro(result.loyerAnnuel * 100 / (100 - vacanceLocative)), euro(result.loyerAnnuel * 100 / (100 - vacanceLocative))],
+                  ['Revenu imposable', euro(result.lmnpData.microBIC.revenuImposable), euro(result.lmnpData.reel.revenuImposable)],
+                  ['Impôt annuel', euro(result.lmnpData.microBIC.impotAnnuel), euro(result.lmnpData.reel.impotAnnuel)],
+                  ['Cashflow net mensuel', euro(result.lmnpData.microBIC.cashflowNet), euro(result.lmnpData.reel.cashflowNet)],
+                ].map(([label, microVal, reelVal], i) => (
+                  <tr key={i}>
+                    <td style={{ padding: '7px 12px', color: C.ivoryMuted, borderBottom: `1px solid ${C.bd}`, fontSize: 12 }}>{label}</td>
+                    <td style={{ padding: '7px 12px', textAlign: 'right', color: C.ivory, fontWeight: 600, borderBottom: `1px solid ${C.bd}`, fontSize: 12 }}>{microVal}</td>
+                    <td style={{ padding: '7px 12px', textAlign: 'right', color: C.ivory, fontWeight: 600, borderBottom: `1px solid ${C.bd}`, fontSize: 12 }}>{reelVal}</td>
+                  </tr>
+                ))}
+                <tr style={{ background: 'rgba(201,168,76,0.05)' }}>
+                  <td style={{ padding: '10px 12px', color: C.gold, fontWeight: 700, fontSize: 13 }}>Recommandation</td>
+                  <td colSpan={2} style={{ padding: '10px 12px', textAlign: 'center', color: C.gold, fontWeight: 700, fontSize: 13 }}>
+                    → {result.lmnpData.recommandation === 'reel' ? 'Régime réel plus avantageux' : 'Micro-BIC plus avantageux'}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Amortissement toggle */}
       <div style={{ marginTop: 8 }}>
@@ -1791,6 +2104,12 @@ function SimulateurImmoNeuf() {
           <div style={{ marginTop: 10 }}><Btn onClick={() => copyText(aiEmail)} variant="ghost">Copier l'email</Btn></div>
         </div>
       )}
+
+      {/* Disclaimer */}
+      <div style={{ background: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: 6, padding: '12px 16px', marginTop: 16, fontSize: 12, color: '#666' }}>
+        <strong>Disclaimer</strong> : Simulation à titre indicatif — les résultats ne constituent pas un conseil en investissement.
+        Les performances passées ne préjugent pas des performances futures.
+      </div>
     </div>
   )
 }
