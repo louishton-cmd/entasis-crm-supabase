@@ -30,6 +30,10 @@ export default function ClientsView({ supabase, onSelectClient, profile }) {
   // Charger tous les clients avec leurs deals
   useEffect(() => {
     async function loadClients() {
+      // Vérifier que la session est active avant de charger
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
       setLoading(true)
       try {
         // Requête 1 : clients uniquement

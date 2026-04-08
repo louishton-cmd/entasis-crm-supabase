@@ -4,7 +4,8 @@
       "Bash(psql $VITE_SUPABASE_URL/rest/v1 -c \"SELECT id, client, client_id, advisor_code FROM deals ORDER BY created_at DESC LIMIT 5;\")",
       "Bash(git commit -m \"fix: client_id manquant multi-deals, reload après ajout produit\")",
       "Bash(git commit -m \"fix: parcours création client tous workflows - formulaire vierge, getOrCreateClient, regroupement fallback\")",
-      "Bash(git commit -m \"fix: initialisation products[] vide quand isClientLocked - suppression doublons\")"
+      "Bash(git commit -m \"fix: initialisation products[] vide quand isClientLocked - suppression doublons\")",
+      "Bash(git commit -m \"fix: édition deal existant bloquée - isClientLocked false en mode édition\n\n- Problème: validation ''Veuillez sélectionner un produit'' en mode édition\n- Cause: isClientLocked = true pour deals existants avec client_id\n- Solution: isClientLocked = isNew && client_id && client\n- Résultat: mode édition utilise deal.product, mode création utilise products[]\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")"
     ],
     "deny": [],
     "ask": []

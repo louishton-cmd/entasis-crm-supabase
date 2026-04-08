@@ -52,6 +52,10 @@ export default function ClientView({ clientId, onBack, supabase, profile, onEdit
     if (!clientId) return
 
     async function loadClientData() {
+      // Vérifier que la session est active avant de charger
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
       setLoading(true)
       try {
         // 1. Données du client
