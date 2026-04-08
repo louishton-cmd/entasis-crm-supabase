@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npm run build)",
-      "Bash(git add .)"
+      "Bash(git add .)",
+      "Bash(git commit -m \"feat: enrichissement simulateurs CGP - PER 2026, AV rachats, LMNP fiscal\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
+      "Bash(git push origin develop)"
     ],
     "deny": [],
     "ask": []

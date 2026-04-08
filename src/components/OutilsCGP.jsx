@@ -819,8 +819,8 @@ function SimulateurPER() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         <div>
-          <Slider label="Age actuel" value={age} onChange={v => { setAge(v); if (ageRetraite <= v) setAgeRetraite(v + 1) }} min={25} max={60} suffix="ans" />
-          <Slider label="Age de depart a la retraite" value={ageRetraite} onChange={setAgeRetraite} min={age + 1} max={67} suffix="ans" />
+          <Slider label="Age actuel" value={age} onChange={v => { setAge(v); if (ageRetraite <= v) setAgeRetraite(v + 1) }} min={18} max={75} suffix="ans" />
+          <Slider label="Age de depart a la retraite" value={ageRetraite} onChange={setAgeRetraite} min={age + 1} max={75} suffix="ans" />
           <Slider label="Versement mensuel" value={versementMensuel} onChange={setVersementMensuel} min={100} max={5000} step={50} suffix="EUR" formatValue={v => euro(v)} />
           <Field label="Versement initial" value={versementInitial} onChange={setVersementInitial} suffix="EUR" />
           <div style={{ height: 14 }} />
