@@ -138,22 +138,22 @@ function KpiCard({label, value, hint, accent, progressValue, delta}) {
   const deltaUp = delta?.raw > 0
 
   return (
-    <div className={`kpi-card ${accentClass}`}>
-      <div className="kpi-label">{label}</div>
-      <div className="kpi-value">{value}</div>
+    <div className={`kpi-card ${accentClass}`} style={{padding: '20px 24px'}}>
+      <div className="kpi-label" style={{fontSize: '12px', color: '#999', marginBottom: '8px'}}>{label}</div>
+      <div className="kpi-value" style={{fontSize: '24px', fontWeight: '700', marginBottom: '8px'}}>{value}</div>
       {hasDelta && (
-        <div style={{display:'inline-flex',alignItems:'center',gap:3,fontSize:11.5,fontWeight:500,marginTop:4,color:deltaUp?'var(--signed)':'var(--cancelled)'}}>
+        <div style={{display:'inline-flex',alignItems:'center',gap:3,fontSize:11.5,fontWeight:500,color:deltaUp?'var(--signed)':'var(--cancelled)'}}>
           <span style={{fontSize:10}}>{deltaUp?'▲':'▼'}</span>
           {deltaUp?'+':''}{delta.label} vs S-1
         </div>
       )}
-      {!hasDelta && hint && <div className="kpi-hint">{hint}</div>}
+      {!hasDelta && hint && <div className="kpi-hint" style={{fontSize: '11px', color: '#999'}}>{hint}</div>}
       {fill != null && (
         <>
-          <div className="kpi-progress-bar">
+          <div className="kpi-progress-bar" style={{marginTop: '8px'}}>
             <div className={`kpi-progress-fill${fill>=100?' over':''}`} style={{width:`${Math.min(100,fill)}%`}}/>
           </div>
-          <div className="kpi-hint" style={{marginTop:4}}>{fill}% de l'objectif</div>
+          <div className="kpi-hint" style={{marginTop:4, fontSize: '11px', color: '#999'}}>{fill}% de l'objectif</div>
         </>
       )}
     </div>
@@ -782,7 +782,7 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
       </div>
 
       {/* KPI CARDS */}
-      <div className="kpi-grid mb-24">
+      <div className="kpi-grid mb-24" style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px'}}>
         <KpiCard
           label="Signatures semaine"
           value={totalCurrentSigs.toString()}
@@ -811,11 +811,11 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
 
       {/* BARRE DE PROGRESSION OBJECTIF */}
       {weekObjective.signatures_target > 0 && (
-        <div className="card mb-24" style={{padding: '20px'}}>
-          <div style={{marginBottom: '12px', fontSize: '14px', fontWeight: '600', color: 'var(--t1)'}}>
+        <div className="card mb-24" style={{padding: '20px 24px'}}>
+          <div style={{marginBottom: '16px', fontSize: '14px', fontWeight: '600', color: 'var(--t1)'}}>
             Objectif {weekObjective.signatures_target} signatures
           </div>
-          <div className="kpi-progress-bar" style={{height: '8px'}}>
+          <div className="kpi-progress-bar" style={{height: '8px', marginBottom: '8px'}}>
             <div
               className="kpi-progress-fill"
               style={{
@@ -825,7 +825,7 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
               }}
             />
           </div>
-          <div style={{marginTop: '8px', fontSize: '12px', color: 'var(--t3)'}}>
+          <div style={{fontSize: '12px', color: 'var(--t3)'}}>
             {Math.max(0, weekObjective.signatures_target - totalCurrentSigs) > 0
               ? `Il manque ${Math.max(0, weekObjective.signatures_target - totalCurrentSigs)} signatures pour atteindre l'objectif`
               : 'Objectif atteint !'}
@@ -834,56 +834,58 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
       )}
 
       {/* TABLEAU PRINCIPAL */}
-      <div className="card">
-        <table className="table" style={{width: '100%'}}>
+      <div className="card" style={{padding: '0'}}>
+        <table className="table" style={{width: '100%', margin: '0'}}>
           <thead>
-            <tr>
-              <th style={{paddingRight: '24px'}}>Conseiller</th>
-              <th style={{textAlign: 'center', paddingRight: '24px'}}>Signatures</th>
-              <th style={{textAlign: 'right', paddingRight: '24px'}}>CA PP</th>
-              <th style={{textAlign: 'right', paddingRight: '24px'}}>CA PU</th>
-              <th style={{textAlign: 'right', paddingRight: '24px'}}>RDV</th>
-              <th style={{textAlign: 'center'}}>Tendance</th>
+            <tr style={{background: '#F5F2EC'}}>
+              <th style={{padding: '12px 20px', borderBottom: '1px solid #E8E4DC'}}>Conseiller</th>
+              <th style={{textAlign: 'center', padding: '12px 20px', borderBottom: '1px solid #E8E4DC'}}>Signatures</th>
+              <th style={{textAlign: 'right', padding: '12px 20px', borderBottom: '1px solid #E8E4DC'}}>CA PP</th>
+              <th style={{textAlign: 'right', padding: '12px 20px', borderBottom: '1px solid #E8E4DC'}}>CA PU</th>
+              <th style={{textAlign: 'right', padding: '12px 20px', borderBottom: '1px solid #E8E4DC'}}>RDV</th>
+              <th style={{textAlign: 'center', padding: '12px 20px', borderBottom: '1px solid #E8E4DC'}}>Tendance</th>
             </tr>
           </thead>
           <tbody>
             {advisorRows.map((row, i) => (
               <tr key={row.advisor.advisor_code} style={{
-                backgroundColor: row.currentSigs === 0 && today > 1 ? 'rgba(250, 165, 165, 0.1)' : 'transparent'
+                backgroundColor: row.currentSigs === 0 && today > 1 ? 'rgba(250, 165, 165, 0.1)' : 'transparent',
+                borderBottom: '1px solid #E8E4DC'
               }}>
-                <td style={{paddingTop: '12px', paddingBottom: '12px', paddingRight: '24px'}}>
+                <td style={{padding: '16px 20px'}}>
                   <div style={{ fontWeight: 600 }}>{row.advisor.full_name || row.advisor.advisor_code}</div>
                   <div style={{
                     fontSize: 11,
                     color: '#999',
-                    marginTop: 2
+                    marginTop: 4
                   }}>
                     {row.advisor.advisor_code}
                   </div>
                 </td>
-                <td style={{textAlign: 'center', fontWeight: '600', color: 'var(--t1)', paddingTop: '12px', paddingBottom: '12px', paddingRight: '24px'}}>
+                <td style={{textAlign: 'center', fontWeight: '600', color: 'var(--t1)', padding: '16px 20px'}}>
                   {row.currentSigs}
                 </td>
-                <td style={{textAlign: 'right', fontWeight: '600', paddingTop: '12px', paddingBottom: '12px', paddingRight: '24px'}}>
+                <td style={{textAlign: 'right', fontWeight: '600', padding: '16px 20px'}}>
                   {euro(row.currentPp)}
                 </td>
-                <td style={{textAlign: 'right', fontWeight: '600', paddingTop: '12px', paddingBottom: '12px', paddingRight: '24px'}}>
+                <td style={{textAlign: 'right', fontWeight: '600', padding: '16px 20px'}}>
                   {euro(row.currentPu)}
                 </td>
-                <td style={{textAlign: 'right', padding: '12px 20px'}}>
+                <td style={{textAlign: 'right', padding: '16px 20px'}}>
                   {row.calendar ? (
                     <div>
                       <span style={{ fontWeight: 600 }}>
                         {row.calendar.total} RDV
                       </span>
-                      <div style={{ fontSize: 11, color: '#999' }}>
+                      <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>
                         {row.calendar.past} passés · {row.calendar.upcoming} à venir
                       </div>
                       {row.calendar.upcoming === 0 && (
                         <span style={{
                           color: '#E67E22',
                           fontSize: 11,
-                          fontWeight: 600
+                          fontWeight: 600,
+                          marginTop: 2
                         }}>
                           ⚠️ Aucun RDV planifié
                         </span>
@@ -895,7 +897,7 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
                     <span style={{ color: '#ccc', fontSize: 12 }}>—</span>
                   )}
                 </td>
-                <td style={{textAlign: 'center', paddingTop: '12px', paddingBottom: '12px'}}>
+                <td style={{textAlign: 'center', padding: '16px 20px'}}>
                   <span style={{
                     fontSize: '16px',
                     color: row.trend === 'up' ? 'var(--signed)' : 'var(--cancelled)'
@@ -905,17 +907,17 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
                 </td>
               </tr>
             ))}
-            <tr style={{borderTop: '2px solid var(--gold)', fontWeight: '700'}}>
-              <td>TOTAL CABINET</td>
-              <td style={{textAlign: 'center', color: 'var(--gold)'}}>{totalCurrentSigs}</td>
-              <td style={{textAlign: 'right', color: 'var(--gold)'}}>{euro(totalCurrentPp)}</td>
-              <td style={{textAlign: 'right', color: 'var(--gold)'}}>{euro(totalCurrentPu)}</td>
-              <td style={{textAlign: 'right', color: 'var(--gold)'}}>
+            <tr style={{borderTop: '2px solid #C09B5A', fontWeight: '700', background: 'rgba(192, 155, 90, 0.05)'}}>
+              <td style={{padding: '16px 20px'}}>TOTAL CABINET</td>
+              <td style={{textAlign: 'center', color: '#C09B5A', padding: '16px 20px'}}>{totalCurrentSigs}</td>
+              <td style={{textAlign: 'right', color: '#C09B5A', padding: '16px 20px'}}>{euro(totalCurrentPp)}</td>
+              <td style={{textAlign: 'right', color: '#C09B5A', padding: '16px 20px'}}>{euro(totalCurrentPu)}</td>
+              <td style={{textAlign: 'right', color: '#C09B5A', padding: '16px 20px'}}>
                 {calendarData.length > 0 ? (
                   <span>{calendarData.reduce((sum, c) => sum + c.total, 0)} RDV</span>
                 ) : '—'}
               </td>
-              <td style={{textAlign: 'center'}}>
+              <td style={{textAlign: 'center', padding: '16px 20px'}}>
                 <span style={{
                   fontSize: '16px',
                   color: totalCurrentSigs >= totalPreviousSigs ? 'var(--signed)' : 'var(--cancelled)'
@@ -930,15 +932,15 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
 
       {/* AGENDA ÉQUIPE - MINI CALENDRIER 5 JOURS */}
       <div className="card mt-24">
-        <div className="card-header">
-          <h3>📅 Agenda équipe — semaine</h3>
+        <div style={{padding: '20px 24px', borderBottom: '1px solid #E8E4DC'}}>
+          <h3 style={{margin: '0', fontSize: '18px', fontWeight: '600'}}>📅 Agenda équipe — semaine</h3>
           {calendarError && (
-            <span style={{ color: '#E74C3C', fontSize: '12px' }}>
+            <span style={{ color: '#E74C3C', fontSize: '12px', marginTop: '8px', display: 'block' }}>
               Erreur Calendar: {calendarError}
             </span>
           )}
         </div>
-        <div className="card-body">
+        <div style={{padding: '20px 24px'}}>
           {(() => {
             // Calculer le nombre de RDV par jour toute équipe
             const rdvByDay = {
@@ -980,8 +982,8 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(5, 1fr)',
-                  gap: 8,
-                  marginBottom: 16
+                  gap: 12,
+                  marginBottom: 20
                 }}>
                   {days.map((day, i) => (
                     <div
@@ -995,20 +997,20 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
                           ? '2px solid #C09B5A'
                           : '1px solid #E8E4DC',
                         borderRadius: 8,
-                        padding: '12px',
+                        padding: '16px 12px',
                         textAlign: 'center',
                         cursor: 'pointer',
                         transition: 'all 0.2s ease'
                       }}
                     >
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: '8px' }}>
                         {dayLabels[i]}
                       </div>
                       <div style={{
                         fontSize: 24,
                         fontWeight: 700,
                         color: '#C09B5A',
-                        margin: '4px 0'
+                        marginBottom: '8px'
                       }}>
                         {rdvByDay[day]}
                       </div>
@@ -1019,13 +1021,13 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
 
                 {/* Détail du jour sélectionné */}
                 {selectedDay && (
-                  <div style={{ marginTop: 16 }}>
+                  <div style={{ marginTop: 24, padding: '16px', background: '#FAFAF8', borderRadius: '8px' }}>
                     <h4 style={{
                       textTransform: 'capitalize',
-                      marginBottom: '12px',
+                      marginBottom: '16px',
                       fontSize: '16px',
                       fontWeight: 600,
-                      color: 'var(--gold)'
+                      color: '#C09B5A'
                     }}>
                       {selectedDay} — Détail des RDV
                     </h4>
@@ -1033,7 +1035,7 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
                       const dayEvents = advisor.byDay?.[selectedDay] || []
                       if (dayEvents.length === 0) return null
                       return (
-                        <div key={advisor.advisor_code} style={{ marginBottom: 12 }}>
+                        <div key={advisor.advisor_code} style={{ marginBottom: 16 }}>
                           <strong style={{
                             fontSize: 13,
                             color: 'var(--t1)',
@@ -1047,7 +1049,7 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
                               fontSize: 12,
                               color: '#555',
                               paddingLeft: 12,
-                              marginBottom: '2px',
+                              marginBottom: '4px',
                               opacity: event.isPast ? 0.6 : 1
                             }}>
                               <span style={{ fontWeight: 500 }}>
@@ -1075,7 +1077,7 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
                       !advisor.byDay?.[selectedDay] ||
                       advisor.byDay[selectedDay].length === 0
                     ) && (
-                      <p style={{ color: 'var(--t3)', fontSize: '14px', fontStyle: 'italic' }}>
+                      <p style={{ color: '#999', fontSize: '14px', fontStyle: 'italic', margin: '0' }}>
                         Aucun RDV prévu ce {selectedDay}.
                       </p>
                     )}
@@ -1144,7 +1146,7 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
                   </tbody>
                 </table>
               </div>
-              <div style={{marginTop: '16px', fontSize: '14px', color: 'var(--t2)'}}>
+              <div style={{marginTop: '20px', fontSize: '14px', color: '#666', paddingLeft: '20px'}}>
                 Moyenne sur {weeklyHistory.length} semaine{weeklyHistory.length > 1 ? 's' : ''} : {' '}
                 {Math.round((weeklyHistory.reduce((sum, week) => sum + week.signatures, 0) / weeklyHistory.length) * 10) / 10} signatures/semaine
               </div>
@@ -1157,10 +1159,10 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
       <div className="mt-24">
         {/* GRAPHIQUE 1 - Evolution signatures (pleine largeur) */}
         <div className="card">
-          <div className="card-header">
-            <h3>Évolution des signatures</h3>
+          <div style={{padding: '20px 24px', borderBottom: '1px solid #E8E4DC'}}>
+            <h3 style={{margin: '0', fontSize: '18px', fontWeight: '600'}}>Évolution des signatures</h3>
           </div>
-          <div className="card-body">
+          <div style={{padding: '20px 24px'}}>
             <div style={{height: '200px'}}>
               <Line
                 data={signaturesChartData}
@@ -1188,10 +1190,10 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
         <div style={{display: 'flex', gap: '24px', marginTop: '24px'}}>
           {/* GRAPHIQUE 2 - Répartition produit */}
           <div className="card" style={{flex: 1}}>
-            <div className="card-header">
-              <h3>Répartition par produit (tous deals signés)</h3>
+            <div style={{padding: '20px 24px', borderBottom: '1px solid #E8E4DC'}}>
+              <h3 style={{margin: '0', fontSize: '18px', fontWeight: '600'}}>Répartition par produit (tous deals signés)</h3>
             </div>
-            <div className="card-body">
+            <div style={{padding: '20px 24px'}}>
               <div style={{height: '180px'}}>
                 <Bar
                   data={productChartData}
@@ -1218,10 +1220,10 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
 
           {/* GRAPHIQUE 3 - Performance conseillers */}
           <div className="card" style={{flex: 1}}>
-            <div className="card-header">
-              <h3>Performance conseillers — semaine vs S-1</h3>
+            <div style={{padding: '20px 24px', borderBottom: '1px solid #E8E4DC'}}>
+              <h3 style={{margin: '0', fontSize: '18px', fontWeight: '600'}}>Performance conseillers — semaine vs S-1</h3>
             </div>
-            <div className="card-body">
+            <div style={{padding: '20px 24px'}}>
               <div style={{height: '180px'}}>
                 <Bar
                   data={advisorChartData}
@@ -1252,8 +1254,8 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
 
       {/* COMPARAISON SEMAINES */}
       <div className="card mt-24">
-        <div className="card-header">
-          <h3>⚖️ Comparaison de semaines</h3>
+        <div style={{padding: '20px 24px', borderBottom: '1px solid #E8E4DC', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+          <h3 style={{margin: '0', fontSize: '18px', fontWeight: '600'}}>⚖️ Comparaison de semaines</h3>
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => setCompareMode(!compareMode)}
@@ -1262,8 +1264,8 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
           </button>
         </div>
         {compareMode && (
-          <div className="card-body">
-            <div style={{display: 'flex', gap: '24px', marginBottom: '20px', alignItems: 'center'}}>
+          <div style={{padding: '20px 24px'}}>
+            <div style={{display: 'flex', gap: '32px', marginBottom: '24px', alignItems: 'center'}}>
               <div style={{flex: 1}}>
                 <label style={{display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500}}>Semaine A</label>
                 <select
@@ -1283,7 +1285,7 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
                   ))}
                 </select>
               </div>
-              <div style={{padding: '20px 0', fontSize: '18px', fontWeight: 600, color: 'var(--gold)'}}>VS</div>
+              <div style={{padding: '20px 0', fontSize: '18px', fontWeight: 600, color: '#C09B5A'}}>VS</div>
               <div style={{flex: 1}}>
                 <label style={{display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500}}>Semaine B</label>
                 <select
@@ -1324,51 +1326,51 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
 
               return (
                 <>
-                  <table className="table" style={{width: '100%', marginBottom: '20px'}}>
+                  <table className="table" style={{width: '100%', marginBottom: '24px', margin: '0'}}>
                     <thead>
-                      <tr>
-                        <th>Métrique</th>
-                        <th style={{textAlign: 'center'}}>Semaine A ({weekA})</th>
-                        <th style={{textAlign: 'center'}}>Semaine B ({weekB})</th>
-                        <th style={{textAlign: 'center'}}>Δ</th>
+                      <tr style={{background: '#F5F2EC'}}>
+                        <th style={{padding: '12px 16px'}}>Métrique</th>
+                        <th style={{textAlign: 'center', padding: '12px 16px'}}>Semaine A ({weekA})</th>
+                        <th style={{textAlign: 'center', padding: '12px 16px'}}>Semaine B ({weekB})</th>
+                        <th style={{textAlign: 'center', padding: '12px 16px'}}>Δ</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr>
-                        <td>Signatures total</td>
-                        <td style={{textAlign: 'center', fontWeight: 600}}>{sigsA}</td>
-                        <td style={{textAlign: 'center', fontWeight: 600}}>{sigsB}</td>
-                        <td style={{textAlign: 'center', color: deltaColor(sigsA - sigsB), fontWeight: 600}}>
+                      <tr style={{borderBottom: '1px solid #E8E4DC'}}>
+                        <td style={{padding: '12px 16px'}}>Signatures total</td>
+                        <td style={{textAlign: 'center', fontWeight: 600, padding: '12px 16px'}}>{sigsA}</td>
+                        <td style={{textAlign: 'center', fontWeight: 600, padding: '12px 16px'}}>{sigsB}</td>
+                        <td style={{textAlign: 'center', color: deltaColor(sigsA - sigsB), fontWeight: 600, padding: '12px 16px'}}>
                           {deltaIcon(sigsA - sigsB)} {Math.abs(sigsA - sigsB)}
                         </td>
                       </tr>
-                      <tr>
-                        <td>PP Annualisée</td>
-                        <td style={{textAlign: 'center', fontWeight: 600}}>{euro(ppA)}</td>
-                        <td style={{textAlign: 'center', fontWeight: 600}}>{euro(ppB)}</td>
-                        <td style={{textAlign: 'center', color: deltaColor(ppA - ppB), fontWeight: 600}}>
+                      <tr style={{borderBottom: '1px solid #E8E4DC'}}>
+                        <td style={{padding: '12px 16px'}}>PP Annualisée</td>
+                        <td style={{textAlign: 'center', fontWeight: 600, padding: '12px 16px'}}>{euro(ppA)}</td>
+                        <td style={{textAlign: 'center', fontWeight: 600, padding: '12px 16px'}}>{euro(ppB)}</td>
+                        <td style={{textAlign: 'center', color: deltaColor(ppA - ppB), fontWeight: 600, padding: '12px 16px'}}>
                           {deltaIcon(ppA - ppB)} {deltaPct(ppA, ppB)}%
                         </td>
                       </tr>
-                      <tr>
-                        <td>PU total</td>
-                        <td style={{textAlign: 'center', fontWeight: 600}}>{euro(puA)}</td>
-                        <td style={{textAlign: 'center', fontWeight: 600}}>{euro(puB)}</td>
-                        <td style={{textAlign: 'center', color: deltaColor(puA - puB), fontWeight: 600}}>
+                      <tr style={{borderBottom: '1px solid #E8E4DC'}}>
+                        <td style={{padding: '12px 16px'}}>PU total</td>
+                        <td style={{textAlign: 'center', fontWeight: 600, padding: '12px 16px'}}>{euro(puA)}</td>
+                        <td style={{textAlign: 'center', fontWeight: 600, padding: '12px 16px'}}>{euro(puB)}</td>
+                        <td style={{textAlign: 'center', color: deltaColor(puA - puB), fontWeight: 600, padding: '12px 16px'}}>
                           {deltaIcon(puA - puB)} {deltaPct(puA, puB)}%
                         </td>
                       </tr>
                     </tbody>
                   </table>
 
-                  <h4 style={{marginBottom: '12px', fontSize: '16px', fontWeight: 600}}>Performance par conseiller</h4>
-                  <table className="table" style={{width: '100%'}}>
+                  <h4 style={{marginBottom: '16px', fontSize: '16px', fontWeight: 600}}>Performance par conseiller</h4>
+                  <table className="table" style={{width: '100%', margin: '0'}}>
                     <thead>
-                      <tr>
-                        <th>Conseiller</th>
-                        <th style={{textAlign: 'center'}}>Sig. A</th>
-                        <th style={{textAlign: 'center'}}>Sig. B</th>
-                        <th style={{textAlign: 'center'}}>Δ</th>
+                      <tr style={{background: '#F5F2EC'}}>
+                        <th style={{padding: '12px 16px'}}>Conseiller</th>
+                        <th style={{textAlign: 'center', padding: '12px 16px'}}>Sig. A</th>
+                        <th style={{textAlign: 'center', padding: '12px 16px'}}>Sig. B</th>
+                        <th style={{textAlign: 'center', padding: '12px 16px'}}>Δ</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1380,11 +1382,11 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
                         const delta = mySigsA - mySigsB
 
                         return (
-                          <tr key={advisor.advisor_code}>
-                            <td>{advisor.full_name || advisor.advisor_code}</td>
-                            <td style={{textAlign: 'center', fontWeight: 600}}>{mySigsA}</td>
-                            <td style={{textAlign: 'center', fontWeight: 600}}>{mySigsB}</td>
-                            <td style={{textAlign: 'center', color: deltaColor(delta), fontWeight: 600}}>
+                          <tr key={advisor.advisor_code} style={{borderBottom: '1px solid #E8E4DC'}}>
+                            <td style={{padding: '12px 16px'}}>{advisor.full_name || advisor.advisor_code}</td>
+                            <td style={{textAlign: 'center', fontWeight: 600, padding: '12px 16px'}}>{mySigsA}</td>
+                            <td style={{textAlign: 'center', fontWeight: 600, padding: '12px 16px'}}>{mySigsB}</td>
+                            <td style={{textAlign: 'center', color: deltaColor(delta), fontWeight: 600, padding: '12px 16px'}}>
                               {deltaIcon(delta)} {Math.abs(delta)}
                             </td>
                           </tr>

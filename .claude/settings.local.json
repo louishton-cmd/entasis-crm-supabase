@@ -5,7 +5,9 @@
       "Bash(git add .)",
       "Bash(git commit -m \"feat: enrichissement simulateurs CGP - PER 2026, AV rachats, LMNP fiscal\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
       "Bash(git push origin develop)",
-      "Bash(git commit -m \"fix: slider âge PER étendu à 75 ans\")"
+      "Bash(git commit -m \"fix: slider âge PER étendu à 75 ans\")",
+      "Bash(git reset HEAD key.json)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: intégration Google Calendar équipe dans Revue hebdo\n\n- Nouvelle API route /api/team-calendar.js avec authentification Service Account\n- Lecture automatique des agendas de toute l''équipe via impersonation JWT\n- Ajout colonne RDV dans tableau des conseillers avec compteurs passés/à venir\n- Mini-calendrier 5 jours interactif avec détail des RDV par conseiller\n- Alertes pour conseillers sans RDV planifiés dans la semaine\n- Filtrage des réunions internes Entasis (mots-clés configurables)\n- Gestion erreurs et états de chargement pour chaque conseiller\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []
