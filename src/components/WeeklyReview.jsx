@@ -978,24 +978,34 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
             // Calculer upcoming côté client pour éviter les problèmes de fuseau horaire
             const now = new Date()
 
-            // Alerte conseillers sans RDV planifié
-            const advisorsWithoutUpcomingRdv = calendarData.filter(c => {
-              const upcomingCount = (c.events || []).filter(e =>
-                new Date(e.start) > now
-              ).length
-              return upcomingCount === 0 && !c.error
-            })
+            // Alerte conseillers sans RDV planifié (logique cohérente avec tableau)
+            const advisorsWithoutUpcomingRdv = calendarData
+              .filter(c => {
+                if (c.error) return false
+                // Compter les événements futurs depuis les données brutes (même logique que tableau)
+                const upcomingEvents = (c.events || []).filter(e => {
+                  const eventDate = new Date(e.start)
+                  return eventDate >= now  // Même condition que dans le tableau
+                })
+                return upcomingEvents.length === 0
+              })
+              .map(c => c.advisor_code)
 
             // Debug temporaire pour diagnostiquer
-            console.log('Calendar data:', calendarData.map(c => ({
-              code: c.advisor_code,
-              total: c.total,
-              events: c.events?.map(e => ({
-                title: e.title,
-                start: e.start,
-                isPast: new Date(e.start) < now
+            console.log('Calendar data debug:', {
+              advisorsWithoutRdv: advisorsWithoutUpcomingRdv,
+              allAdvisors: calendarData.map(c => ({
+                code: c.advisor_code,
+                total: c.total,
+                error: c.error,
+                upcomingCount: (c.events || []).filter(e => new Date(e.start) >= now).length,
+                events: c.events?.map(e => ({
+                  title: e.title,
+                  start: e.start,
+                  isPast: new Date(e.start) < now
+                }))
               }))
-            })))
+            })
 
             return (
               <>
@@ -1009,7 +1019,7 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
                     fontSize: '14px',
                     color: '#856404'
                   }}>
-                    🟠 {advisorsWithoutUpcomingRdv.map(c => c.advisor_code).join(', ')}
+                    🟠 {advisorsWithoutUpcomingRdv.join(', ')}
                     — aucun RDV planifié cette semaine
                   </div>
                 )}
