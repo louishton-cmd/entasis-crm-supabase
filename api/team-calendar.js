@@ -174,8 +174,6 @@ export default async function handler(req, res) {
             return true
           })
 
-          const now = new Date()
-
           // Structurer par jour
           const byDay = {
             lundi: [], mardi: [], mercredi: [],
@@ -192,7 +190,6 @@ export default async function handler(req, res) {
                 title: event.summary,
                 start: event.start.dateTime,
                 end: event.end?.dateTime,
-                isPast: start < now,
                 location: event.location || null,
                 description: event.description || null
               })
@@ -203,18 +200,11 @@ export default async function handler(req, res) {
             advisor_code: advisor.code,
             email: advisor.email,
             total: clientEvents.length,
-            past: clientEvents.filter(e =>
-              new Date(e.start.dateTime) < now
-            ).length,
-            upcoming: clientEvents.filter(e =>
-              new Date(e.start.dateTime) >= now
-            ).length,
             byDay,
             events: clientEvents.map(e => ({
               title: e.summary,
               start: e.start.dateTime,
-              end: e.end?.dateTime,
-              isPast: new Date(e.start.dateTime) < now
+              end: e.end?.dateTime
             }))
           }
         } catch (err) {
@@ -223,8 +213,6 @@ export default async function handler(req, res) {
             advisor_code: advisor.code,
             email: advisor.email,
             total: 0,
-            past: 0,
-            upcoming: 0,
             byDay: { lundi: [], mardi: [], mercredi: [],
                      jeudi: [], vendredi: [] },
             events: [],

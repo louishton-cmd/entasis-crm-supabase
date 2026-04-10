@@ -872,26 +872,32 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
                   {euro(row.currentPu)}
                 </td>
                 <td style={{textAlign: 'right', padding: '16px 20px'}}>
-                  {row.calendar ? (
-                    <div>
-                      <span style={{ fontWeight: 600 }}>
-                        {row.calendar.total} RDV
-                      </span>
-                      <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>
-                        {row.calendar.past} passés · {row.calendar.upcoming} à venir
-                      </div>
-                      {row.calendar.upcoming === 0 && (
-                        <span style={{
-                          color: '#E67E22',
-                          fontSize: 11,
-                          fontWeight: 600,
-                          marginTop: 2
-                        }}>
-                          ⚠️ Aucun RDV planifié
+                  {row.calendar ? (() => {
+                    const now = new Date()
+                    const past = (row.calendar.events || []).filter(e => new Date(e.start) < now).length
+                    const upcoming = (row.calendar.events || []).filter(e => new Date(e.start) >= now).length
+
+                    return (
+                      <div>
+                        <span style={{ fontWeight: 600 }}>
+                          {row.calendar.total} RDV
                         </span>
-                      )}
-                    </div>
-                  ) : calendarLoading ? (
+                        <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>
+                          {past} passés · {upcoming} à venir
+                        </div>
+                        {upcoming === 0 && (
+                          <span style={{
+                            color: '#E67E22',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            marginTop: 2
+                          }}>
+                            ⚠️ Aucun RDV planifié
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })() : calendarLoading ? (
                     <span style={{ color: '#999', fontSize: 12 }}>...</span>
                   ) : (
                     <span style={{ color: '#ccc', fontSize: 12 }}>—</span>
@@ -913,9 +919,21 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
               <td style={{textAlign: 'right', color: '#C09B5A', padding: '16px 20px'}}>{euro(totalCurrentPp)}</td>
               <td style={{textAlign: 'right', color: '#C09B5A', padding: '16px 20px'}}>{euro(totalCurrentPu)}</td>
               <td style={{textAlign: 'right', color: '#C09B5A', padding: '16px 20px'}}>
-                {calendarData.length > 0 ? (
-                  <span>{calendarData.reduce((sum, c) => sum + c.total, 0)} RDV</span>
-                ) : '—'}
+                {calendarData.length > 0 ? (() => {
+                  const totalRdv = calendarData.reduce((sum, c) => sum + c.total, 0)
+                  const now = new Date()
+                  const totalUpcoming = calendarData.reduce((sum, c) => {
+                    return sum + (c.events || []).filter(e => new Date(e.start) >= now).length
+                  }, 0)
+                  return (
+                    <div>
+                      <span>{totalRdv} RDV</span>
+                      <div style={{ fontSize: 11, color: '#C09B5A', marginTop: 2 }}>
+                        {totalUpcoming} à venir
+                      </div>
+                    </div>
+                  )
+                })() : '—'}
               </td>
               <td style={{textAlign: 'center', padding: '16px 20px'}}>
                 <span style={{
@@ -957,10 +975,27 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
             const days = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi']
             const dayLabels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven']
 
+            // Calculer upcoming côté client pour éviter les problèmes de fuseau horaire
+            const now = new Date()
+
             // Alerte conseillers sans RDV planifié
-            const advisorsWithoutUpcomingRdv = calendarData.filter(
-              c => c.upcoming === 0 && !c.error
-            )
+            const advisorsWithoutUpcomingRdv = calendarData.filter(c => {
+              const upcomingCount = (c.events || []).filter(e =>
+                new Date(e.start) > now
+              ).length
+              return upcomingCount === 0 && !c.error
+            })
+
+            // Debug temporaire pour diagnostiquer
+            console.log('Calendar data:', calendarData.map(c => ({
+              code: c.advisor_code,
+              total: c.total,
+              events: c.events?.map(e => ({
+                title: e.title,
+                start: e.start,
+                isPast: new Date(e.start) < now
+              }))
+            })))
 
             return (
               <>
@@ -1044,32 +1079,38 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
                           }}>
                             {advisor.advisor_code} ({dayEvents.length} RDV)
                           </strong>
-                          {dayEvents.map((event, i) => (
-                            <div key={i} style={{
-                              fontSize: 12,
-                              color: '#555',
-                              paddingLeft: 12,
-                              marginBottom: '4px',
-                              opacity: event.isPast ? 0.6 : 1
-                            }}>
-                              <span style={{ fontWeight: 500 }}>
-                                {new Date(event.start).toLocaleTimeString('fr-FR', {
-                                  hour: '2-digit', minute: '2-digit'
-                                })}
-                              </span>
-                              {' — '}
-                              <span style={{
-                                textDecoration: event.isPast ? 'line-through' : 'none'
+                          {dayEvents.map((event, i) => {
+                            const now = new Date()
+                            const eventStart = new Date(event.start)
+                            const isPast = eventStart < now
+
+                            return (
+                              <div key={i} style={{
+                                fontSize: 12,
+                                color: '#555',
+                                paddingLeft: 12,
+                                marginBottom: '4px',
+                                opacity: isPast ? 0.6 : 1
                               }}>
-                                {event.title}
-                              </span>
-                              {event.location && (
-                                <span style={{ color: '#999', fontSize: 11 }}>
-                                  {' 📍 '}{event.location}
+                                <span style={{ fontWeight: 500 }}>
+                                  {eventStart.toLocaleTimeString('fr-FR', {
+                                    hour: '2-digit', minute: '2-digit'
+                                  })}
                                 </span>
-                              )}
-                            </div>
-                          ))}
+                                {' — '}
+                                <span style={{
+                                  textDecoration: isPast ? 'line-through' : 'none'
+                                }}>
+                                  {event.title}
+                                </span>
+                                {event.location && (
+                                  <span style={{ color: '#999', fontSize: 11 }}>
+                                    {' 📍 '}{event.location}
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          })}
                         </div>
                       )
                     })}
