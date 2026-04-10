@@ -978,33 +978,12 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
             // Calculer upcoming côté client pour éviter les problèmes de fuseau horaire
             const now = new Date()
 
-            // Alerte conseillers sans RDV planifié (logique cohérente avec tableau)
-            const advisorsWithoutUpcomingRdv = calendarData
-              .filter(c => {
-                if (c.error) return false
-                // Compter les événements futurs depuis les données brutes (même logique que tableau)
-                const upcomingEvents = (c.events || []).filter(e => {
-                  const eventDate = new Date(e.start)
-                  return eventDate >= now  // Même condition que dans le tableau
-                })
-                return upcomingEvents.length === 0
-              })
-              .map(c => c.advisor_code)
-
-            // Debug temporaire pour diagnostiquer
-            console.log('=== DEBUG CALENDAR ===')
-            calendarData.forEach(c => {
-              console.log(`${c.advisor_code}:`, {
-                total_events: (c.events || []).length,
-                events: (c.events || []).map(e => ({
-                  title: e.title,
-                  start: e.start,
-                  startDate: new Date(e.start),
-                  isFuture: new Date(e.start) >= now,
-                  now: now
-                }))
-              })
-            })
+            // Alerte conseillers sans RDV cette semaine (total événements = 0)
+            const advisorsWithoutUpcomingRdv = calendarData.filter(c => {
+              if (c.error) return false
+              // Alerte uniquement si AUCUN RDV cette semaine
+              return (c.events || []).length === 0
+            }).map(c => c.advisor_code)
 
             return (
               <>
@@ -1019,7 +998,7 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
                     color: '#856404'
                   }}>
                     🟠 {advisorsWithoutUpcomingRdv.join(', ')}
-                    — aucun RDV planifié cette semaine
+                    — aucun RDV cette semaine
                   </div>
                 )}
 
