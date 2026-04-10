@@ -248,6 +248,12 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
   const [weekA, setWeekA] = useState('')
   const [weekB, setWeekB] = useState('')
 
+  // États pour l'intégration Google Calendar
+  const [calendarData, setCalendarData] = useState([])
+  const [calendarLoading, setCalendarLoading] = useState(false)
+  const [calendarError, setCalendarError] = useState(null)
+  const [selectedDay, setSelectedDay] = useState(null)
+
   // Chargement de l'objectif semaine avec gestion report
   useEffect(() => {
     async function loadObjective() {
@@ -283,6 +289,39 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
     }
     loadObjective()
   }, [currentWeekKey, supabase])
+
+  // Chargement des données Google Calendar
+  useEffect(() => {
+    async function loadCalendar() {
+      setCalendarLoading(true)
+      setCalendarError(null)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) return
+
+        const response = await fetch(
+          `/api/team-calendar?weekKey=${selectedWeekKey}`,
+          {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`
+            }
+          }
+        )
+
+        if (!response.ok) throw new Error('Erreur API Calendar')
+
+        const data = await response.json()
+        setCalendarData(data.advisors || [])
+      } catch (err) {
+        console.error('Calendar error:', err)
+        setCalendarError(err.message)
+      } finally {
+        setCalendarLoading(false)
+      }
+    }
+
+    loadCalendar()
+  }, [selectedWeekKey, supabase])
 
   // Semaines disponibles pour le sélecteur
   const availableWeeks = useMemo(() => {
@@ -333,7 +372,7 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
     return getWeekBounds(prevWeekKey)
   }, [selectedBounds])
 
-  // Calcul des métriques par conseiller (MAJ pour selectedBounds)
+  // Fusionner données deals + calendrier pour chaque conseiller
   const advisorRows = useMemo(() => {
     const activeAdvisors = teamProfiles.filter(
       p => p.is_active && p.advisor_code
@@ -380,6 +419,11 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
       // Tendance vs S-1
       const trend = currentSigs >= previousSigs ? 'up' : 'down'
 
+      // Données calendrier pour ce conseiller
+      const calData = calendarData.find(
+        c => c.advisor_code === advisor.advisor_code
+      )
+
       return {
         advisor,
         currentSigs,
@@ -387,10 +431,11 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
         currentPp,
         currentPu,
         trend,
-        deals: myCurrentDeals
+        deals: myCurrentDeals,
+        calendar: calData || null
       }
     }).sort((a, b) => b.currentSigs - a.currentSigs)
-  }, [deals, teamProfiles, selectedBounds, previousBounds])
+  }, [deals, teamProfiles, selectedBounds, previousBounds, calendarData])
 
   // Totaux cabinet
   const totalCurrentSigs = advisorRows.reduce(
@@ -797,6 +842,7 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
               <th style={{textAlign: 'center', paddingRight: '24px'}}>Signatures</th>
               <th style={{textAlign: 'right', paddingRight: '24px'}}>CA PP</th>
               <th style={{textAlign: 'right', paddingRight: '24px'}}>CA PU</th>
+              <th style={{textAlign: 'right', paddingRight: '24px'}}>RDV</th>
               <th style={{textAlign: 'center'}}>Tendance</th>
             </tr>
           </thead>
@@ -824,6 +870,31 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
                 <td style={{textAlign: 'right', fontWeight: '600', paddingTop: '12px', paddingBottom: '12px', paddingRight: '24px'}}>
                   {euro(row.currentPu)}
                 </td>
+                <td style={{textAlign: 'right', padding: '12px 20px'}}>
+                  {row.calendar ? (
+                    <div>
+                      <span style={{ fontWeight: 600 }}>
+                        {row.calendar.total} RDV
+                      </span>
+                      <div style={{ fontSize: 11, color: '#999' }}>
+                        {row.calendar.past} passés · {row.calendar.upcoming} à venir
+                      </div>
+                      {row.calendar.upcoming === 0 && (
+                        <span style={{
+                          color: '#E67E22',
+                          fontSize: 11,
+                          fontWeight: 600
+                        }}>
+                          ⚠️ Aucun RDV planifié
+                        </span>
+                      )}
+                    </div>
+                  ) : calendarLoading ? (
+                    <span style={{ color: '#999', fontSize: 12 }}>...</span>
+                  ) : (
+                    <span style={{ color: '#ccc', fontSize: 12 }}>—</span>
+                  )}
+                </td>
                 <td style={{textAlign: 'center', paddingTop: '12px', paddingBottom: '12px'}}>
                   <span style={{
                     fontSize: '16px',
@@ -839,6 +910,11 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
               <td style={{textAlign: 'center', color: 'var(--gold)'}}>{totalCurrentSigs}</td>
               <td style={{textAlign: 'right', color: 'var(--gold)'}}>{euro(totalCurrentPp)}</td>
               <td style={{textAlign: 'right', color: 'var(--gold)'}}>{euro(totalCurrentPu)}</td>
+              <td style={{textAlign: 'right', color: 'var(--gold)'}}>
+                {calendarData.length > 0 ? (
+                  <span>{calendarData.reduce((sum, c) => sum + c.total, 0)} RDV</span>
+                ) : '—'}
+              </td>
               <td style={{textAlign: 'center'}}>
                 <span style={{
                   fontSize: '16px',
@@ -850,6 +926,165 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
             </tr>
           </tbody>
         </table>
+      </div>
+
+      {/* AGENDA ÉQUIPE - MINI CALENDRIER 5 JOURS */}
+      <div className="card mt-24">
+        <div className="card-header">
+          <h3>📅 Agenda équipe — semaine</h3>
+          {calendarError && (
+            <span style={{ color: '#E74C3C', fontSize: '12px' }}>
+              Erreur Calendar: {calendarError}
+            </span>
+          )}
+        </div>
+        <div className="card-body">
+          {(() => {
+            // Calculer le nombre de RDV par jour toute équipe
+            const rdvByDay = {
+              lundi: 0, mardi: 0, mercredi: 0, jeudi: 0, vendredi: 0
+            }
+            calendarData.forEach(advisor => {
+              Object.entries(advisor.byDay || {}).forEach(([day, events]) => {
+                if (rdvByDay[day] !== undefined) {
+                  rdvByDay[day] += events.length
+                }
+              })
+            })
+
+            const days = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi']
+            const dayLabels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven']
+
+            // Alerte conseillers sans RDV planifié
+            const advisorsWithoutUpcomingRdv = calendarData.filter(
+              c => c.upcoming === 0 && !c.error
+            )
+
+            return (
+              <>
+                {advisorsWithoutUpcomingRdv.length > 0 && (
+                  <div style={{
+                    background: '#FFF3CD',
+                    border: '1px solid #FFEAA7',
+                    borderRadius: '6px',
+                    padding: '12px 16px',
+                    marginBottom: '20px',
+                    fontSize: '14px',
+                    color: '#856404'
+                  }}>
+                    🟠 {advisorsWithoutUpcomingRdv.map(c => c.advisor_code).join(', ')}
+                    — aucun RDV planifié cette semaine
+                  </div>
+                )}
+
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(5, 1fr)',
+                  gap: 8,
+                  marginBottom: 16
+                }}>
+                  {days.map((day, i) => (
+                    <div
+                      key={day}
+                      onClick={() => setSelectedDay(selectedDay === day ? null : day)}
+                      style={{
+                        background: selectedDay === day
+                          ? 'rgba(192, 155, 90, 0.15)'
+                          : '#FAFAF8',
+                        border: selectedDay === day
+                          ? '2px solid #C09B5A'
+                          : '1px solid #E8E4DC',
+                        borderRadius: 8,
+                        padding: '12px',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>
+                        {dayLabels[i]}
+                      </div>
+                      <div style={{
+                        fontSize: 24,
+                        fontWeight: 700,
+                        color: '#C09B5A',
+                        margin: '4px 0'
+                      }}>
+                        {rdvByDay[day]}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#999' }}>RDV</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Détail du jour sélectionné */}
+                {selectedDay && (
+                  <div style={{ marginTop: 16 }}>
+                    <h4 style={{
+                      textTransform: 'capitalize',
+                      marginBottom: '12px',
+                      fontSize: '16px',
+                      fontWeight: 600,
+                      color: 'var(--gold)'
+                    }}>
+                      {selectedDay} — Détail des RDV
+                    </h4>
+                    {calendarData.map(advisor => {
+                      const dayEvents = advisor.byDay?.[selectedDay] || []
+                      if (dayEvents.length === 0) return null
+                      return (
+                        <div key={advisor.advisor_code} style={{ marginBottom: 12 }}>
+                          <strong style={{
+                            fontSize: 13,
+                            color: 'var(--t1)',
+                            display: 'block',
+                            marginBottom: '4px'
+                          }}>
+                            {advisor.advisor_code} ({dayEvents.length} RDV)
+                          </strong>
+                          {dayEvents.map((event, i) => (
+                            <div key={i} style={{
+                              fontSize: 12,
+                              color: '#555',
+                              paddingLeft: 12,
+                              marginBottom: '2px',
+                              opacity: event.isPast ? 0.6 : 1
+                            }}>
+                              <span style={{ fontWeight: 500 }}>
+                                {new Date(event.start).toLocaleTimeString('fr-FR', {
+                                  hour: '2-digit', minute: '2-digit'
+                                })}
+                              </span>
+                              {' — '}
+                              <span style={{
+                                textDecoration: event.isPast ? 'line-through' : 'none'
+                              }}>
+                                {event.title}
+                              </span>
+                              {event.location && (
+                                <span style={{ color: '#999', fontSize: 11 }}>
+                                  {' 📍 '}{event.location}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })}
+                    {calendarData.every(advisor =>
+                      !advisor.byDay?.[selectedDay] ||
+                      advisor.byDay[selectedDay].length === 0
+                    ) && (
+                      <p style={{ color: 'var(--t3)', fontSize: '14px', fontStyle: 'italic' }}>
+                        Aucun RDV prévu ce {selectedDay}.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
+            )
+          })()}
+        </div>
       </div>
 
       {/* HISTORIQUE SEMAINES */}
