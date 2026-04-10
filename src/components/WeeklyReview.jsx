@@ -992,19 +992,18 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
               .map(c => c.advisor_code)
 
             // Debug temporaire pour diagnostiquer
-            console.log('Calendar data debug:', {
-              advisorsWithoutRdv: advisorsWithoutUpcomingRdv,
-              allAdvisors: calendarData.map(c => ({
-                code: c.advisor_code,
-                total: c.total,
-                error: c.error,
-                upcomingCount: (c.events || []).filter(e => new Date(e.start) >= now).length,
-                events: c.events?.map(e => ({
+            console.log('=== DEBUG CALENDAR ===')
+            calendarData.forEach(c => {
+              console.log(`${c.advisor_code}:`, {
+                total_events: (c.events || []).length,
+                events: (c.events || []).map(e => ({
                   title: e.title,
                   start: e.start,
-                  isPast: new Date(e.start) < now
+                  startDate: new Date(e.start),
+                  isFuture: new Date(e.start) >= now,
+                  now: now
                 }))
-              }))
+              })
             })
 
             return (
