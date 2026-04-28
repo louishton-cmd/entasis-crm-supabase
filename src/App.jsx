@@ -1098,6 +1098,67 @@ function LeadRow({lead,profile,onTake,onRelease,onCreateRDV,onConvertDeal,onRese
   )
 }
 
+// Embed de la nouvelle Lead Room (entasis-leadroom.vercel.app)
+// Remplace l'ancienne LeadRoom interne par un splash + iframe vers la
+// Lead Room temps réel. L'ancienne fonction LeadRoom() est conservée
+// plus bas pour rollback éventuel.
+const LEAD_ROOM_URL = 'https://entasis-leadroom.vercel.app/leadroom'
+
+function LeadRoomEmbed(){
+  const [embedded,setEmbedded] = useState(true)
+  const [showSplash,setShowSplash] = useState(true)
+
+  return (
+    <div style={{height:'calc(100vh - 120px)',display:'flex',flexDirection:'column'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 16px',borderBottom:'1px solid rgba(255,255,255,0.08)',gap:12}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:'#22c55e',boxShadow:'0 0 8px #22c55e'}} />
+          <span style={{color:'#9ca3af',fontSize:13}}>
+            Lead Room temps réel, attribution shotgun et trame IA Modjo + Claude
+          </span>
+        </div>
+        <div style={{display:'flex',gap:10}}>
+          <button
+            onClick={()=>setEmbedded(v=>!v)}
+            style={{background:'transparent',border:'1px solid rgba(255,255,255,0.15)',color:'#9ca3af',padding:'6px 12px',borderRadius:8,fontSize:12,cursor:'pointer'}}>
+            {embedded ? 'Masquer l\'aperçu' : 'Afficher l\'aperçu'}
+          </button>
+          <a
+            href={LEAD_ROOM_URL}
+            target="_blank"
+            rel="noreferrer"
+            style={{background:'#C5A55A',color:'#0B1A2E',padding:'6px 14px',borderRadius:8,fontSize:13,fontWeight:600,textDecoration:'none'}}>
+            Ouvrir en plein écran ↗
+          </a>
+        </div>
+      </div>
+
+      {showSplash && (
+        <div style={{padding:'14px 16px',background:'rgba(197,165,90,0.08)',borderBottom:'1px solid rgba(197,165,90,0.2)',color:'#fde68a',fontSize:13,display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>
+          <span>
+            La Lead Room est désormais une app dédiée. Si l'aperçu est vide, ouvre la Lead Room en plein écran et logge-toi avec ton email Entasis.
+          </span>
+          <button onClick={()=>setShowSplash(false)} style={{background:'transparent',border:0,color:'#fde68a',cursor:'pointer',fontSize:18,padding:'0 4px'}}>×</button>
+        </div>
+      )}
+
+      {embedded && (
+        <iframe
+          src={LEAD_ROOM_URL}
+          title="Lead Room Entasis"
+          style={{flex:1,width:'100%',border:0,background:'#fafafa'}}
+          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+        />
+      )}
+      {!embedded && (
+        <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',background:'#0B1A2E',color:'#9ca3af',fontSize:14}}>
+          Aperçu masqué. Clique "Ouvrir en plein écran" pour accéder à la Lead Room.
+        </div>
+      )}
+    </div>
+  )
+}
+
 function LeadRoom({leads,profile,onLeadsChange,onConvertDeal,onRefresh}){
   const [rdvLead,setRdvLead]=useState(null)
   const [rdvOpen,setRdvOpen]=useState(false)
@@ -4199,7 +4260,7 @@ export default function App(){
           {!profile&&error&&<div className="notice notice-warn">Profil introuvable dans <span className="code">public.profiles</span>. Vérifie la table et les policies.</div>}
 
           {activeTab==='dashboard'&&(isManager?<ManagerDashboard deals={deals} objectifs={objectifs} month={month} teamProfiles={teamProfiles}/>:<AdvisorDashboard deals={deals} objectifs={objectifs} month={month} profile={profile}/>)}
-          {activeTab==='leads'&&<LeadRoom leads={leads} profile={profile} onLeadsChange={setLeads} onConvertDeal={convertLeadToDeal} onRefresh={fetchLeads}/>}
+          {activeTab==='leads'&&<LeadRoomEmbed/>}
           {activeTab==='pipeline'&&<PipelineBoard deals={deals} month={month} profile={profile} onEdit={startEdit}/>}
           {activeTab==='dossiers'&&<DealsTable deals={deals} month={month} profile={profile} onEdit={startEdit} onDelete={deleteDeal} onRefresh={loadAll} onSelectClient={(clientId) => {
             setSelectedClientId(clientId)
