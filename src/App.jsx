@@ -683,7 +683,8 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,leadsAvai
     {key:'prospection', label:'Prospection', Icon:Icon.Prospect, badge:prospectsNew},
     ...(isManager?[
       {key:'team', label:'Équipe', Icon:Icon.Team},
-      {key:'weekly-review', label:'Revue hebdo', Icon:Icon.Forecast}
+      {key:'weekly-review', label:'Revue hebdo', Icon:Icon.Forecast},
+      {key:'pilotage-rh', label:'Pilotage RH', Icon:Icon.Team, manager:true}
     ]:[]),
   ]
 
@@ -757,7 +758,7 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,leadsAvai
 /* ─────────────────────────────────────────────────────────────────────────────
    TOP BAR
 ───────────────────────────────────────────────────────────────────────────── */
-const PAGE_TITLES={dashboard:'Vue d\'ensemble',pipeline:'Pipeline commercial',dossiers:'Dossiers clients',forecast:'Prévisionnel',agenda:'Agenda & Relances',market:'Marchés financiers 📈',team:'Équipe',leads:'Leads Live ⚡',prospection:'Prospection LinkedIn','immo-dashboard':'Immobilier Neuf','immo-programmes':'Catalogue Programmes','immo-dossiers':'Mes Dossiers Immobilier','immo-pipeline':'Pipeline VEFA','linkedin-pro':'LinkedIn Pro',outils:'Outils CGP'}
+const PAGE_TITLES={dashboard:'Vue d\'ensemble',pipeline:'Pipeline commercial',dossiers:'Dossiers clients',forecast:'Prévisionnel',agenda:'Agenda & Relances',market:'Marchés financiers 📈',team:'Équipe',leads:'Leads Live ⚡',prospection:'Prospection LinkedIn','immo-dashboard':'Immobilier Neuf','immo-programmes':'Catalogue Programmes','immo-dossiers':'Mes Dossiers Immobilier','immo-pipeline':'Pipeline VEFA','linkedin-pro':'LinkedIn Pro',outils:'Outils CGP','pilotage-rh':'Pilotage RH 👥'}
 
 function TopBar({activeTab,month,setMonth,onNewDeal,onRefresh}){
   return (
@@ -1153,6 +1154,66 @@ function LeadRoomEmbed(){
       {!embedded && (
         <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',background:'#0B1A2E',color:'#9ca3af',fontSize:14}}>
           Aperçu masqué. Clique "Ouvrir en plein écran" pour accéder à la Lead Room.
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Embed du Pilotage RH (entasis-rh-web.vercel.app)
+// Visible uniquement pour la direction (role manager). Même pattern que
+// LeadRoomEmbed, splash + iframe + bouton plein écran.
+const PILOTAGE_RH_URL = 'https://entasis-rh-web.vercel.app/'
+
+function PilotageRhEmbed(){
+  const [embedded,setEmbedded] = useState(true)
+  const [showSplash,setShowSplash] = useState(true)
+
+  return (
+    <div style={{height:'calc(100vh - 120px)',display:'flex',flexDirection:'column'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 16px',borderBottom:'1px solid rgba(255,255,255,0.08)',gap:12}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:'#22c55e',boxShadow:'0 0 8px #22c55e'}} />
+          <span style={{color:'#9ca3af',fontSize:13}}>
+            Pilotage RH, suivi des collaborateurs, échéances de contrats, postes ouverts (réservé à la direction)
+          </span>
+        </div>
+        <div style={{display:'flex',gap:10}}>
+          <button
+            onClick={()=>setEmbedded(v=>!v)}
+            style={{background:'transparent',border:'1px solid rgba(255,255,255,0.15)',color:'#9ca3af',padding:'6px 12px',borderRadius:8,fontSize:12,cursor:'pointer'}}>
+            {embedded ? 'Masquer l\'aperçu' : 'Afficher l\'aperçu'}
+          </button>
+          <a
+            href={PILOTAGE_RH_URL}
+            target="_blank"
+            rel="noreferrer"
+            style={{background:'#C5A55A',color:'#0B1A2E',padding:'6px 14px',borderRadius:8,fontSize:13,fontWeight:600,textDecoration:'none'}}>
+            Ouvrir en plein écran ↗
+          </a>
+        </div>
+      </div>
+
+      {showSplash && (
+        <div style={{padding:'14px 16px',background:'rgba(197,165,90,0.08)',borderBottom:'1px solid rgba(197,165,90,0.2)',color:'#fde68a',fontSize:13,display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>
+          <span>
+            Pilotage RH est une app dédiée. Si l'aperçu reste vide, ouvre en plein écran et logge-toi avec ton email Entasis.
+          </span>
+          <button onClick={()=>setShowSplash(false)} style={{background:'transparent',border:0,color:'#fde68a',cursor:'pointer',fontSize:18,padding:'0 4px'}}>×</button>
+        </div>
+      )}
+
+      {embedded && (
+        <iframe
+          src={PILOTAGE_RH_URL}
+          title="Pilotage RH Entasis"
+          style={{flex:1,width:'100%',border:0,background:'#fafafa'}}
+          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+        />
+      )}
+      {!embedded && (
+        <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',background:'#0B1A2E',color:'#9ca3af',fontSize:14}}>
+          Aperçu masqué. Clique "Ouvrir en plein écran" pour accéder au Pilotage RH.
         </div>
       )}
     </div>
@@ -4261,6 +4322,7 @@ export default function App(){
 
           {activeTab==='dashboard'&&(isManager?<ManagerDashboard deals={deals} objectifs={objectifs} month={month} teamProfiles={teamProfiles}/>:<AdvisorDashboard deals={deals} objectifs={objectifs} month={month} profile={profile}/>)}
           {activeTab==='leads'&&<LeadRoomEmbed/>}
+          {activeTab==='pilotage-rh'&&isManager&&<PilotageRhEmbed/>}
           {activeTab==='pipeline'&&<PipelineBoard deals={deals} month={month} profile={profile} onEdit={startEdit}/>}
           {activeTab==='dossiers'&&<DealsTable deals={deals} month={month} profile={profile} onEdit={startEdit} onDelete={deleteDeal} onRefresh={loadAll} onSelectClient={(clientId) => {
             setSelectedClientId(clientId)
