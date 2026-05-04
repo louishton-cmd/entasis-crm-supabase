@@ -4,6 +4,12 @@ import { Line } from 'react-chartjs-2'
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
 import { supabase } from '../lib/supabase'
+import {
+  calcRenteMensuelle,
+  imposeCapitalUneFois,
+  imposeCapitalFractionne,
+  economieFiscaleReelle,
+} from '../lib/per-fiscal'
 import toast from 'react-hot-toast'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler)
@@ -633,52 +639,59 @@ function SimulateurPER() {
       }
 
       const plusValue = Math.round(capital - totalVerse)
-      const renteMensuelle = Math.round(capital * 0.032 / 12)
+      // Rente viagère, taux de conversion fonction de l'âge à la sortie
+      // (cf lib/per-fiscal, table calibrée sur ordres de grandeur 2025-2026)
+      const renteMensuelle = calcRenteMensuelle(capital, ageRetraite)
 
       // Fiscalité de sortie selon le mode choisi
       let sortieData = { renteMensuelle }
 
       if (modeSortie === 'capital') {
-        // Capital en une fois : versements imposés au barème IR + PFU 30% sur plus-values
-        const impotVersements = calcIR(totalVerse * 0.9, nbParts) // Abattement 10% sur versements
-        const impotPlusValues = plusValue * 0.30 // PFU 30%
-        const capitalNet = capital - impotVersements - impotPlusValues
+        // Capital en une fois, le PER s'ajoute aux autres revenus l'année
+        // de sortie. Plus-values au PFU 30%.
+        const r = imposeCapitalUneFois(totalVerse, plusValue, nbParts, 0)
+        const capitalNet = capital - r.impotTotal
         sortieData = {
           capitalBrut: capital,
-          impotVersements: Math.round(impotVersements),
-          impotPlusValues: Math.round(impotPlusValues),
+          impotVersements: r.impotVersements,
+          impotPlusValues: r.impotPlusValues,
           capitalNet: Math.round(capitalNet)
         }
       } else if (modeSortie === 'capital_fractionne') {
-        // Capital fractionné sur 10 ans
-        const impotVersements = calcIR(totalVerse * 0.9, nbParts)
-        const impotPlusValues = plusValue * 0.30
-        const capitalNet = capital - impotVersements - impotPlusValues
-        const capitalNetAnnuel = capitalNet / 10
+        // Capital fractionné sur 10 ans, chaque année 1/10 du capital sort
+        // et est imposé au barème IR avec abattement 10% plafonné à 4123 €.
+        const r = imposeCapitalFractionne(totalVerse, plusValue, nbParts, 0, 10)
+        const capitalNet = capital - r.impotTotal
         sortieData = {
           capitalBrut: capital,
-          impotVersements: Math.round(impotVersements),
-          impotPlusValues: Math.round(impotPlusValues),
+          impotVersements: Math.round(r.impotVersementsParAn * 10),
+          impotPlusValues: Math.round(r.impotPlusValuesParAn * 10),
           capitalNet: Math.round(capitalNet),
-          capitalNetAnnuel: Math.round(capitalNetAnnuel),
-          capitalNetMensuel: Math.round(capitalNetAnnuel / 12)
+          capitalNetAnnuel: Math.round(capitalNet / 10),
+          capitalNetMensuel: Math.round(capitalNet / 10 / 12)
         }
       } else {
-        // Rente viagère (mode par défaut)
-        const renteImposable = renteMensuelle * 0.9 // Abattement 10%
+        // Rente viagère, abattement 10% (pension) sur la rente brute pour
+        // le calcul de l'IR
+        const renteImposable = renteMensuelle * 0.9
         sortieData = {
           renteBrute: renteMensuelle,
           renteImposable: Math.round(renteImposable)
         }
       }
 
-      // TRI net calculation
+      // TRI net, l'effort réel annuel = versement - eco fiscale plafonnée
+      // (cf economieFiscaleReelle dans lib/per-fiscal). Avant le fix, on
+      // multipliait directement versement * tmi sans plafonner par le
+      // plafond PER, ce qui surestimait le TRI pour les hauts revenus.
       let tri = taux
+      const effortReelAnnuel = (versementMensuel * 12)
+        - economieFiscaleReelle(versementMensuel * 12, plafondTotal, tmi)
       for (let iter = 0; iter < 50; iter++) {
         let npv = -versementInitial
         let dnpv = 0
         for (let t = 1; t <= duree; t++) {
-          const cf = -(versementMensuel * 12 - versementMensuel * 12 * tmi) // effort reel annuel (negatif = investissement net)
+          const cf = -effortReelAnnuel
           const disc = Math.pow(1 + tri, t)
           npv += cf / disc
           dnpv -= t * cf / (disc * (1 + tri))
