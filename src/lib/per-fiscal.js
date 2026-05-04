@@ -111,6 +111,92 @@ export function imposeCapitalUneFois(totalVerse, plusValue, nbParts, autresReven
   };
 }
 
+// ─── ASSURANCE VIE ────────────────────────────────────────────────────────
+// Abattement annuel sur les gains après 8 ans (par foyer fiscal).
+export const AV_ABATTEMENT_CELIB = 4600;
+export const AV_ABATTEMENT_COUPLE = 9200;
+
+// Calcule l'imposition (IR + PS) d'un rachat AV. Le contrat doit avoir
+// au moins age_an années. L'abattement passé en argument est "résiduel"
+// (par défaut, l'abattement complet de l'année), c'est utile pour gérer
+// plusieurs rachats dans la même année.
+//
+// Avant 8 ans, PFU 12.8% sur les gains + PS 17.2% (donc 30% total).
+// Après 8 ans, IR 7.5% sur 150 000€ premiers versements + 12.8% au-delà,
+// après abattement 4600/9200, plus PS 17.2% sur la totalité des gains.
+export function imposeRachatAV({
+  partImposable,        // gains du rachat (€)
+  totalVersements,      // versements totaux à la date du rachat
+  ageContrat,           // années depuis le 1er versement
+  abattementResiduel = AV_ABATTEMENT_CELIB,
+}) {
+  if (partImposable <= 0) {
+    return { ir: 0, ps: 0, total: 0, abattementUtilise: 0 };
+  }
+
+  const ps = partImposable * 0.172;
+
+  if (ageContrat < 8) {
+    const ir = partImposable * 0.128;
+    return {
+      ir: Math.round(ir),
+      ps: Math.round(ps),
+      total: Math.round(ir + ps),
+      abattementUtilise: 0,
+    };
+  }
+
+  // Après 8 ans
+  const abattementUtilise = Math.min(partImposable, abattementResiduel);
+  const partApresAbat = Math.max(0, partImposable - abattementUtilise);
+
+  let ir = 0;
+  if (totalVersements <= 150000) {
+    ir = partApresAbat * 0.075;
+  } else {
+    const ratio150 = 150000 / totalVersements;
+    const partSous150 = partApresAbat * ratio150;
+    const partAbove = partApresAbat - partSous150;
+    ir = partSous150 * 0.075 + partAbove * 0.128;
+  }
+
+  return {
+    ir: Math.round(ir),
+    ps: Math.round(ps),
+    total: Math.round(ir + ps),
+    abattementUtilise: Math.round(abattementUtilise),
+  };
+}
+
+// TRI (taux de rendement interne) calculé par méthode Newton-Raphson, à
+// partir d'une suite de versements annuels et d'un capital final.
+// Plus juste qu'un (capital_final / verse) ^ (1/duree) qui ignore le
+// timing des versements. Utilise newRate à 5% par défaut.
+export function tri(versementInitial, versementAnnuel, dureeAns, capitalFinal, init = 0.05) {
+  if (dureeAns <= 0) return 0;
+  let r = init;
+  for (let iter = 0; iter < 60; iter++) {
+    let npv = -versementInitial;
+    let dnpv = 0;
+    for (let t = 1; t <= dureeAns; t++) {
+      const cf = -versementAnnuel;
+      const disc = Math.pow(1 + r, t);
+      npv += cf / disc;
+      dnpv -= t * cf / (disc * (1 + r));
+    }
+    const discFinal = Math.pow(1 + r, dureeAns);
+    npv += capitalFinal / discFinal;
+    dnpv -= dureeAns * capitalFinal / (discFinal * (1 + r));
+    if (Math.abs(dnpv) < 1e-12) break;
+    const step = npv / dnpv;
+    r = r - step;
+    if (Math.abs(step) < 1e-9) break;
+    if (r < -0.99) r = -0.99;
+    if (r > 5) r = 5;
+  }
+  return Number.isFinite(r) ? r : 0;
+}
+
 // Imposition d'une sortie en capital fractionné sur N années.
 // Chaque année, 1/N du capital sort. La fraction des versements de l'année
 // est imposée à l'IR comme un revenu (avec abattement 10% PLAFONNÉ à 4 123€

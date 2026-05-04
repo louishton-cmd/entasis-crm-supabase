@@ -9,6 +9,10 @@ import {
   calcRenteMensuelle,
   imposeCapitalUneFois,
   imposeCapitalFractionne,
+  imposeRachatAV,
+  AV_ABATTEMENT_CELIB,
+  AV_ABATTEMENT_COUPLE,
+  tri,
 } from './per-fiscal';
 
 describe('PASS_2026', () => {
@@ -134,6 +138,105 @@ describe('imposeCapitalUneFois', () => {
     // base = 50000 * 0.9 = 45000. Impôt = IR(75000) - IR(30000)
     const expected = calcIR(75000, 1) - calcIR(30000, 1);
     expect(r.impotVersements).toBe(expected);
+  });
+});
+
+describe('imposeRachatAV (Assurance Vie)', () => {
+  it('avant 8 ans, PFU 12.8% + PS 17.2% sur les gains', () => {
+    const r = imposeRachatAV({
+      partImposable: 1000,
+      totalVersements: 50000,
+      ageContrat: 5,
+      abattementResiduel: AV_ABATTEMENT_CELIB,
+    });
+    expect(r.ir).toBe(128); // 1000 * 0.128
+    expect(r.ps).toBe(172); // 1000 * 0.172
+    expect(r.total).toBe(300);
+    expect(r.abattementUtilise).toBe(0); // pas applicable avant 8 ans
+  });
+
+  it('après 8 ans, abattement consomme la part imposable', () => {
+    const r = imposeRachatAV({
+      partImposable: 3000,
+      totalVersements: 50000,
+      ageContrat: 10,
+      abattementResiduel: AV_ABATTEMENT_CELIB, // 4600
+    });
+    // 3000 < 4600 → abattement consomme tout, IR = 0, PS = 3000 * 0.172
+    expect(r.ir).toBe(0);
+    expect(r.ps).toBe(516);
+    expect(r.abattementUtilise).toBe(3000);
+  });
+
+  it('après 8 ans, gain au-delà de l\'abattement taxé à 7.5%', () => {
+    const r = imposeRachatAV({
+      partImposable: 10000,
+      totalVersements: 100000,
+      ageContrat: 10,
+      abattementResiduel: AV_ABATTEMENT_CELIB,
+    });
+    // gains 10000 - 4600 = 5400 imposables à 7.5% (versements < 150k)
+    expect(r.ir).toBe(Math.round(5400 * 0.075));
+    expect(r.ps).toBe(1720);
+  });
+
+  it('versements > 150 000, prorata 7.5% / 12.8%', () => {
+    const r = imposeRachatAV({
+      partImposable: 10000,
+      totalVersements: 200000,
+      ageContrat: 10,
+      abattementResiduel: AV_ABATTEMENT_CELIB,
+    });
+    // 10000 - 4600 = 5400 imposable
+    // ratio150 = 0.75, donc 75% à 7.5% et 25% à 12.8%
+    const ratio150 = 150000 / 200000;
+    const partSous150 = 5400 * ratio150;
+    const partAbove = 5400 - partSous150;
+    const expected = Math.round(partSous150 * 0.075 + partAbove * 0.128);
+    expect(r.ir).toBe(expected);
+  });
+
+  it('couple, abattement double 9200', () => {
+    const r = imposeRachatAV({
+      partImposable: 8000,
+      totalVersements: 50000,
+      ageContrat: 10,
+      abattementResiduel: AV_ABATTEMENT_COUPLE,
+    });
+    // 8000 < 9200 → IR = 0
+    expect(r.ir).toBe(0);
+  });
+
+  it('abattement résiduel partiel, gestion de plusieurs rachats dans l\'année', () => {
+    // 1er rachat consomme 3000 d'abattement, il reste 1600 pour le 2e
+    const r = imposeRachatAV({
+      partImposable: 3000,
+      totalVersements: 50000,
+      ageContrat: 10,
+      abattementResiduel: 1600, // résiduel après 1er rachat
+    });
+    // 3000 - 1600 = 1400 imposable à 7.5%
+    expect(r.ir).toBe(Math.round(1400 * 0.075));
+  });
+});
+
+describe('tri (TRI)', () => {
+  it('TRI ~5% pour 100€ pendant 10 ans → 1320€ environ', () => {
+    // capital final = sum(100*1.05^t for t=0..9) ≈ 1257.78
+    let cf = 0;
+    for (let t = 0; t < 10; t++) cf += 100 * Math.pow(1.05, 9 - t);
+    const r = tri(0, 100, 10, cf);
+    expect(r).toBeCloseTo(0.05, 3);
+  });
+
+  it('TRI 0% si capital = somme versements', () => {
+    expect(tri(0, 1000, 5, 5000)).toBeCloseTo(0, 3);
+  });
+
+  it('TRI gère le versement initial', () => {
+    // Verse 1000 init + 0 par an, 10 ans, capital 1628.89 = 5%
+    const r = tri(1000, 0, 10, 1628.89);
+    expect(r).toBeCloseTo(0.05, 3);
   });
 });
 

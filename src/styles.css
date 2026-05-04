@@ -1062,19 +1062,73 @@ a { color: inherit; text-decoration: none; }
 }
 @media (max-width: 768px) {
   :root { --sb-w: 0px; }
-  .sidebar { display: none; }
+  /* Sidebar en drawer mobile, off-screen par défaut */
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 280px;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 4px 0 20px rgba(0,0,0,0.4);
+    display: flex;
+  }
+  .sidebar--mobile-open { transform: translateX(0); }
+  .sidebar-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(2px);
+    z-index: 99;
+    animation: mobileFadeIn 0.2s ease-out;
+  }
+  .sidebar-close-mobile {
+    position: absolute; top: 12px; right: 14px;
+    width: 30px; height: 30px;
+    background: transparent; border: 0;
+    color: rgba(255,255,255,0.6);
+    font-size: 24px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .topbar-hamburger {
+    width: 36px; height: 36px;
+    margin-right: 8px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--ivory, #f5f0e8);
+    border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .topbar { gap: 8px; }
+  .topbar-title { font-size: 16px; flex: 1; min-width: 0; }
+  .topbar-actions { gap: 6px; }
+  .month-select { padding: 6px 8px; font-size: 12px; }
   .app-content { padding: 16px; }
   .grid-2, .grid-3, .form-row-2, .form-row-3 { grid-template-columns: 1fr; }
+  .grid-4 { grid-template-columns: 1fr 1fr; }
   .team-row { grid-template-columns: 1fr 1fr; }
-  .advisor-hero-kpis { gap: 20px; }
+  .advisor-hero-kpis { gap: 20px; flex-direction: column; }
   .forecast-metrics { gap: 12px; }
-  .pipeline-board { gap: 10px; }
-  .pipeline-col { min-width: 200px; }
+  .pipeline-board { gap: 10px; overflow-x: auto; padding-bottom: 8px; }
+  .pipeline-col { min-width: 240px; }
   .immo-kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .immo-main-grid { grid-template-columns: 1fr; }
-  .immo-catalogue-grid { grid-template-columns: repeat(2, 1fr); }
-  .immo-kanban { grid-template-columns: repeat(4, 1fr); }
+  .immo-catalogue-grid { grid-template-columns: 1fr; }
+  .immo-kanban { grid-template-columns: 1fr; gap: 8px; }
   .immo-form-grid { grid-template-columns: 1fr; }
+  /* Tables avec scroll horizontal sur mobile */
+  .deals-table-wrap, .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+@media (min-width: 769px) {
+  .topbar-hamburger { display: none; }
+  .sidebar-close-mobile { display: none; }
+  .sidebar-overlay { display: none; }
+}
+
+@keyframes mobileFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* ─── Sidebar Divider ─── */

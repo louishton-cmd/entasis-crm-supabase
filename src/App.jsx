@@ -612,7 +612,12 @@ function AuthScreen() {
 /* ─────────────────────────────────────────────────────────────────────────────
    SIDEBAR
 ───────────────────────────────────────────────────────────────────────────── */
-function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,leadsAvailable,prospectsNew,dossiersImmoCount}){
+function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,leadsAvailable,prospectsNew,dossiersImmoCount,mobileOpen,onCloseMobile}){
+  // Au clic d'une entrée nav en mobile, on ferme le drawer après navigation
+  const handleNavClick = (key) => {
+    setActiveTab(key)
+    if (onCloseMobile) onCloseMobile()
+  }
   const isManager=profile?.role==='manager'
 
   const hotCount=useMemo(()=>{
@@ -653,57 +658,63 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,leadsAvai
   ]
 
   return (
-    <nav className="sidebar">
-      <div className="sidebar-brand">
-        <div className="brand-wordmark">ENTASIS</div>
-        <div className="brand-sub">CRM Patrimonial</div>
-      </div>
-      <div className="sidebar-nav">
-        <div className="nav-section-label">Navigation</div>
-        {navItems.map(({key,label,Icon:NavIcon,badge,badgeGold})=>(
-          <button key={key} className={`nav-item${activeTab===key?' active':''}`} onClick={()=>setActiveTab(key)}>
-            <NavIcon/>
-            {label}
-            {badge>0&&(
-              <span className="nav-item-badge" style={badgeGold?{background:'var(--gold)',color:'white'}:{}}>
-                {badge}
-              </span>
-            )}
-          </button>
-        ))}
-        <div className="nav-divider"/>
-        <div className="nav-section-label">Immobilier Neuf</div>
-        {immoItems.map(({key,label,Icon:NavIcon,badge})=>(
-          <button key={key} className={`nav-item${activeTab===key?' active':''}`} onClick={()=>setActiveTab(key)}>
-            <NavIcon/>
-            {label}
-            {badge>0&&(
-              <span className="nav-item-badge">
-                {badge}
-              </span>
-            )}
-          </button>
-        ))}
-        <div className="nav-divider"/>
-        <div className="nav-section-label">Outils</div>
-        {outilsItems.map(({key,label,Icon:NavIcon})=>(
-          <button key={key} className={`nav-item${activeTab===key?' active':''}`} onClick={()=>setActiveTab(key)}>
-            <NavIcon/>
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="sidebar-footer">
-        <div className="user-info">
-          <div className="user-avatar">{initials(profile?.full_name||profile?.email||'U')}</div>
-          <div>
-            <div className="user-name">{profile?.full_name||profile?.email||'Utilisateur'}</div>
-            <div className="user-role">{profile?.role==='manager'?'Direction':'Conseiller'}{profile?.role!=='manager'&&profile?.advisor_code?` · ${profile.advisor_code}`:''}</div>
-          </div>
+    <>
+      {mobileOpen && <div className="sidebar-overlay" onClick={onCloseMobile} aria-hidden />}
+      <nav className={`sidebar${mobileOpen?' sidebar--mobile-open':''}`}>
+        <div className="sidebar-brand">
+          <div className="brand-wordmark">ENTASIS</div>
+          <div className="brand-sub">CRM Patrimonial</div>
+          {onCloseMobile && (
+            <button className="sidebar-close-mobile" onClick={onCloseMobile} aria-label="Fermer le menu">×</button>
+          )}
         </div>
-        <button className="btn-signout" onClick={onSignOut}>Se déconnecter</button>
-      </div>
-    </nav>
+        <div className="sidebar-nav">
+          <div className="nav-section-label">Navigation</div>
+          {navItems.map(({key,label,Icon:NavIcon,badge,badgeGold})=>(
+            <button key={key} className={`nav-item${activeTab===key?' active':''}`} onClick={()=>handleNavClick(key)}>
+              <NavIcon/>
+              {label}
+              {badge>0&&(
+                <span className="nav-item-badge" style={badgeGold?{background:'var(--gold)',color:'white'}:{}}>
+                  {badge}
+                </span>
+              )}
+            </button>
+          ))}
+          <div className="nav-divider"/>
+          <div className="nav-section-label">Immobilier Neuf</div>
+          {immoItems.map(({key,label,Icon:NavIcon,badge})=>(
+            <button key={key} className={`nav-item${activeTab===key?' active':''}`} onClick={()=>handleNavClick(key)}>
+              <NavIcon/>
+              {label}
+              {badge>0&&(
+                <span className="nav-item-badge">
+                  {badge}
+                </span>
+              )}
+            </button>
+          ))}
+          <div className="nav-divider"/>
+          <div className="nav-section-label">Outils</div>
+          {outilsItems.map(({key,label,Icon:NavIcon})=>(
+            <button key={key} className={`nav-item${activeTab===key?' active':''}`} onClick={()=>handleNavClick(key)}>
+              <NavIcon/>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="sidebar-footer">
+          <div className="user-info">
+            <div className="user-avatar">{initials(profile?.full_name||profile?.email||'U')}</div>
+            <div>
+              <div className="user-name">{profile?.full_name||profile?.email||'Utilisateur'}</div>
+              <div className="user-role">{profile?.role==='manager'?'Direction':'Conseiller'}{profile?.role!=='manager'&&profile?.advisor_code?` · ${profile.advisor_code}`:''}</div>
+            </div>
+          </div>
+          <button className="btn-signout" onClick={onSignOut}>Se déconnecter</button>
+        </div>
+      </nav>
+    </>
   )
 }
 
@@ -712,9 +723,16 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,leadsAvai
 ───────────────────────────────────────────────────────────────────────────── */
 const PAGE_TITLES={dashboard:'Vue d\'ensemble',pipeline:'Pipeline commercial',dossiers:'Dossiers clients',forecast:'Prévisionnel',agenda:'Agenda & Relances',market:'Marchés financiers 📈',team:'Équipe',leads:'Leads Live ⚡',prospection:'Prospection LinkedIn','immo-dashboard':'Immobilier Neuf','immo-programmes':'Catalogue Programmes','immo-dossiers':'Mes Dossiers Immobilier','immo-pipeline':'Pipeline VEFA','linkedin-pro':'LinkedIn Pro',outils:'Outils CGP','pilotage-rh':'Pilotage RH 👥'}
 
-function TopBar({activeTab,month,setMonth,onNewDeal,onRefresh}){
+function TopBar({activeTab,month,setMonth,onNewDeal,onRefresh,onMobileMenu}){
   return (
     <div className="topbar">
+      {onMobileMenu && (
+        <button className="topbar-hamburger" onClick={onMobileMenu} aria-label="Ouvrir le menu">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <path d="M3 6h16M3 11h16M3 16h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        </button>
+      )}
       <div className="topbar-title">{PAGE_TITLES[activeTab]||'CRM'}</div>
       <div className="topbar-actions">
         {activeTab!=='leads'&&activeTab!=='prospection'&&(
@@ -3871,6 +3889,7 @@ export default function App(){
   const [profile,setProfile]=useState(null)
   const [teamProfiles,setTeamProfiles]=useState([])
   const [deals,setDeals]=useState([])
+  const [mobileMenuOpen,setMobileMenuOpen]=useState(false)
   const [leads,setLeads]=useState([])
   const [objectifs,setObjectifs]=useState(EMPTY_OBJECTIFS)
   const [loading,setLoading]=useState(true)
@@ -3899,7 +3918,7 @@ export default function App(){
     if(!session?.user)return
     fetchLeads()
     const poll=setInterval(fetchLeads,5000)
-    const channel=supabase.channel('leads-room')
+    const leadsChannel=supabase.channel('leads-room')
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'leads'},()=>{console.log('[Leads] INSERT Realtime');fetchLeads()})
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'leads'},payload=>{
         setLeads(prev=>prev.map(l=>l.id===payload.new.id?payload.new:l))
@@ -3908,7 +3927,28 @@ export default function App(){
         setLeads(prev=>prev.filter(l=>l.id!==payload.old.id))
       })
       .subscribe()
-    return()=>{clearInterval(poll);supabase.removeChannel(channel)}
+
+    // Channel deals, propagation live des changements (signature, modif statut,
+    // création) entre tous les conseillers connectés sans refresh.
+    const dealsChannel=supabase.channel('deals-realtime')
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'deals'},payload=>{
+        const fresh=payload.new
+        setDeals(prev=>prev.some(d=>d.id===fresh.id)?prev:[...prev,fresh])
+      })
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'deals'},payload=>{
+        const fresh=payload.new
+        setDeals(prev=>prev.map(d=>d.id===fresh.id?{...d,...fresh}:d))
+        if(fresh.status==='Signé'&&payload.old?.status!=='Signé'){
+          toast.success(`Deal signé, ${fresh.client||fresh.id} (${fresh.advisor_code})`,{duration:5000})
+        }
+      })
+      .on('postgres_changes',{event:'DELETE',schema:'public',table:'deals'},payload=>{
+        const oldId=payload.old?.id
+        if(oldId)setDeals(prev=>prev.filter(d=>d.id!==oldId))
+      })
+      .subscribe()
+
+    return()=>{clearInterval(poll);supabase.removeChannel(leadsChannel);supabase.removeChannel(dealsChannel)}
   },[session?.user?.id])
 
   // ── Auth ───────────────────────────────────────────────────────────────────
@@ -4268,9 +4308,11 @@ export default function App(){
         leadsAvailable={leadsAvailable}
         prospectsNew={prospectsNew}
         dossiersImmoCount={dossiersImmoCount}
+        mobileOpen={mobileMenuOpen}
+        onCloseMobile={()=>setMobileMenuOpen(false)}
       />
       <div className="app-main">
-        <TopBar activeTab={activeTab} month={month} setMonth={setMonth} onNewDeal={startCreate} onRefresh={loadAll}/>
+        <TopBar activeTab={activeTab} month={month} setMonth={setMonth} onNewDeal={startCreate} onRefresh={loadAll} onMobileMenu={()=>setMobileMenuOpen(true)}/>
         <div className="app-content">
           {error&&<div className="notice notice-error">{error}</div>}
           {!profile&&error&&<div className="notice notice-warn">Profil introuvable dans <span className="code">public.profiles</span>. Vérifie la table et les policies.</div>}

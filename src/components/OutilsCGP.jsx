@@ -9,6 +9,10 @@ import {
   imposeCapitalUneFois,
   imposeCapitalFractionne,
   economieFiscaleReelle,
+  imposeRachatAV,
+  AV_ABATTEMENT_CELIB,
+  AV_ABATTEMENT_COUPLE,
+  tri,
 } from '../lib/per-fiscal'
 import toast from 'react-hot-toast'
 
@@ -1035,12 +1039,15 @@ function SimulateurAssuranceVie() {
     const yearlyNet = []
     const yearlyCumVerse = []
     const rachatData = []
+    const abattementAnnuel = situationFiscale === 'couple' ? AV_ABATTEMENT_COUPLE : AV_ABATTEMENT_CELIB
 
     for (let an = 1; an <= duree; an++) {
       capital = capital * (1 + tauxComposite) + versementAnnuel
       totalVersements += versementAnnuel
 
-      // Gestion des rachats
+      // Gestion des rachats. L'abattement annuel est consommé au fur et
+      // à mesure des rachats dans l'année (ici on n'a qu'un rachat par an
+      // mais le helper imposeRachatAV gère le résiduel proprement).
       let rachatAnne = 0
       let impotRachatAnne = 0
 
@@ -1051,22 +1058,15 @@ function SimulateurAssuranceVie() {
       }
 
       if (rachatAnne > 0) {
-        // Calcul de la part imposable du rachat
         const totalGains = Math.max(0, capital - totalVersements)
         const partImposable = totalGains > 0 ? rachatAnne * (totalGains / capital) : 0
-
-        // Fiscalité du rachat selon l'année
-        if (an < 8) {
-          // Avant 8 ans : PFU 12.8% + PS 17.2%
-          impotRachatAnne = partImposable * (0.128 + 0.172)
-        } else {
-          // Après 8 ans avec abattement
-          const abattement = situationFiscale === 'couple' ? 9200 : 4600
-          const gainImposable = Math.max(0, partImposable - abattement)
-          const tauxIR = totalVersements < 150000 ? 0.075 : 0.128
-          impotRachatAnne = gainImposable * tauxIR + partImposable * 0.172
-        }
-
+        const r = imposeRachatAV({
+          partImposable,
+          totalVersements,
+          ageContrat: an,
+          abattementResiduel: abattementAnnuel,
+        })
+        impotRachatAnne = r.total
         capital -= rachatAnne
         totalRachats += rachatAnne
         impotRachatsTotal += impotRachatAnne
