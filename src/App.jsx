@@ -20,51 +20,34 @@ import {
   monthFromDate,
   alignedMonthForDeal,
 } from './lib/metrics'
+import {
+  MONTHS,
+  STATUS_OPTIONS,
+  PRIORITY_OPTIONS,
+  PRODUCTS,
+  COMPANIES,
+  SOURCES,
+  STATUS_CLASS,
+  PRIORITY_CLASS,
+  euro,
+  pct,
+  initials,
+  uid,
+  currentMonth,
+  getClientName,
+  emptyDeal,
+  normalizeDeal,
+} from './lib/ui-shared'
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   CONSTANTS
-───────────────────────────────────────────────────────────────────────────── */
-const MONTHS = ['JANVIER','FÉVRIER','MARS','AVRIL','MAI','JUIN','JUILLET','AOÛT','SEPTEMBRE','OCTOBRE','NOVEMBRE','DÉCEMBRE']
-const STATUS_OPTIONS = ['Signé','En cours','Prévu','Annulé']
-const PRIORITY_OPTIONS = ['Normale','Haute','Urgente']
-const PRODUCTS = ['PER Individuel','Assurance Vie Française','SCPI','Produits Structurés','Private Equity','Prévoyance TNS','Mutuelle Santé','Autre']
-const COMPANIES = ['SwissLife','Abeille Assurances','Generali','Cardif (BNP Paribas)','Spirica','Autre']
-const SOURCES = ['Téléprospection','Leads Facebook','Parrainage Client','Réseau Personnel','Site Web Entasis','LinkedIn','Autre']
 const EMPTY_OBJECTIFS = MONTHS.reduce((a,m)=>{a[m]={pp_target:0,pu_target:0};return a},{})
 const LEAD_TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   UTILS
-───────────────────────────────────────────────────────────────────────────── */
-const euro = (v) => Number(v||0).toLocaleString('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0})
-const uid = () => typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():`deal_${Date.now()}_${Math.random().toString(36).slice(2,8)}`
-const currentMonth = () => MONTHS[new Date().getMonth()]||'MARS'
-const pct = (v,t) => t>0?Math.min(999,Math.round((v/t)*100)):0
-const initials = (name='') => name.split(' ').slice(0,2).map(n=>n[0]||'').join('').toUpperCase()||'?'
-
-function emptyDeal(code='') {
-  return {id:uid(),month:currentMonth(),client:'',product:'PER Individuel',pp_m:0,pu:0,advisor_code:code||'',co_advisor_code:'',source:'Téléprospection',status:'En cours',company:'SwissLife',notes:'',priority:'Normale',tags:[],date_expected:'',date_signed:'',client_phone:'',client_email:'',client_age:''}
-}
-function normalizeDeal(d) {
-  return {...d,pp_m:Number(d.pp_m||0),pu:Number(d.pu||0),client_age:d.client_age===''||d.client_age==null?null:Number(d.client_age)}
-}
-
-const STATUS_CLASS = {
-  'Signé':'badge badge-signed','En cours':'badge badge-progress',
-  'Prévu':'badge badge-forecast','Annulé':'badge badge-cancelled',
-}
-const PRIORITY_CLASS = {
-  'Urgente':'badge badge-urgent','Haute':'badge badge-high','Normale':'badge badge-normal',
-}
-
-// Note, isPipeline, dealMatchesAdvisor, sumAnnualPp, sumPu, advisorMetrics
-// et annualize sont désormais importés depuis ./lib/metrics et testés dans
-// ./lib/metrics.test.js. Ne pas redéclarer ici.
-
-// Helper pour récupérer le nom client avec fallback
-function getClientName(deal) {
-  return deal.clients?.nom || deal.client || 'Client'
-}
+// Note, les helpers UI (euro, pct, initials, etc.) et les constantes
+// (MONTHS, STATUS_CLASS, etc.) sont désormais dans ./lib/ui-shared,
+// importés ci-dessus et testés dans ./lib/ui-shared.test.js.
+//
+// Les helpers métier (annualize, isPipeline, sumAnnualPp, advisorMetrics,
+// alignedMonthForDeal) sont dans ./lib/metrics.
 
 /* ─────────────────────────────────────────────────────────────────────────────
    DEAL AGE UTILS
