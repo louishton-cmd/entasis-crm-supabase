@@ -1730,7 +1730,7 @@ function ManagerDashboard({deals,objectifs,month,teamProfiles}){
   const advisorRows=useMemo(()=>activeAdvisors.map(p=>{
     const m=advisorMetrics(deals,month,p.advisor_code)
     return {...p,...m}
-  }).sort((a,b)=>b.ppSigned-a.ppSigned),[activeAdvisors,deals,month])
+  }).sort((a,b)=>(b.ppSigned-a.ppSigned)||(b.puSigned-a.puSigned)),[activeAdvisors,deals,month])
 
   const topPp=advisorRows[0]?.ppSigned||1
   const hotDeals=monthDeals.filter(d=>(d.priority==='Urgente'||d.priority==='Haute')&&isPipeline(d.status)).sort((a,b)=>annualize(b.pp_m)-annualize(a.pp_m)).slice(0,8)
@@ -1759,8 +1759,8 @@ function ManagerDashboard({deals,objectifs,month,teamProfiles}){
           {advisorRows.map((row,i)=>(
             <div key={row.id} className="team-row">
               <div><div className="team-advisor-name">{i===0&&<span style={{color:'var(--gold)',marginRight:6}}>★</span>}{row.full_name||row.advisor_code}</div><div className="team-advisor-code">{row.advisor_code}</div></div>
-              <div className="team-bar-wrap"><div className="team-bar-track"><div className="team-bar-fill signed" style={{width:`${pct(row.ppSigned,topPp)}%`}}/></div><span className="team-amount">{euro(row.ppSigned)}</span></div>
-              <div className="team-bar-wrap"><div className="team-bar-track"><div className="team-bar-fill" style={{width:`${pct(row.ppProjected,topPp)}%`}}/></div><span className="team-amount">{euro(row.ppProjected)}</span></div>
+              <div className="team-bar-wrap"><div className="team-bar-track"><div className="team-bar-fill signed" style={{width:`${pct(row.ppSigned,topPp)}%`}}/></div><div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:2}}><span className="team-amount">{euro(row.ppSigned)}</span>{row.puSigned>0&&<span style={{fontSize:11,color:'var(--t3)',fontVariantNumeric:'tabular-nums'}}>PU {euro(row.puSigned)}</span>}</div></div>
+              <div className="team-bar-wrap"><div className="team-bar-track"><div className="team-bar-fill" style={{width:`${pct(row.ppProjected,topPp)}%`}}/></div><div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:2}}><span className="team-amount">{euro(row.ppProjected)}</span>{row.puProjected>0&&<span style={{fontSize:11,color:'var(--t3)',fontVariantNumeric:'tabular-nums'}}>PU {euro(row.puProjected)}</span>}</div></div>
               <div className="team-amount" style={{textAlign:'center'}}>{row.total}</div>
               <div><span className={`badge ${row.signRate>=60?'badge-signed':row.signRate>=30?'badge-progress':'badge-cancelled'}`}>{row.signRate}%</span></div>
             </div>
