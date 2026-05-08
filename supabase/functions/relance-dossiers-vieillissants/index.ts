@@ -2,14 +2,15 @@
 // vieillissants (>30j sans création/mouvement, statut En cours ou Prévu).
 //
 // Déclenchée par pg_cron (cf migration 20260508_cron_relance_dossiers.sql).
-// Envoie 1 mail / dossier / 7j max via Resend, conseiller en `to:`,
-// louis.hatton en `cc:`. Logge chaque envoi dans dossier_relance_log.
+// Envoie 1 mail / dossier / 7j max via Brevo (api.brevo.com), conseiller en
+// `to:`, louis.hatton en `cc:`. Logge chaque envoi dans dossier_relance_log.
 //
 // Variables d'environnement requises :
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (auto-injectées par Supabase)
-//   RESEND_API_KEY                          (à configurer manuellement)
-//   RELANCE_FROM       (ex. "Entasis CRM <noreply@entasis-conseil.fr>")
-//   RELANCE_CC         (défaut: louis.hatton@entasis-conseil.fr)
+//   BREVO_API_KEY                           (à configurer manuellement)
+//   RELANCE_FROM_EMAIL  (ex. "noreply@entasis-conseil.fr")
+//   RELANCE_FROM_NAME   (ex. "Entasis CRM" — défaut)
+//   RELANCE_CC          (défaut: louis.hatton@entasis-conseil.fr)
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
@@ -32,12 +33,13 @@ serve(async (req) => {
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   )
-  const resendKey = Deno.env.get('RESEND_API_KEY')
-  const from = Deno.env.get('RELANCE_FROM') || 'Entasis CRM <noreply@entasis-conseil.fr>'
+  const brevoKey = Deno.env.get('BREVO_API_KEY')
+  const fromEmail = Deno.env.get('RELANCE_FROM_EMAIL') || 'noreply@entasis-conseil.fr'
+  const fromName = Deno.env.get('RELANCE_FROM_NAME') || 'Entasis CRM'
   const cc = Deno.env.get('RELANCE_CC') || 'louis.hatton@entasis-conseil.fr'
 
-  if (!resendKey) {
-    return new Response(JSON.stringify({ error: 'RESEND_API_KEY not configured' }), {
+  if (!brevoKey) {
+    return new Response(JSON.stringify({ error: 'BREVO_API_KEY not configured' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
@@ -109,7 +111,7 @@ serve(async (req) => {
     const pu = Number(deal.pu || 0)
 
     const subject = `Relance dossier ${deal.client} (${deal.product}) — ${ageDays}j sans mouvement`
-    const html = `
+    const htmlContent = `
       <div style="font-family:-apple-system,Helvetica,Arial,sans-serif;color:#1a1a1a;max-width:560px">
         <p>Bonjour ${firstName},</p>
         <p>Le dossier client <strong>${deal.client}</strong> sur produit <strong>${deal.product}</strong> n'a pas évolué depuis <strong>${ageDays} jours</strong>.</p>
@@ -126,13 +128,20 @@ serve(async (req) => {
     `
 
     try {
-      const resp = await fetch('https://api.resend.com/emails', {
+      const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${resendKey}`,
+          'api-key': brevoKey,
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: JSON.stringify({ from, to: [profile.email], cc: [cc], subject, html })
+        body: JSON.stringify({
+          sender: { email: fromEmail, name: fromName },
+          to: [{ email: profile.email, name: profile.full_name || undefined }],
+          cc: [{ email: cc }],
+          subject,
+          htmlContent,
+        })
       })
 
       if (!resp.ok) {
