@@ -3497,7 +3497,7 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
                 <div className="form-section-title mb-16">Dossier</div>
                 <div className="form-row form-row-2">
                   <div className="form-group"><label className="form-label">Produit</label><select className="form-select" value={deal.product} onChange={e=>set('product',e.target.value)}>{PRODUCTS.map(p=><option key={p}>{p}</option>)}</select></div>
-                  <div className="form-group"><label className="form-label">Compagnie</label><select className="form-select" value={deal.company||''} onChange={e=>set('company',e.target.value)}>{COMPANIES.map(c=><option key={c}>{c}</option>)}</select></div>
+                  <div className="form-group"><label className="form-label">Compagnie</label><select className="form-select" value={deal.company||''} onChange={e=>set('company',e.target.value)}><option value="">— Choisir une compagnie —</option>{COMPANIES.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
                 </div>
                 <div className="form-row form-row-3 mt-16">
                   <div className="form-group"><label className="form-label">PP mensuelle (€)</label><input className="form-input" type="number" min="0" value={deal.pp_m === 0 ? '' : deal.pp_m} onChange={e=>set('pp_m', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)} onFocus={e => e.target.select()}/><div className="form-hint">→ PP annualisée : <strong>{euro(annualize(deal.pp_m))}</strong></div></div>

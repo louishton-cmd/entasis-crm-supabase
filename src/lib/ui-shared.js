@@ -55,7 +55,7 @@ export function emptyDeal(code = '') {
     co_advisor_code: '',
     source: 'Téléprospection',
     status: 'En cours',
-    company: 'SwissLife',
+    company: '',
     notes: '',
     priority: 'Normale',
     tags: [],
