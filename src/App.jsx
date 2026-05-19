@@ -3891,8 +3891,17 @@ export default function App(){
   const [dossiersImmoCount,setDossiersImmoCount]=useState(0)
   const [reloadCallback,setReloadCallback]=useState(null) // Callback après sauvegarde deal
 
-  // Anti race condition ref
+  // Anti race condition : empêche les appels parallèles à loadAll() depuis
+  // getSession() et onAuthStateChange au mount.
   const loadAllInProgress = useRef(false)
+
+  // isMounted : évite les setState après unmount (memory leak + warning React).
+  // loadAll est async et peut résoudre après que l'utilisateur ait quitté la page.
+  const isMounted = useRef(true)
+  useEffect(() => {
+    isMounted.current = true
+    return () => { isMounted.current = false }
+  }, [])
 
   const fetchProspects=()=>supabase.from('prospects').select('*').order('created_at',{ascending:false}).then(({data})=>{
     if(data){setProspects(data);setProspectsNew(data.filter(p=>p.status==='a_contacter').length)}
@@ -4028,6 +4037,11 @@ export default function App(){
         supabase.from('objectifs').select('*').order('month'),
         supabase.from('leads').select('*').order('created_at', {ascending: false})
       ])
+
+      // Si le composant a unmount pendant l'await, on n'applique aucun setState
+      // (évite memory leak + warning React "set state on unmounted component").
+      if (!isMounted.current) return
+
       // Traiter chaque résultat individuellement
       let prof = null
       if (profRes.status === 'fulfilled' && profRes.value.data) {
@@ -4087,8 +4101,8 @@ export default function App(){
       console.error('[App] loadAll error:', e)
       setError(`Erreur chargement: ${e.message}`)
     } finally {
-      loadAllInProgress.current = false  // toujours resetter
-      setLoading(false)
+      loadAllInProgress.current = false  // toujours resetter (même si unmount)
+      if (isMounted.current) setLoading(false)
     }
   }
 
