@@ -3907,13 +3907,16 @@ export default function App(){
     if(data){setProspects(data);setProspectsNew(data.filter(p=>p.status==='a_contacter').length)}
   })
 
-  // ── Leads — fetch + Realtime + polling 15s ────────────────────────────────
+  // ── Leads — fetch + Realtime + polling de secours 60s ─────────────────────
+  // Le polling est un filet de sécurité au cas où la WebSocket Realtime se
+  // déconnecte silencieusement. 60s au lieu de 5s : 12x moins de requêtes
+  // serveur sans dégrader la réactivité (Realtime gère le temps réel).
   const fetchLeads=()=>supabase.from('leads').select('*').order('created_at',{ascending:false}).then(({data})=>{if(data)setLeads(data)})
 
   useEffect(()=>{
     if(!session?.user)return
     fetchLeads()
-    const poll=setInterval(fetchLeads,5000)
+    const poll=setInterval(fetchLeads,60_000)
     const leadsChannel=supabase.channel('leads-room')
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'leads'},()=>{console.log('[Leads] INSERT Realtime');fetchLeads()})
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'leads'},payload=>{
