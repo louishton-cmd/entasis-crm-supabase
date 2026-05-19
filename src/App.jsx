@@ -3045,11 +3045,14 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
   // Vérifier si le client est verrouillé (ajout depuis fiche client uniquement, pas en édition)
   const isClientLocked = isNew && !!deal?.client_id && !!deal?.client
 
+  // _localId : identifiant stable côté UI uniquement, retiré au save.
+  // Indispensable pour avoir des React keys stables quand l'utilisateur
+  // supprime un produit du milieu de la liste (sinon les inputs des
+  // produits suivants perdent leur focus / leur valeur).
   const [products, setProducts] = useState(() => {
-    // Si client verrouillé (ajout depuis fiche client)
-    // → toujours commencer avec un produit vide
     if (isClientLocked) {
       return [{
+        _localId: uid(),
         product: '',
         company: '',
         pp_m: 0,
@@ -3061,8 +3064,8 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
         notes: ''
       }]
     }
-    // Sinon comportement normal
     return [{
+      _localId: uid(),
       product: deal?.product || '',
       company: deal?.company || '',
       pp_m: deal?.pp_m || 0,
@@ -3082,7 +3085,7 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
   }
 
   function addProduct() {
-    setProducts(prev => [...prev, emptyProduct()])
+    setProducts(prev => [...prev, { ...emptyProduct(), _localId: uid() }])
   }
 
   function removeProduct(index) {
@@ -3165,8 +3168,9 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
         return;
       }
 
-      // Créer un deal pour chaque produit avec les infos communes
-      const deals = validProducts.map(prod => {
+      // Créer un deal pour chaque produit avec les infos communes.
+      // On strip _localId (utilisé seulement comme React key, n'existe pas en DB).
+      const deals = validProducts.map(({ _localId, ...prod }) => {
         const newDeal = {
           ...deal,           // Infos communes (client_id, client, advisor_code, month)
           ...prod,           // Infos produit (product, pp_m, pu, status)
@@ -3387,7 +3391,7 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
                 </div>
 
                 {products.map((prod, index) => (
-                  <div key={index} style={{
+                  <div key={prod._localId || index} style={{
                     border: '1px solid var(--bd)',
                     borderRadius: 8,
                     padding: 16,
