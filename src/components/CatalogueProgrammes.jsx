@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { logger } from '../lib/logger'
 import toast from 'react-hot-toast'
 import { PROMPT_IMMOBILIER } from '../config/promptImmo'
 
@@ -52,11 +53,11 @@ export default function CatalogueProgrammes({ setActiveTab }) {
   }, [])
 
   async function loadProgrammes() {
-    console.log('[CatalogueProgrammes] Loading programmes...')
+    logger.debug('[CatalogueProgrammes] Loading programmes...')
     setLoading(true)
     try {
       const { data, error } = await supabase.from('programmes').select('*').order('created_at', { ascending: false })
-      console.log('[CatalogueProgrammes] Result:', { count: data?.length, error: error?.message || null })
+      logger.debug('[CatalogueProgrammes] Result:', { count: data?.length, error: error?.message || null })
       if (error) {
         console.error('[CatalogueProgrammes] Supabase error:', error.message, error.details, error.hint)
         toast.error('Erreur chargement programmes : ' + error.message)
