@@ -5,6 +5,8 @@ import { logger } from './lib/logger'
 import * as leadsService from './services/leads'
 import * as dealsService from './services/deals'
 import * as clientsService from './services/clients'
+import * as profilesService from './services/profiles'
+import * as invitationsService from './services/invitations'
 import VueImmobilier from './components/VueImmobilier'
 import CatalogueProgrammes from './components/CatalogueProgrammes'
 import MesDossiersImmo from './components/MesDossiersImmo'
@@ -261,28 +263,19 @@ function AuthScreen() {
 
   // Valider le token d'invitation
   async function validateInviteToken(token) {
-    const { data, error } = await supabase
-      .from('invitations')
-      .select('*')
-      .eq('token', token)
-      .is('used_at', null)
-      .gt('expires_at', new Date().toISOString())
-      .single()
-
-    if (error || !data) {
-      setMsg('Ce lien d\'invitation est invalide ou expiré.')
+    const data = await invitationsService.validateToken(token)
+    if (!data) {
+      setMsg("Ce lien d'invitation est invalide ou expiré.")
       return
     }
 
-    // Stocker les données d'invitation dans la ref
     inviteDataRef.current = {
-      token: token,
+      token,
       role: data.role,
       advisorCode: data.advisor_code || null,
-      email: data.email || null
+      email: data.email || null,
     }
 
-    // Passer en mode signup avec rôle pré-configuré
     setMode('signup')
     if (data.email) setEmail(data.email)
     setMsg(`Vous avez été invité en tant que ${data.role === 'manager' ? 'Manager' : 'Conseiller CGP'}`)
@@ -356,40 +349,28 @@ function AuthScreen() {
       await new Promise(resolve => setTimeout(resolve, 1000))
 
       // Mettre à jour le profil créé par le trigger
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
+      try {
+        await profilesService.update(data.user.id, {
           full_name: fullName,
           role: finalRole,
           advisor_code: finalAdvisorCode,
-          is_active: true
+          is_active: true,
         })
-        .eq('id', data.user.id)
-
-      if (profileError) {
-        console.warn('[Profile] Erreur création:', profileError)
-      } else {
         logger.debug('[Profile] Créé avec succès ✅', { role: finalRole, advisor_code: finalAdvisorCode })
+      } catch (profileError) {
+        console.warn('[Profile] Erreur création:', profileError)
       }
 
       // Marquer l'invitation comme utilisée si présente
       if (inviteData?.token) {
-        const { error: inviteError } = await supabase
-          .from('invitations')
-          .update({ used_at: new Date().toISOString() })
-          .eq('token', inviteData.token)
-          .select()
-
-        if (inviteError) {
-          console.warn('[Invitation] Erreur marquage utilisée:', inviteError)
-        } else {
+        try {
+          await invitationsService.markUsed(inviteData.token)
           logger.debug('[Invitation] Marquée comme utilisée ✅')
+        } catch (inviteError) {
+          console.warn('[Invitation] Erreur marquage utilisée:', inviteError)
         }
 
-        // Nettoyer la ref
         inviteDataRef.current = null
-
-        // Nettoyer l'URL
         window.history.replaceState({}, '', window.location.pathname)
       }
 
@@ -2561,12 +2542,8 @@ function AgendaView({deals,profile}){
           // Supprimer le token expiré
           try { localStorage.removeItem('entasis_gcal_token') } catch(e) {}
 
-          // Mettre à jour le profil en DB
-          supabase.from('profiles')
-            .update({ gcal_token: null, gcal_token_updated_at: null })
-            .eq('id', profile.id)
-            .then(() => {})
-            .catch(() => {})
+          // Mettre à jour le profil en DB (fire-and-forget)
+          profilesService.clearGcalToken(profile.id).catch(() => {})
 
           // NE PAS relancer signInWithOAuth automatiquement - laisser l'utilisateur reconnecter manuellement
           setError('Token Google expiré. Reconnectez votre compte Google depuis l\'onglet Agenda.')
@@ -2721,16 +2698,11 @@ function TeamView({deals,objectifs,teamProfiles,month,profile}){
 
   async function loadInvitations() {
     setLoadingInvitations(true)
-    const { data, error } = await supabase
-      .from('invitations')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(10)
-
-    if (error) {
+    try {
+      const data = await invitationsService.listRecent(10)
+      setInvitations(data)
+    } catch (error) {
       console.error('Erreur chargement invitations:', error)
-    } else {
-      setInvitations(data || [])
     }
     setLoadingInvitations(false)
   }
@@ -2742,20 +2714,17 @@ function TeamView({deals,objectifs,teamProfiles,month,profile}){
       return
     }
 
-    const { data, error } = await supabase
-      .from('invitations')
-      .insert({
-        email: email || null,
-        role: role,
-        advisor_code: advisorCode || null,
-        created_by: profile.id
+    let data
+    try {
+      data = await invitationsService.create({
+        email,
+        role,
+        advisorCode,
+        createdBy: profile.id,
       })
-      .select()
-      .single()
-
-    if (error) {
+    } catch (error) {
       console.error('Erreur invitation:', error)
-      toast.error('Erreur lors de la création de l\'invitation')
+      toast.error("Erreur lors de la création de l'invitation")
       return
     }
 
@@ -2796,18 +2765,13 @@ function TeamView({deals,objectifs,teamProfiles,month,profile}){
   // Révoquer une invitation
   async function revokeInvitation(inviteId) {
     if (!window.confirm('Révoquer cette invitation ?')) return
-
-    const { error } = await supabase
-      .from('invitations')
-      .delete()
-      .eq('id', inviteId)
-
-    if (error) {
-      console.error('Erreur révocation:', error)
-      toast.error('Erreur lors de la révocation')
-    } else {
+    try {
+      await invitationsService.remove(inviteId)
       toast.success('Invitation révoquée')
       await loadInvitations()
+    } catch (error) {
+      console.error('Erreur révocation:', error)
+      toast.error('Erreur lors de la révocation')
     }
   }
 
@@ -3978,13 +3942,8 @@ export default function App(){
         if (s?.provider_token && (s?.provider?.includes?.('google') || s?.provider_token)) {
           try {
             localStorage.setItem('entasis_gcal_token', s.provider_token)
-            // Sauvegarder en DB
-            supabase.from('profiles')
-              .update({
-                gcal_token: s.provider_token,
-                gcal_token_updated_at: new Date().toISOString()
-              })
-              .eq('id', s.user.id)
+            profilesService
+              .setGcalToken(s.user.id, s.provider_token)
               .then(() => logger.debug('[GCal] Token sauvegardé en DB ✅'))
               .catch(e => console.warn('[GCal] Erreur sauvegarde token:', e))
           } catch(e) {
