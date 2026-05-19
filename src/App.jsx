@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { Toaster, toast } from 'react-hot-toast'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
+import { logger } from './lib/logger'
 import VueImmobilier from './components/VueImmobilier'
 import CatalogueProgrammes from './components/CatalogueProgrammes'
 import MesDossiersImmo from './components/MesDossiersImmo'
@@ -365,7 +366,7 @@ function AuthScreen() {
       if (profileError) {
         console.warn('[Profile] Erreur création:', profileError)
       } else {
-        console.log('[Profile] Créé avec succès ✅', { role: finalRole, advisor_code: finalAdvisorCode })
+        logger.debug('[Profile] Créé avec succès ✅', { role: finalRole, advisor_code: finalAdvisorCode })
       }
 
       // Marquer l'invitation comme utilisée si présente
@@ -379,7 +380,7 @@ function AuthScreen() {
         if (inviteError) {
           console.warn('[Invitation] Erreur marquage utilisée:', inviteError)
         } else {
-          console.log('[Invitation] Marquée comme utilisée ✅')
+          logger.debug('[Invitation] Marquée comme utilisée ✅')
         }
 
         // Nettoyer la ref
@@ -3915,7 +3916,7 @@ export default function App(){
     fetchLeads()
     const poll=setInterval(fetchLeads,5000)
     const leadsChannel=supabase.channel('leads-room')
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'leads'},()=>{console.log('[Leads] INSERT Realtime');fetchLeads()})
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'leads'},()=>{logger.debug('[Leads] INSERT Realtime');fetchLeads()})
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'leads'},payload=>{
         setLeads(prev=>prev.map(l=>l.id===payload.new.id?payload.new:l))
       })
@@ -3959,11 +3960,11 @@ export default function App(){
     supabase.auth.getSession().then(({data:{session:existing}})=>{
       if(!active)return
       if(existing?.user){
-        console.log('[Auth] getSession: found user', existing.user.id)
+        logger.debug('[Auth] getSession: found user', existing.user.id)
         setSession(existing)
         loadAll(existing)
       } else {
-        console.log('[Auth] getSession: no session')
+        logger.debug('[Auth] getSession: no session')
         setLoading(false)
       }
     }).catch(()=>{if(active)setLoading(false)})
@@ -3971,7 +3972,7 @@ export default function App(){
     // 2. Listen for auth changes (sign-in, sign-out, token refresh)
     const{data:listener}=supabase.auth.onAuthStateChange(async(event,s)=>{
       if(!active)return
-      console.log('[Auth] event:', event, s?.user?.id||'no user')
+      logger.debug('[Auth] event:', event, s?.user?.id||'no user')
       if(event==='SIGNED_OUT'){
         try{localStorage.removeItem('entasis_gcal_token')}catch(e){}
         setSession(null);setProfile(null);setDeals([]);setTeamProfiles([]);setLoading(false)
@@ -3991,7 +3992,7 @@ export default function App(){
                 gcal_token_updated_at: new Date().toISOString()
               })
               .eq('id', s.user.id)
-              .then(() => console.log('[GCal] Token sauvegardé en DB ✅'))
+              .then(() => logger.debug('[GCal] Token sauvegardé en DB ✅'))
               .catch(e => console.warn('[GCal] Erreur sauvegarde token:', e))
           } catch(e) {
             console.warn('[GCal] Erreur localStorage:', e)
@@ -4018,7 +4019,7 @@ export default function App(){
     const s=currentSession||session
     if(!s?.user){setLoading(false);loadAllInProgress.current = false;return}
     const userId=s.user.id
-    console.log('[App] loadAll for user:', userId)
+    logger.debug('[App] loadAll for user:', userId)
     setError('')
     try {
       // Remplacer Promise.all par Promise.allSettled
@@ -4074,7 +4075,7 @@ export default function App(){
         setLeads(leadsRes.value.data)
       }
 
-      console.log('[App] Profile fetch:', prof ? `${prof.full_name} (${prof.role})` : 'null')
+      logger.debug('[App] Profile fetch:', prof ? `${prof.full_name} (${prof.role})` : 'null')
       if(!prof&&s.user){
         // Retry 3x avec délai croissant avant de créer
         for(let i=0;i<3&&!prof;i++){
@@ -4274,7 +4275,7 @@ export default function App(){
     if(token){
       try {
         await fetch(`https://oauth2.googleapis.com/revoke?token=${token}`, {method: 'POST'})
-        console.log('[Auth] Google token révoqué')
+        logger.debug('[Auth] Google token révoqué')
       } catch(e) {
         console.warn('Échec révocation token Google:', e)
       }

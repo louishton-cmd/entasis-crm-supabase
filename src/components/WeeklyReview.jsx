@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'react-hot-toast'
+import { logger } from '../lib/logger'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler } from 'chart.js'
 import { Line, Bar } from 'react-chartjs-2'
 
@@ -283,7 +284,7 @@ export default function WeeklyReview({deals, teamProfiles, supabase}) {
         }
       } catch (err) {
         // Table n'existe pas encore, c'est normal
-        console.log('Table weekly_objectives pas encore créée')
+        logger.debug('Table weekly_objectives pas encore créée')
       }
       setLoadingObjective(false)
     }
