@@ -7,6 +7,9 @@ import * as dealsService from './services/deals'
 import * as clientsService from './services/clients'
 import * as profilesService from './services/profiles'
 import * as invitationsService from './services/invitations'
+import * as prospectsService from './services/prospects'
+import * as objectifsService from './services/objectifs'
+import * as dossiersImmoService from './services/dossiersImmo'
 import VueImmobilier from './components/VueImmobilier'
 import CatalogueProgrammes from './components/CatalogueProgrammes'
 import MesDossiersImmo from './components/MesDossiersImmo'
@@ -3694,8 +3697,12 @@ function ProspectionView({prospects,profile,teamProfiles,onRefresh,onProspectsCh
   ]
 
   async function handleSave(updatedProspect){
-    const{error:e}=await supabase.from('prospects').update(updatedProspect).eq('id',updatedProspect.id)
-    if(e){alert(e.message);return}
+    try {
+      await prospectsService.update(updatedProspect)
+    } catch (e) {
+      alert(e.message)
+      return
+    }
     onProspectsChange(prev=>prev.map(p=>p.id===updatedProspect.id?updatedProspect:p))
   }
 
@@ -3858,9 +3865,10 @@ export default function App(){
     return () => { isMounted.current = false }
   }, [])
 
-  const fetchProspects=()=>supabase.from('prospects').select('*').order('created_at',{ascending:false}).then(({data})=>{
-    if(data){setProspects(data);setProspectsNew(data.filter(p=>p.status==='a_contacter').length)}
-  })
+  const fetchProspects=()=>prospectsService.listAll().then(({ list, aContacter })=>{
+    setProspects(list)
+    setProspectsNew(aContacter)
+  }).catch(e=>logger.warn('[Prospects] fetch failed', e))
 
   // ── Leads — fetch + Realtime + polling de secours 60s ─────────────────────
   // Le polling est un filet de sécurité au cas où la WebSocket Realtime se
@@ -3974,82 +3982,69 @@ export default function App(){
     logger.debug('[App] loadAll for user:', userId)
     setError('')
     try {
-      // Remplacer Promise.all par Promise.allSettled
+      // 5 chargements parallèles via les services. Promise.allSettled :
+      // un échec sur une table n'empêche pas les autres de se mettre à jour.
       const [profRes, teamRes, dealsRes, objRes, leadsRes] = await Promise.allSettled([
-        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-        supabase.from('profiles').select('id,email,full_name,role,advisor_code,is_active').order('full_name', {ascending: true}),
-        supabase.from('deals').select(`
-          *,
-          clients(
-            id, nom, prenom, email, telephone, age,
-            situation_familiale, nb_enfants, profession,
-            revenus_annuels, patrimoine_estime, objectifs,
-            notes, advisor_code, co_advisor_code
-          )
-        `).order('created_at', {ascending: false}),
-        supabase.from('objectifs').select('*').order('month'),
-        supabase.from('leads').select('*').order('created_at', {ascending: false})
+        profilesService.getById(userId),
+        profilesService.listTeam(),
+        dealsService.listAll(),
+        objectifsService.listAll(),
+        leadsService.listAll(),
       ])
 
-      // Si le composant a unmount pendant l'await, on n'applique aucun setState
-      // (évite memory leak + warning React "set state on unmounted component").
+      // Si le composant a unmount pendant l'await, on n'applique aucun setState.
       if (!isMounted.current) return
 
-      // Traiter chaque résultat individuellement
       let prof = null
-      if (profRes.status === 'fulfilled' && profRes.value.data) {
-        prof = profRes.value.data
+      if (profRes.status === 'fulfilled' && profRes.value) {
+        prof = profRes.value
         setProfile(prof)
 
-        // Vérifier si un provider_token est disponible dans la session
+        // Capturer un éventuel provider_token (Google Calendar).
         const { data: { session: currentSession } } = await supabase.auth.getSession()
         if (currentSession?.provider_token) {
           try {
             localStorage.setItem('entasis_gcal_token', currentSession.provider_token)
-          } catch(e) {}
+          } catch {}
         }
-      } else {
+      } else if (profRes.status === 'rejected') {
         console.warn('[App] Profile fetch failed:', profRes.reason)
       }
 
-      if (teamRes.status === 'fulfilled' && teamRes.value.data) {
-        setTeamProfiles(teamRes.value.data)
-      }
-      if (dealsRes.status === 'fulfilled' && dealsRes.value.data) {
-        setDeals(dealsRes.value.data)
-      }
-      if (objRes.status === 'fulfilled' && objRes.value.data) {
-        const map = {...EMPTY_OBJECTIFS}
-        objRes.value.data.forEach(row => {map[row.month] = row})
+      if (teamRes.status === 'fulfilled') setTeamProfiles(teamRes.value)
+      if (dealsRes.status === 'fulfilled') setDeals(dealsRes.value)
+      if (objRes.status === 'fulfilled') {
+        const map = { ...EMPTY_OBJECTIFS }
+        objRes.value.forEach(row => { map[row.month] = row })
         setObjectifs(map)
       }
-      if (leadsRes.status === 'fulfilled' && leadsRes.value.data) {
-        setLeads(leadsRes.value.data)
-      }
+      if (leadsRes.status === 'fulfilled') setLeads(leadsRes.value)
 
       logger.debug('[App] Profile fetch:', prof ? `${prof.full_name} (${prof.role})` : 'null')
-      if(!prof&&s.user){
-        // Retry 3x avec délai croissant avant de créer
-        for(let i=0;i<3&&!prof;i++){
-          await new Promise(r=>setTimeout(r,(i+1)*800))
-          const{data:retry}=await supabase.from('profiles').select('*').eq('id',userId).maybeSingle()
-          prof=retry
+
+      // Filet de sécurité : si le trigger DB n'a pas encore créé le profile,
+      // on retry 3x puis on crée nous-même via upsert.
+      if (!prof && s.user) {
+        for (let i = 0; i < 3 && !prof; i++) {
+          await new Promise(r => setTimeout(r, (i + 1) * 800))
+          prof = await profilesService.getById(userId).catch(() => null)
         }
-        if(!prof){
-          const email=s.user.email||''
-          const fullName=s.user.user_metadata?.full_name||s.user.user_metadata?.name||email.split('@')[0]||''
-          const{data:newProf}=await supabase.from('profiles').upsert({
-            id:userId,email,full_name:fullName,role:'advisor',is_active:true,
-            advisor_code:email.split('@')[0].toUpperCase().slice(0,6),
-          },{onConflict:'id'}).select().maybeSingle()
-          prof=newProf
+        if (!prof) {
+          const email = s.user.email || ''
+          const fullName = s.user.user_metadata?.full_name || s.user.user_metadata?.name || email.split('@')[0] || ''
+          prof = await profilesService.upsert({
+            id: userId,
+            email,
+            full_name: fullName,
+            role: 'advisor',
+            is_active: true,
+            advisor_code: email.split('@')[0].toUpperCase().slice(0, 6),
+          }).catch(() => null)
         }
       }
-      // Count active immo dossiers (silently ignore if table doesn't exist yet)
-      try{
-        const{data:immoData}=await supabase.from('dossiers_immo').select('id',{count:'exact',head:false})
-        setDossiersImmoCount((immoData||[]).filter(d=>true).length)
-      }catch{}
+
+      // Count dossiers immo (table optionnelle, le service gère silencieusement).
+      setDossiersImmoCount(await dossiersImmoService.countSafe())
     } catch(e) {
       console.error('[App] loadAll error:', e)
       setError(`Erreur chargement: ${e.message}`)
@@ -4162,8 +4157,12 @@ export default function App(){
   }
 
   async function saveObjectif(row){
-    const{error:e}=await supabase.from('objectifs').upsert(row)
-    if(e){alert(e.message);return}
+    try {
+      await objectifsService.upsert(row)
+    } catch (e) {
+      alert(e.message)
+      return
+    }
     await loadAll()
   }
 
