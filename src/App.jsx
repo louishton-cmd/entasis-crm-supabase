@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { Toaster, toast } from 'react-hot-toast'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { logger } from './lib/logger'
+import * as leadsService from './services/leads'
 import VueImmobilier from './components/VueImmobilier'
 import CatalogueProgrammes from './components/CatalogueProgrammes'
 import MesDossiersImmo from './components/MesDossiersImmo'
@@ -906,11 +907,7 @@ function LeadRDVModal({open,lead,onClose,onBooked}){
     window.open(`https://calendar.google.com/calendar/r/eventedit?${params}`,'_blank')
 
     // Marquer comme booké
-    await supabase.from('leads').update({
-      status:'booked',
-      booked_at:new Date().toISOString(),
-      email_confirmed:email||lead.email,
-    }).eq('id',lead.id)
+    await leadsService.markBooked(lead.id, { email: email || lead.email })
 
     onBooked(lead.id)
     onClose()
@@ -1196,31 +1193,27 @@ function LeadRoom({leads,profile,onLeadsChange,onConvertDeal,onRefresh}){
         if(l.status!=='contacted'||!l.taken_at)return false
         return(now-new Date(l.taken_at).getTime())>LEAD_TIMEOUT_MS
       })
-      for(const lead of toRelease){
-        await supabase.from('leads').update({status:'released',taken_by:null,taken_at:null}).eq('id',lead.id)
-      }
+      if (toRelease.length) await leadsService.autoReleaseStale(toRelease.map(l=>l.id))
     },15000)
     return()=>clearInterval(iv)
   },[leads])
 
   async function takeLead(lead){
-    const{error}=await supabase.from('leads').update({
-      status:'contacted',taken_by:profile.id,taken_at:new Date().toISOString(),
-    }).eq('id',lead.id).in('status',['available','released'])
-    if(error)alert('Ce lead vient d\'être pris par un autre conseiller.')
+    const ok = await leadsService.take(lead.id, profile.id)
+    if (!ok) alert("Ce lead vient d'être pris par un autre conseiller.")
   }
 
   async function releaseLead(lead){
-    if(!window.confirm('Libérer ce lead pour qu\'un autre conseiller puisse le prendre ?'))return
-    await supabase.from('leads').update({status:'released',taken_by:null,taken_at:null}).eq('id',lead.id)
+    if(!window.confirm("Libérer ce lead pour qu'un autre conseiller puisse le prendre ?"))return
+    await leadsService.release(lead.id)
   }
   async function resetLead(lead){
     if(!window.confirm(`Remettre "${lead.nom}" en disponible ?`))return
-    await supabase.from('leads').update({status:'available',taken_by:null,taken_at:null,booked_at:null}).eq('id',lead.id)
+    await leadsService.reset(lead.id)
   }
   async function killLead(lead){
     if(!window.confirm(`Marquer "${lead.nom}" comme non-interesse ?`))return
-    await supabase.from('leads').update({status:'dead',taken_by:profile.id}).eq('id',lead.id)
+    await leadsService.markDead(lead.id, profile.id)
   }
 
   function handleBooked(leadId){
@@ -3916,7 +3909,7 @@ export default function App(){
   // Le polling est un filet de sécurité au cas où la WebSocket Realtime se
   // déconnecte silencieusement. 60s au lieu de 5s : 12x moins de requêtes
   // serveur sans dégrader la réactivité (Realtime gère le temps réel).
-  const fetchLeads=()=>supabase.from('leads').select('*').order('created_at',{ascending:false}).then(({data})=>{if(data)setLeads(data)})
+  const fetchLeads=()=>leadsService.listAll().then(data=>setLeads(data)).catch(e=>logger.warn('[Leads] fetch failed', e))
 
   useEffect(()=>{
     if(!session?.user)return
