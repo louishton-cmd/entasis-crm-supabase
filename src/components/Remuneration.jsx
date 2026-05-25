@@ -311,20 +311,33 @@ function SectionDetail({ comm, month }) {
             const clientName = d.deal.clients
               ? `${d.deal.clients.prenom || ''} ${d.deal.clients.nom || ''}`.trim()
               : (d.deal.client_id || '—')
+            // Sous palier : la commission revient 100 % cabinet, on ne montre
+            // pas le taux ni le montant qui seraient trompeurs pour le conseiller.
+            const sousPalier = d.sousPalier
             return (
               <tr key={d.deal.id || i}>
                 <td className="cell-primary">{clientName || '—'}</td>
                 <td>
-                  <div>{d.deal.produit || '—'}</div>
-                  <div className="cell-sub">{d.deal.compagnie || ''}</div>
+                  <div>{d.deal.product || d.deal.produit || '—'}</div>
+                  <div className="cell-sub">{d.deal.company || d.deal.compagnie || ''}</div>
                 </td>
                 <td className="cell-mono" style={{ textAlign: 'right' }}>{fmtEur(d.assiette)}</td>
-                <td className="cell-mono" style={{ textAlign: 'right' }}>{fmtPct(d.taux)}</td>
-                <td className="cell-mono" style={{ textAlign: 'right', fontWeight: 600 }}>{fmtEurPrecis(d.montant)}</td>
+                <td className="cell-mono" style={{ textAlign: 'right', color: sousPalier ? 'var(--t3)' : 'var(--t1)' }}>
+                  {sousPalier ? '—' : fmtPct(d.taux)}
+                </td>
+                <td className="cell-mono" style={{ textAlign: 'right', fontWeight: 600, color: sousPalier ? 'var(--t3)' : 'var(--t1)' }}>
+                  {sousPalier ? '—' : fmtEurPrecis(d.montantEffectif ?? d.montant)}
+                </td>
                 <td>
-                  <span className={`badge ${d.horsPalier ? 'badge-forecast' : 'badge-progress'}`}>
-                    {d.horsPalier ? 'Hors palier' : 'Soumis palier'}
-                  </span>
+                  {sousPalier ? (
+                    <span className="badge badge-normal" title="Sous le palier mensuel : la commission revient 100 % au cabinet">
+                      Cabinet 100 %
+                    </span>
+                  ) : d.horsPalier ? (
+                    <span className="badge badge-forecast">Hors palier</span>
+                  ) : (
+                    <span className="badge badge-signed">Au-dessus palier</span>
+                  )}
                 </td>
               </tr>
             )

@@ -325,29 +325,36 @@ export function commissionsMois(dealsMois = [], contrat, rentabilise, profile = 
   // 2. Variable PP : sur l'excédent au-dessus du palier
   let variablePp = 0
   const palierPpAtteint = palierPp <= 0 || ppRealisee >= palierPp
-  if (palierPpAtteint && ppRealisee > palierPp) {
-    // On calcule le variable comme si tous les deals PP avaient été pris,
-    // mais en n'appliquant le taux que sur la partie ABOVE palier.
-    // Approche : ratio (ppRealisee - palierPp) / ppRealisee
-    const ratio = palierPp > 0 ? (ppRealisee - palierPp) / ppRealisee : 1
-    for (const d of detail) {
-      const produit = BAREME_PRODUITS[d.produitKey]
-      if (produit.assiette === 'pp' && !produit.horsPalier) {
-        variablePp += d.montant * ratio
-      }
-    }
-  }
-
+  const ratioPp = (palierPpAtteint && ppRealisee > palierPp)
+    ? (palierPp > 0 ? (ppRealisee - palierPp) / ppRealisee : 1)
+    : 0
   // 3. Variable PU : idem
   let variablePu = 0
   const palierPuAtteint = palierPu <= 0 || puRealisee >= palierPu
-  if (palierPuAtteint && puRealisee > palierPu) {
-    const ratio = palierPu > 0 ? (puRealisee - palierPu) / puRealisee : 1
-    for (const d of detail) {
-      const produit = BAREME_PRODUITS[d.produitKey]
-      if (produit.assiette === 'pu' && !produit.horsPalier) {
-        variablePu += d.montant * ratio
-      }
+  const ratioPu = (palierPuAtteint && puRealisee > palierPu)
+    ? (palierPu > 0 ? (puRealisee - palierPu) / puRealisee : 1)
+    : 0
+
+  // Calcule la commission EFFECTIVE de chaque deal (= ce qui revient
+  // vraiment au conseiller, après application du ratio palier).
+  // Sous palier : 0 € pour le conseiller, 100 % cabinet → on l'expose
+  // pour que l'UI puisse masquer taux + commission et indiquer "Cabinet".
+  for (const d of detail) {
+    const produit = BAREME_PRODUITS[d.produitKey]
+    if (produit.horsPalier) {
+      d.montantEffectif = d.montant
+      d.sousPalier = false
+    } else if (produit.assiette === 'pp') {
+      d.montantEffectif = d.montant * ratioPp
+      d.sousPalier = !palierPpAtteint
+      variablePp += d.montantEffectif
+    } else if (produit.assiette === 'pu') {
+      d.montantEffectif = d.montant * ratioPu
+      d.sousPalier = !palierPuAtteint
+      variablePu += d.montantEffectif
+    } else {
+      d.montantEffectif = d.montant
+      d.sousPalier = false
     }
   }
 
