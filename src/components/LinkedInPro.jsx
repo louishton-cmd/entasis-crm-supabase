@@ -13,8 +13,8 @@ const C = {
   bd: 'rgba(255,255,255,0.08)', bdGold: 'rgba(201,168,76,0.3)',
   inputBg: '#1a1a1a',
 }
-const FONT_SERIF = "'Cormorant Garamond', 'Playfair Display', Georgia, serif"
-const FONT_SANS = "'DM Sans', system-ui, sans-serif"
+const FONT_SERIF = "'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif"
+const FONT_SANS = "'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif"
 
 /* ─────────────────────────────────────────────────────────────────────────────
    CONSTANTS
@@ -213,9 +213,6 @@ export default function LinkedInPro({ profile }) {
 
   return (
     <div style={{ fontFamily: FONT_SANS }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
-      `}</style>
 
       <div style={{ display: 'grid', gridTemplateColumns: '55% 45%', gap: 20 }}>
         {/* ── LEFT PANEL: GENERATOR ────────────────────────────────── */}

@@ -29,8 +29,8 @@ const C = {
   bd: 'rgba(255,255,255,0.08)', bdGold: 'rgba(201,168,76,0.3)',
   inputBg: '#1a1a1a',
 }
-const FONT_SERIF = "'Cormorant Garamond', 'Playfair Display', Georgia, serif"
-const FONT_SANS = "'DM Sans', system-ui, sans-serif"
+const FONT_SERIF = "'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif"
+const FONT_SANS = "'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif"
 
 /* ─────────────────────────────────────────────────────────────────────────────
    TAX ENGINE (bareme 2025 sur revenus 2024)
@@ -2276,7 +2276,6 @@ export default function OutilsCGP() {
   return (
     <div style={{ fontFamily: FONT_SANS }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
         .ocgp-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
         .ocgp-tab {
           padding: 8px 18px; border-radius: 20px; font-size: 12px; font-weight: 600;

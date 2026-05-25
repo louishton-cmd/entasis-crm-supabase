@@ -1270,9 +1270,9 @@ function LeadRoom({leads,profile,onLeadsChange,onConvertDeal,onRefresh}){
           {label:'Total leads',value:leads.length,color:'var(--t2)',bg:'var(--bg)',bd:'var(--bd)'},
           {label:'Non-intéressés',value:leads.filter(l=>l.status==='dead').length,color:'#9CA3AF',bg:'var(--bg)',bd:'var(--bd)'},
         ].map(s=>(
-          <div key={s.label} style={{background:s.bg,border:`1px solid ${s.bd}`,borderRadius:'var(--rad-lg)',padding:'14px 18px',cursor:'pointer'}} onClick={()=>{if(s.label==='Disponibles')setFilter('available');else if(s.label==='Total leads')setFilter('all')}}>
-            <div style={{fontSize:11,color:'var(--t3)',marginBottom:6,fontWeight:500,textTransform:'uppercase',letterSpacing:'0.05em'}}>{s.label}</div>
-            <div style={{fontSize:28,fontWeight:700,color:s.color,fontFamily:'var(--font-serif)'}}>{s.value}</div>
+          <div key={s.label} style={{background:s.bg,border:`0.5px solid ${s.bd}`,borderRadius:'var(--rad-lg)',padding:'18px 20px',cursor:'pointer',boxShadow:'var(--sh-sm)',transition:'box-shadow var(--tr), transform var(--tr)'}} onMouseEnter={e=>{e.currentTarget.style.boxShadow='var(--sh)';e.currentTarget.style.transform='translateY(-2px)'}} onMouseLeave={e=>{e.currentTarget.style.boxShadow='var(--sh-sm)';e.currentTarget.style.transform='translateY(0)'}} onClick={()=>{if(s.label==='Disponibles')setFilter('available');else if(s.label==='Total leads')setFilter('all')}}>
+            <div style={{fontSize:11,color:'var(--t3)',marginBottom:8,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.14em'}}>{s.label}</div>
+            <div style={{fontSize:26,fontWeight:700,color:s.color,fontFamily:'var(--font-sans)',letterSpacing:'-0.02em',fontVariantNumeric:'tabular-nums'}}>{s.value}</div>
           </div>
         ))}
       </div>
@@ -2616,7 +2616,7 @@ function AgendaView({deals,profile}){
       <div className="section-header"><div><div className="section-kicker">Google Agenda</div><div className="section-title">Agenda & Relances</div></div></div>
       <div className="card" style={{maxWidth:460,margin:'48px auto',textAlign:'center',padding:'40px 32px'}}>
         <div style={{fontSize:42,marginBottom:16}}>📅</div>
-        <div style={{fontFamily:'var(--font-serif)',fontSize:20,fontWeight:500,color:'var(--t1)',marginBottom:10}}>Google Agenda non connecté</div>
+        <div style={{fontFamily:'var(--font-sans)',fontSize:22,fontWeight:700,letterSpacing:'-0.015em',color:'var(--t1)',marginBottom:10}}>Google Agenda non connecté</div>
         <div style={{fontSize:13.5,color:'var(--t2)',lineHeight:1.7,marginBottom:24}}>Connectez votre compte Google pour accéder à votre agenda depuis le CRM.</div>
         <button className="btn btn-gold" style={{margin:'0 auto 20px',padding:'12px 24px',fontSize:14}} onClick={reconnectGoogle}>Connecter Google Agenda</button>
         <div style={{fontSize:11,color:'var(--t3)',lineHeight:1.6}}>Tu seras redirigé vers Google pour autoriser l'accès Calendar, puis ramené ici automatiquement.</div>
@@ -3750,9 +3750,9 @@ function ProspectionView({prospects,profile,teamProfiles,onRefresh,onProspectsCh
           {label:'RDV pris',value:kpis.rdvPris,color:'#10B981',bg:'rgba(16,185,129,0.07)',bd:'rgba(16,185,129,0.2)'},
           {label:'Convertis',value:kpis.convertis,color:'var(--signed)',bg:'var(--signed-bg)',bd:'var(--signed-bd)'},
         ].map(s=>(
-          <div key={s.label} style={{background:s.bg,border:`1px solid ${s.bd}`,borderRadius:'var(--rad-lg)',padding:'14px 18px'}}>
-            <div style={{fontSize:11,color:'var(--t3)',marginBottom:6,fontWeight:500,textTransform:'uppercase',letterSpacing:'0.05em'}}>{s.label}</div>
-            <div style={{fontSize:26,fontWeight:700,color:s.color,fontFamily:'var(--font-serif)'}}>{s.value}</div>
+          <div key={s.label} style={{background:s.bg,border:`0.5px solid ${s.bd}`,borderRadius:'var(--rad-lg)',padding:'18px 20px',boxShadow:'var(--sh-sm)',transition:'box-shadow var(--tr), transform var(--tr)'}} onMouseEnter={e=>{e.currentTarget.style.boxShadow='var(--sh)';e.currentTarget.style.transform='translateY(-2px)'}} onMouseLeave={e=>{e.currentTarget.style.boxShadow='var(--sh-sm)';e.currentTarget.style.transform='translateY(0)'}}>
+            <div style={{fontSize:11,color:'var(--t3)',marginBottom:8,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.14em'}}>{s.label}</div>
+            <div style={{fontSize:24,fontWeight:700,color:s.color,fontFamily:'var(--font-sans)',letterSpacing:'-0.02em',fontVariantNumeric:'tabular-nums'}}>{s.value}</div>
           </div>
         ))}
       </div>
@@ -4217,7 +4217,22 @@ export default function App(){
 
   if(!isSupabaseConfigured)return<ConfigMissing/>
 
-  if(loading)return(
+  // Mode "design preview" : bypass complet du login pour évaluer le visuel
+  // sur les previews Vercel sans avoir à se logger. Déclenché uniquement
+  // par la var d'env VITE_DESIGN_PREVIEW (jamais en production).
+  // Profile mock manager → toutes les pages accessibles, mais aucune
+  // requête Supabase n'aboutira (pas de session) → cosmétique seulement.
+  const isDesignPreview = import.meta.env.VITE_DESIGN_PREVIEW === 'true'
+  const effectiveProfile = isDesignPreview ? {
+    id: 'design-preview',
+    email: 'design@entasis-conseil.fr',
+    full_name: 'Louis Hatton',
+    role: 'manager',
+    advisor_code: 'LH',
+    is_active: true,
+  } : profile
+
+  if(loading && !isDesignPreview)return(
     <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16,background:'var(--bg)'}}>
       <img src="/entasis-logo.png" alt="Entasis Conseil" style={{maxWidth:200,height:'auto'}} />
       <div className="loading-spinner"/>
@@ -4225,14 +4240,14 @@ export default function App(){
     </div>
   )
 
-  if(!session)return<AuthScreen/>
+  if(!session && !isDesignPreview)return<AuthScreen/>
 
-  const isManager=profile?.role==='manager'
+  const isManager = effectiveProfile?.role === 'manager'
 
   return (
     <div className="app-shell">
       <Sidebar
-        profile={profile}
+        profile={effectiveProfile}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onSignOut={signOut}
@@ -4333,7 +4348,7 @@ export default function App(){
         onClose={()=>{setModalOpen(false);setEditingDeal(null)}}
         onSave={saveDeal}
       />
-      <Toaster position="top-right" toastOptions={{style:{background:'#242424',color:'#f5f0e8',border:'1px solid rgba(201,168,76,0.2)',borderRadius:12,fontSize:13,fontFamily:'DM Sans, sans-serif'}}}/>
+      <Toaster position="top-right" toastOptions={{style:{background:'rgba(255,255,255,0.95)',color:'#1D1D1F',border:'0.5px solid rgba(60,60,67,0.14)',borderRadius:16,fontSize:13,fontFamily:"'Inter Tight', -apple-system, sans-serif",boxShadow:'0 0.5px 0 rgba(255,255,255,0.95) inset, 0 8px 24px rgba(0,0,0,0.10)',backdropFilter:'blur(20px) saturate(160%)',WebkitBackdropFilter:'blur(20px) saturate(160%)',letterSpacing:'-0.005em'}}}/>
     </div>
   )
 }
