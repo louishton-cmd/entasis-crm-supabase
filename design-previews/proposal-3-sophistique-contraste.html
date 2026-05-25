@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Entasis — Proposition 3 · Sophistiqué avec contraste</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:        #0A1628;
+    --navy-deep:   #050B16;
+    --navy-line:   rgba(255,255,255,0.10);
+    --gold:        #C9A961;
+    --gold-soft:   rgba(201,169,97,0.12);
+    --bg:          #FFFFFF;
+    --bg-2:        #F7F7F8;
+    --line:        #E8E8EC;
+    --t1:          #0A1628;
+    --t2:          #4A4F5C;
+    --t3:          #7C8392;
+    --green:       #15803D;
+    --rose:        #B91C1C;
+  }
+  body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: var(--t1); -webkit-font-smoothing: antialiased; }
+  .ff-editorial { font-family: 'IBM Plex Serif', Georgia, serif; }
+  .text-navy { color: var(--navy); }
+  .text-gold { color: var(--gold); }
+  .bg-navy { background: var(--navy); }
+  .bg-navy-deep { background: var(--navy-deep); }
+  .logo-white { filter: brightness(0) invert(1); }
+  /* Fil rouge or : border-left actif, hover, badges */
+  .gold-thread { box-shadow: inset 3px 0 0 var(--gold); }
+</style>
+</head>
+<body class="min-h-screen flex">
+
+  <!-- SIDEBAR : navy profond, dense, structurel -->
+  <aside class="w-64 flex-shrink-0 flex flex-col" style="background:var(--navy)">
+    <div class="px-7 pt-9 pb-7" style="border-bottom:1px solid var(--navy-line)">
+      <img src="entasis-logo.png" alt="Entasis Conseil" class="logo-white" style="width:120px"/>
+      <div class="text-[10px] tracking-[0.22em] text-white/55 uppercase font-medium mt-3" style="font-family:'IBM Plex Sans'">CRM Patrimonial</div>
+    </div>
+
+    <nav class="flex-1 py-6 px-3 space-y-px overflow-y-auto">
+      <a class="flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-white/80 hover:bg-white/5 rounded-md">Vue cabinet</a>
+      <a class="flex items-center gap-3 px-4 py-2.5 text-[13px] font-semibold text-white gold-thread rounded-md" style="background:var(--gold-soft)">Pipeline</a>
+      <a class="flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-white/80 hover:bg-white/5 rounded-md">Dossiers</a>
+      <a class="flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-white/80 hover:bg-white/5 rounded-md">Clients</a>
+      <a class="flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-white/80 hover:bg-white/5 rounded-md">Leads Live</a>
+      <a class="flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-white/80 hover:bg-white/5 rounded-md">UCS Produits Structurés</a>
+      <a class="flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-white/80 hover:bg-white/5 rounded-md">Structureurs</a>
+      <a class="flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-white/80 hover:bg-white/5 rounded-md">Agenda</a>
+      <div class="text-[10px] tracking-[0.20em] text-white/40 px-4 py-3 mt-2 uppercase font-semibold">Direction</div>
+      <a class="flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-white/80 hover:bg-white/5 rounded-md">Équipe</a>
+      <a class="flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-white/80 hover:bg-white/5 rounded-md">Revue hebdo</a>
+    </nav>
+
+    <div class="px-5 py-5" style="border-top:1px solid var(--navy-line)">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full text-white text-[12px] font-semibold flex items-center justify-center" style="background:var(--gold)">LH</div>
+        <div class="flex-1 min-w-0">
+          <div class="text-[13px] font-medium text-white truncate">Louis Hatton</div>
+          <div class="text-[11px] text-white/55 tracking-wider uppercase font-medium">Direction</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="flex-1 flex flex-col" style="background:var(--bg)">
+    <!-- HEADER : zone navy compact, contraste fort avec content blanc -->
+    <header class="bg-navy text-white px-12 py-8 flex items-end justify-between" style="border-bottom:3px solid var(--gold)">
+      <div>
+        <div class="text-[10px] tracking-[0.24em] text-gold uppercase font-semibold mb-2">CRM · Pipeline</div>
+        <h1 class="ff-editorial text-[34px] leading-none text-white font-medium tracking-tight">Pipeline commercial</h1>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="px-5 py-2.5 text-[13px] font-medium text-white border border-white/20 hover:bg-white/10 rounded-md transition">Exporter</button>
+        <button class="px-5 py-2.5 text-[13px] font-semibold text-navy bg-white hover:bg-white/90 rounded-md transition">+ Nouveau dossier</button>
+      </div>
+    </header>
+
+    <div class="flex-1 px-12 py-10 space-y-10">
+
+      <!-- KPI CARDS : mix navy/blanc, accents or -->
+      <section class="grid grid-cols-4 gap-5">
+        <div class="bg-navy text-white p-7 rounded-lg" style="border:1px solid var(--navy)">
+          <div class="text-[10px] tracking-[0.22em] text-gold uppercase font-semibold mb-3">Pipeline total</div>
+          <div class="ff-editorial text-[36px] leading-none font-medium">2,4 M€</div>
+          <div class="text-[12px] mt-4 text-white/65">↗ +12% vs mai dernier</div>
+        </div>
+        <div class="bg-white border p-7 rounded-lg" style="border-color:var(--line)">
+          <div class="text-[10px] tracking-[0.22em] uppercase font-semibold mb-3" style="color:var(--t3)">RDV ce mois</div>
+          <div class="ff-editorial text-[36px] leading-none text-navy font-medium">42</div>
+          <div class="text-[12px] mt-4" style="color:var(--t2)">8 cette semaine</div>
+        </div>
+        <div class="bg-white border p-7 rounded-lg" style="border-color:var(--line)">
+          <div class="text-[10px] tracking-[0.22em] uppercase font-semibold mb-3" style="color:var(--t3)">Signatures</div>
+          <div class="ff-editorial text-[36px] leading-none text-navy font-medium">14</div>
+          <div class="text-[12px] mt-4" style="color:var(--t2)">Taux conv. 33%</div>
+        </div>
+        <div class="bg-white border p-7 rounded-lg" style="border-color:var(--line);border-left:3px solid var(--gold)">
+          <div class="text-[10px] tracking-[0.22em] uppercase font-semibold mb-3" style="color:var(--t3)">PP nouvelle</div>
+          <div class="ff-editorial text-[36px] leading-none text-navy font-medium">186 k€</div>
+          <div class="text-[12px] mt-4" style="color:var(--t2)">/ 200 k€ objectif</div>
+        </div>
+      </section>
+
+      <!-- TABLE + FICHE -->
+      <section class="grid grid-cols-3 gap-8">
+        <div class="col-span-2">
+          <div class="flex items-end justify-between mb-5">
+            <div>
+              <div class="text-[10px] tracking-[0.22em] text-gold uppercase font-semibold mb-1">Section</div>
+              <h2 class="ff-editorial text-[22px] text-navy font-medium">Derniers leads</h2>
+            </div>
+            <a class="text-[12px] tracking-wider uppercase text-navy font-semibold border-b border-gold pb-0.5">Voir tout →</a>
+          </div>
+          <div class="bg-white border rounded-lg overflow-hidden" style="border-color:var(--line)">
+            <table class="w-full">
+              <thead class="bg-navy text-white">
+                <tr>
+                  <th class="text-left text-[10px] tracking-[0.18em] uppercase font-semibold px-5 py-4">Client</th>
+                  <th class="text-left text-[10px] tracking-[0.18em] uppercase font-semibold px-5 py-4">Source</th>
+                  <th class="text-left text-[10px] tracking-[0.18em] uppercase font-semibold px-5 py-4">Conseiller</th>
+                  <th class="text-right text-[10px] tracking-[0.18em] uppercase font-semibold px-5 py-4">Patrimoine</th>
+                </tr>
+              </thead>
+              <tbody class="text-[14px]">
+                <tr class="border-b hover:bg-[var(--bg-2)]" style="border-color:var(--line)">
+                  <td class="px-5 py-4 font-medium text-navy">Jean-Charles Beaumont</td>
+                  <td class="px-5 py-4" style="color:var(--t2)">Recommandation</td>
+                  <td class="px-5 py-4" style="color:var(--t2)">Paulin De La Fontaine</td>
+                  <td class="px-5 py-4 text-right font-semibold text-navy tabular-nums">450 k€</td>
+                </tr>
+                <tr class="border-b hover:bg-[var(--bg-2)]" style="border-color:var(--line)">
+                  <td class="px-5 py-4 font-medium text-navy">Aurélie Mercier-Lambert</td>
+                  <td class="px-5 py-4" style="color:var(--t2)">Site web</td>
+                  <td class="px-5 py-4" style="color:var(--t2)">Quentin Vialle</td>
+                  <td class="px-5 py-4 text-right font-semibold text-navy tabular-nums">280 k€</td>
+                </tr>
+                <tr class="border-b hover:bg-[var(--bg-2)]" style="border-color:var(--line)">
+                  <td class="px-5 py-4 font-medium text-navy flex items-center gap-2">
+                    Philippe d'Arboussier
+                    <span class="text-[9px] tracking-wider uppercase font-semibold px-2 py-0.5 rounded" style="background:var(--gold-soft);color:var(--gold)">VIP</span>
+                  </td>
+                  <td class="px-5 py-4" style="color:var(--t2)">Facebook Ads</td>
+                  <td class="px-5 py-4" style="color:var(--t2)">Gianni Rossi</td>
+                  <td class="px-5 py-4 text-right font-semibold text-navy tabular-nums">1,2 M€</td>
+                </tr>
+                <tr class="border-b hover:bg-[var(--bg-2)]" style="border-color:var(--line)">
+                  <td class="px-5 py-4 font-medium text-navy">Marie-Hélène Dubois</td>
+                  <td class="px-5 py-4" style="color:var(--t2)">LinkedIn</td>
+                  <td class="px-5 py-4" style="color:var(--t2)">Dany Lebrun</td>
+                  <td class="px-5 py-4 text-right font-semibold text-navy tabular-nums">680 k€</td>
+                </tr>
+                <tr class="hover:bg-[var(--bg-2)]">
+                  <td class="px-5 py-4 font-medium text-navy">Sébastien Romieu</td>
+                  <td class="px-5 py-4" style="color:var(--t2)">Recommandation</td>
+                  <td class="px-5 py-4" style="color:var(--t2)">Paulin De La Fontaine</td>
+                  <td class="px-5 py-4 text-right font-semibold text-navy tabular-nums">320 k€</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <aside class="bg-navy text-white rounded-lg overflow-hidden" style="border-top:3px solid var(--gold)">
+          <div class="p-7">
+            <div class="text-[10px] tracking-[0.22em] uppercase font-semibold text-gold mb-2">Client en vue</div>
+            <h3 class="ff-editorial text-[24px] leading-tight text-white font-medium">Jean-Charles Beaumont</h3>
+            <div class="border-t border-white/15 my-5"></div>
+
+            <dl class="space-y-4 text-[13px]">
+              <div class="flex justify-between"><dt class="uppercase tracking-wider text-[10px] font-semibold text-white/60">Âge</dt><dd class="text-white">58 ans</dd></div>
+              <div class="flex justify-between"><dt class="uppercase tracking-wider text-[10px] font-semibold text-white/60">Patrimoine</dt><dd class="text-white font-semibold">450 k€</dd></div>
+              <div class="flex justify-between"><dt class="uppercase tracking-wider text-[10px] font-semibold text-white/60">TMI</dt><dd class="text-white">41 %</dd></div>
+              <div class="flex justify-between"><dt class="uppercase tracking-wider text-[10px] font-semibold text-white/60">Objectif</dt><dd class="text-white text-right">Retraite + transmission</dd></div>
+              <div class="flex justify-between"><dt class="uppercase tracking-wider text-[10px] font-semibold text-white/60">Conseiller</dt><dd class="text-white text-right">Paulin De La Fontaine</dd></div>
+            </dl>
+
+            <button class="w-full mt-6 px-5 py-3 text-[12px] tracking-wider uppercase font-semibold text-navy bg-white hover:bg-white/90 rounded-md">Ouvrir la fiche</button>
+          </div>
+        </aside>
+      </section>
+    </div>
+  </main>
+
+  <!-- MODALE -->
+  <div class="fixed inset-0 bg-navy/50 flex items-center justify-center p-8 backdrop-blur-sm" style="display:none" id="modal">
+    <div class="bg-white w-[500px] rounded-lg shadow-2xl overflow-hidden">
+      <div class="bg-navy text-white px-8 py-5 flex items-center justify-between" style="border-bottom:3px solid var(--gold)">
+        <div>
+          <div class="text-[10px] tracking-[0.22em] uppercase font-semibold text-gold">Création</div>
+          <h3 class="ff-editorial text-[20px] mt-0.5">Nouveau dossier</h3>
+        </div>
+        <button class="text-2xl text-white/60 hover:text-white">×</button>
+      </div>
+      <div class="p-8 space-y-5">
+        <div>
+          <label class="text-[10px] tracking-[0.18em] uppercase font-semibold block mb-2" style="color:var(--t3)">Client</label>
+          <input class="w-full border px-4 py-3 text-[14px] focus:outline-none focus:border-navy rounded-md" placeholder="Nom du client" style="border-color:var(--line)"/>
+        </div>
+        <div>
+          <label class="text-[10px] tracking-[0.18em] uppercase font-semibold block mb-2" style="color:var(--t3)">Produit</label>
+          <select class="w-full border px-4 py-3 text-[14px] focus:outline-none focus:border-navy rounded-md" style="border-color:var(--line)"><option>PER Individuel</option></select>
+        </div>
+        <div class="flex gap-3 pt-3">
+          <button class="flex-1 px-5 py-3 text-[12px] tracking-wider uppercase font-semibold border rounded-md" style="border-color:var(--line);color:var(--t2)">Annuler</button>
+          <button class="flex-1 px-5 py-3 text-[12px] tracking-wider uppercase font-semibold text-white bg-navy hover:opacity-90 rounded-md">Créer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="fixed bottom-6 right-6 px-5 py-3 bg-navy text-white text-[12px] uppercase tracking-wider rounded-md shadow-lg" onclick="document.getElementById('modal').style.display='flex'">Voir la modale</button>
+</body>
+</html>
