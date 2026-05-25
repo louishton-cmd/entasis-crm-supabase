@@ -16,6 +16,7 @@ import MesDossiersImmo from './components/MesDossiersImmo'
 import PipelineVEFA from './components/PipelineVEFA'
 import OutilsCGP from './components/OutilsCGP'
 import LinkedInPro from './components/LinkedInPro'
+import UcsStructures from './components/UcsStructures'
 import ClientsView from './components/clients/ClientsView'
 import ClientView from './components/clients/ClientView'
 import WeeklyReview from './components/WeeklyReview.jsx'
@@ -110,6 +111,8 @@ const Icon = {
   Kanban:    ()=><svg className="nav-item-icon" viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="4" height="14" rx="1" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8"/><rect x="8" y="3" width="4" height="10" rx="1" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".6"/><rect x="14" y="3" width="4" height="12" rx="1" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".5"/></svg>,
   Outils:    ()=><svg className="nav-item-icon" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="3" stroke="currentColor" strokeWidth="1.4" fill="none" opacity=".8"/><path d="M10 2v3M10 15v3M2 10h3M15 10h3M4.2 4.2l2.1 2.1M13.7 13.7l2.1 2.1M4.2 15.8l2.1-2.1M13.7 6.3l2.1-2.1" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity=".6"/></svg>,
   LinkedIn:  ()=><svg className="nav-item-icon" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".8"/><path d="M7 9v4M7 7v.01" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" opacity=".7"/><path d="M10 13v-2.5c0-1 .5-1.5 1.5-1.5s1.5.5 1.5 1.5V13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" opacity=".7"/></svg>,
+  // Briefcase style pour l'onglet UCS Produits Structurés
+  Ucs:       ()=><svg className="nav-item-icon" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="6" width="15" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.4" fill="none" opacity=".85"/><path d="M7 6V4.5a1 1 0 011-1h4a1 1 0 011 1V6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity=".7"/><path d="M2.5 10h15" stroke="currentColor" strokeWidth="1.2" opacity=".5"/><rect x="8.5" y="10" width="3" height="2" rx=".4" fill="currentColor" opacity=".6"/></svg>,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -615,7 +618,7 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,prospects
     {key:'forecast',  label:'Prévisionnel', Icon:Icon.Forecast},
     {key:'agenda',    label:'Agenda',    Icon:Icon.Calendar},
     {key:'market',    label:'Marchés',   Icon:Icon.Market},
-    {key:'prospection', label:'Prospection', Icon:Icon.Prospect, badge:prospectsNew},
+    {key:'ucs-structures', label:'UCS Produits Structurés', Icon:Icon.Ucs, badgeGold:true},
     ...(isManager?[
       {key:'team', label:'Équipe', Icon:Icon.Team},
       {key:'weekly-review', label:'Revue hebdo', Icon:Icon.Forecast},
@@ -699,7 +702,7 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,prospects
 /* ─────────────────────────────────────────────────────────────────────────────
    TOP BAR
 ───────────────────────────────────────────────────────────────────────────── */
-const PAGE_TITLES={dashboard:'Vue d\'ensemble',pipeline:'Pipeline commercial',dossiers:'Dossiers clients',forecast:'Prévisionnel',agenda:'Agenda & Relances',market:'Marchés financiers 📈',team:'Équipe',leads:'Leads Live ⚡',prospection:'Prospection LinkedIn','immo-dashboard':'Immobilier Neuf','immo-programmes':'Catalogue Programmes','immo-dossiers':'Mes Dossiers Immobilier','immo-pipeline':'Pipeline VEFA','linkedin-pro':'LinkedIn Pro',outils:'Outils CGP','pilotage-rh':'Pilotage RH 👥'}
+const PAGE_TITLES={dashboard:'Vue d\'ensemble',pipeline:'Pipeline commercial',dossiers:'Dossiers clients',forecast:'Prévisionnel',agenda:'Agenda & Relances',market:'Marchés financiers 📈',team:'Équipe',leads:'Leads Live ⚡','ucs-structures':'UCS Produits Structurés',prospection:'Prospection LinkedIn','immo-dashboard':'Immobilier Neuf','immo-programmes':'Catalogue Programmes','immo-dossiers':'Mes Dossiers Immobilier','immo-pipeline':'Pipeline VEFA','linkedin-pro':'LinkedIn Pro',outils:'Outils CGP','pilotage-rh':'Pilotage RH 👥'}
 
 function TopBar({activeTab,month,setMonth,onNewDeal,onRefresh,onMobileMenu}){
   return (
@@ -4305,6 +4308,7 @@ export default function App(){
           {activeTab==='market'&&<MarketView/>}
           {activeTab==='team'&&isManager&&<TeamView deals={deals} objectifs={objectifs} teamProfiles={teamProfiles} month={month} profile={profile}/>}
           {activeTab==='weekly-review'&&isManager&&<WeeklyReview deals={deals} teamProfiles={teamProfiles} supabase={supabase}/>}
+          {activeTab==='ucs-structures'&&<UcsStructures profile={profile}/>}
           {activeTab==='prospection'&&<ProspectionView prospects={prospects} profile={profile} teamProfiles={teamProfiles} onRefresh={fetchProspects} onProspectsChange={setProspects}/>}
           {activeTab==='immo-dashboard'&&<VueImmobilier profile={profile} setActiveTab={setActiveTab}/>}
           {activeTab==='immo-programmes'&&<CatalogueProgrammes setActiveTab={setActiveTab}/>}

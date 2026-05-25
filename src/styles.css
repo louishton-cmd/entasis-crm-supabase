@@ -1950,3 +1950,35 @@ a { color: inherit; text-decoration: none; }
   color: var(--t3);
   opacity: .6;
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   UCS Produits Structurés (Louis 2026-05-25)
+   Layout 2 colonnes 60/40 sur desktop, empilé sur mobile (<900px).
+   ───────────────────────────────────────────────────────────────────── */
+.ucs-layout {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.ucs-catalogue {
+  min-width: 0;
+}
+.ucs-simulator {
+  position: sticky;
+  top: 80px;
+  background: #fff;
+  border: 1px solid var(--gold-line, rgba(201, 169, 97, 0.3));
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(10, 31, 68, 0.04);
+}
+@media (max-width: 900px) {
+  .ucs-layout {
+    grid-template-columns: 1fr;
+  }
+  .ucs-simulator {
+    position: static;
+  }
+}
+
