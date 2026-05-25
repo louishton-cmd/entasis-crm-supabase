@@ -920,11 +920,25 @@ function Simulator({ ucs, profile, isManager }) {
   // pas de calcul de commission possible, on prévient l'utilisateur.
   const hasUpfront = ucs?.upfront != null && !isNaN(Number(ucs.upfront))
 
-  // Calcul commission (pure function du service)
+  // Calcul commission (pure function du service).
+  // Côté conseiller la commission reste 1,5 % fixe même sans upfront négocié
+  // (cas Abeille mini-campagne SwissLine). Seule la rétention cabinet exige
+  // l'upfront — donc le warning "non calculable" est réservé au manager.
   const commission = useMemo(() => {
-    if (!ucs || !hasValidMontant || !hasUpfront) return null
-    return ucsService.computeCommission(montant, Number(ucs.upfront))
-  }, [ucs, montant, hasValidMontant, hasUpfront])
+    if (!ucs || !hasValidMontant) return null
+    if (hasUpfront) {
+      return ucsService.computeCommission(montant, Number(ucs.upfront))
+    }
+    if (!isManager) {
+      return {
+        upfrontTotal: null,
+        conseiller: (montant * 1.5) / 100,
+        cabinet: null,
+        isUnderwater: false,
+      }
+    }
+    return null
+  }, [ucs, montant, hasValidMontant, hasUpfront, isManager])
 
   // Coupon annuel : préférer coupon_annualise (nouveau schéma), fallback coupon_client (legacy)
   const couponAnnuelPct = ucs?.coupon_annualise != null
@@ -1117,8 +1131,11 @@ function Simulator({ ucs, profile, isManager }) {
         </button>
       </div>
 
-      {/* Cas spécial : pas d'upfront négocié (ex Abeille mini-campagne) */}
-      {hasValidMontant && !hasUpfront && (
+      {/* Cas spécial : pas d'upfront négocié (ex Abeille mini-campagne).
+          Côté conseiller : pas de warning, la commission 1,5 % s'affiche
+          normalement dans le bloc résultats. Côté manager : warning car
+          la rétention cabinet (= upfront − 1,5 %) n'est pas calculable. */}
+      {hasValidMontant && !hasUpfront && isManager && (
         <div style={{
           marginTop: 20,
           padding: 14,
@@ -1129,20 +1146,12 @@ function Simulator({ ucs, profile, isManager }) {
           color: '#92400e',
           lineHeight: 1.5,
         }}>
-          <strong>⚠ Commission non calculable</strong>
+          <strong>⚠ Rétention cabinet non calculable</strong>
           <br />
-          {isManager ? (
-            <>
-              La commission n'est pas calculable pour cette UCS (upfront non renseigné).
-              Vérifie la circulaire {ucs?.compagnie === 'SWISSLIFE' ? 'SwissLine' : 'Abeille'}
-              {' '}ou demande les conditions au structureur <strong>{ucs?.structureur?.nom || '?'}</strong>.
-            </>
-          ) : (
-            <>
-              La commission n'est pas affichée pour cette UCS. Rapproche-toi de la direction
-              pour confirmer le taux applicable.
-            </>
-          )}
+          Upfront non renseigné pour cette UCS — la commission conseiller (1,5 %)
+          reste due. Vérifie la circulaire {ucs?.compagnie === 'SWISSLIFE' ? 'SwissLine' : 'Abeille'}
+          {' '}ou demande les conditions au structureur <strong>{ucs?.structureur?.nom || '?'}</strong>
+          {' '}pour confirmer la rétention.
         </div>
       )}
 
