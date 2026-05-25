@@ -551,6 +551,8 @@ function CatalogueTable({ ucs, selectedId, onSelect, adminMode, onReload, isMana
               <Th>Nom UCS</Th>
               <Th>ISIN</Th>
               <Th>Compagnie</Th>
+              {/* Ma commission : 1,5 % fixe, visible TOUS pour motivation conseiller */}
+              <Th align="right">Ma comm.</Th>
               {/* Upfront : visible managers seulement (info négociée, ne pas exposer aux conseillers) */}
               {isManager && <Th align="right">Upfront</Th>}
               <Th align="right">Mini</Th>
@@ -716,6 +718,17 @@ function Row({ u, selected, onClick, adminMode, onReload, isManager, onStructure
           textTransform: 'uppercase',
           letterSpacing: '0.03em',
         }}>{u.compagnie}</span>
+      </Td>
+      {/* Ma commission : 1,5 % fixe — visible tous, en or gras (motivation). */}
+      <Td align="right">
+        <span style={{
+          fontWeight: 700,
+          color: 'var(--gold)',
+          fontSize: 12,
+          letterSpacing: '0.01em',
+        }} title="Commission conseiller fixe sur toutes les UCS">
+          1,5 %
+        </span>
       </Td>
       {/* Upfront : visible managers seulement. Les conseillers n'ont pas
           besoin de cette info négociée — leur commission est 1,5% fixe. */}

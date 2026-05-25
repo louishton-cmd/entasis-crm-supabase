@@ -645,13 +645,11 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,prospects
       {mobileOpen && <div className="sidebar-overlay" onClick={onCloseMobile} aria-hidden />}
       <nav className={`sidebar${mobileOpen?' sidebar--mobile-open':''}`}>
         <div className="sidebar-brand">
-          <div className="brand-logo-wrap">
-            <img
-              src="/entasis-logo.png"
-              alt="Entasis Conseil"
-              className="brand-logo-img"
-            />
-          </div>
+          <img
+            src="/entasis-logo.png"
+            alt="Entasis Conseil"
+            className="brand-logo-img"
+          />
           <div className="brand-sub">CRM Patrimonial</div>
           {onCloseMobile && (
             <button className="sidebar-close-mobile" onClick={onCloseMobile} aria-label="Fermer le menu">×</button>

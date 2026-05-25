@@ -135,31 +135,26 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden;
 }
 .sidebar-brand {
-  padding: 18px 20px 16px;
+  padding: 24px 20px 18px;
   border-bottom: 1px solid var(--sb-border);
+  text-align: center;
 }
-/* Le logo officiel Entasis a un texte navy + accent or sur fond
-   transparent. Sur la sidebar sombre il faut un fond clair pour
-   la lisibilité. */
-.brand-logo-wrap {
-  background: #ffffff;
-  border-radius: 8px;
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 8px;
-}
+/* Le logo officiel a un texte navy + accent or. Sur fond sombre on
+   l'inverse en blanc via filter CSS — propre, pas de wrapper. */
 .brand-logo-img {
   display: block;
+  width: 140px;
   max-width: 100%;
   height: auto;
-  max-height: 40px;
-  object-fit: contain;
+  margin: 0 auto 10px;
+  filter: brightness(0) invert(1);
+  /* Réduit l'opacité subtile pour un blanc cassé élégant plutôt qu'un
+     blanc pur trop agressif sur navy. */
+  opacity: 0.92;
 }
 .brand-sub {
   font-size: 10px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   color: var(--sb-text);
   text-transform: uppercase;
   text-align: center;
