@@ -645,11 +645,10 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,prospects
       {mobileOpen && <div className="sidebar-overlay" onClick={onCloseMobile} aria-hidden />}
       <nav className={`sidebar${mobileOpen?' sidebar--mobile-open':''}`}>
         <div className="sidebar-brand">
-          <img
-            src="/entasis-logo.png"
-            alt="Entasis Conseil"
-            className="brand-logo-img"
-          />
+          {/* CSS mask : on prend la silhouette du PNG (alpha) et on la peint
+              en blanc pur. Garantit "logo blanc direct sur navy" sans
+              wrapper ni filter approximatif. */}
+          <div className="brand-logo-mask" role="img" aria-label="Entasis Conseil" />
           <div className="brand-sub">CRM Patrimonial</div>
           {onCloseMobile && (
             <button className="sidebar-close-mobile" onClick={onCloseMobile} aria-label="Fermer le menu">×</button>

@@ -135,22 +135,29 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden;
 }
 .sidebar-brand {
-  padding: 24px 20px 18px;
+  padding: 28px 20px 20px;
   border-bottom: 1px solid var(--sb-border);
   text-align: center;
 }
-/* Le logo officiel a un texte navy + accent or. Sur fond sombre on
-   l'inverse en blanc via filter CSS — propre, pas de wrapper. */
-.brand-logo-img {
+/* Logo en blanc pur via CSS mask :
+   - mask-image utilise l'alpha du PNG (silhouette du texte "Entasis")
+   - background-color: white peint cette silhouette en blanc
+   - Pas de wrapper, pas de fond — le logo se fond directement sur navy.
+   Le PNG fait 1694×1080 → aspect-ratio 1.569:1. */
+.brand-logo-mask {
   display: block;
   width: 140px;
-  max-width: 100%;
-  height: auto;
-  margin: 0 auto 10px;
-  filter: brightness(0) invert(1);
-  /* Réduit l'opacité subtile pour un blanc cassé élégant plutôt qu'un
-     blanc pur trop agressif sur navy. */
-  opacity: 0.92;
+  aspect-ratio: 1694 / 1080;
+  margin: 0 auto 12px;
+  background-color: #ffffff;
+  -webkit-mask-image: url('/entasis-logo.png');
+          mask-image: url('/entasis-logo.png');
+  -webkit-mask-size: contain;
+          mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+          mask-position: center;
 }
 .brand-sub {
   font-size: 10px;
