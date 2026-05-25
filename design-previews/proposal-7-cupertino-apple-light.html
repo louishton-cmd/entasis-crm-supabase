@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Entasis — Proposition 7 · Cupertino · Apple light premium</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:           #F5F5F7;          /* gris Apple iOS background */
+    --bg-tinted:    #FBFAF8;
+    --paper:        #FFFFFF;
+    --line:         rgba(60,60,67,0.08);    /* iOS separator */
+    --line-2:       rgba(60,60,67,0.12);
+    --t1:           #1D1D1F;           /* black Apple */
+    --t2:           #515154;           /* secondary */
+    --t3:           #86868B;           /* tertiary (labels) */
+    --navy:         #0A1628;
+    --apple-blue:   #0071E3;           /* Apple system blue */
+    --apple-blue-soft: rgba(0,113,227,0.10);
+    --gold:         #C9A961;
+    --green:        #34C759;           /* Apple system green */
+    --rose:         #FF3B30;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: 'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--t1); -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; font-feature-settings: 'ss01','cv11'; }
+
+  /* iOS-style cards : white, soft multi-shadow, subtle gradient bottom */
+  .ios-card {
+    background: linear-gradient(180deg, #FFFFFF 0%, #FCFCFC 100%);
+    border: 0.5px solid var(--line);
+    border-radius: 18px;
+    box-shadow:
+      0 0.5px 0 rgba(255,255,255,0.8) inset,
+      0 4px 12px rgba(0,0,0,0.04),
+      0 12px 32px -8px rgba(0,0,0,0.05);
+  }
+  .ios-card-elev {
+    background: #FFFFFF;
+    border: 0.5px solid var(--line);
+    border-radius: 20px;
+    box-shadow:
+      0 0.5px 0 rgba(255,255,255,0.9) inset,
+      0 8px 24px rgba(0,0,0,0.06),
+      0 24px 56px -16px rgba(0,0,0,0.10);
+  }
+
+  /* Sidebar : translucide vibrant */
+  .sidebar-vibrant {
+    background: rgba(245,245,247,0.72);
+    backdrop-filter: blur(28px) saturate(160%);
+    -webkit-backdrop-filter: blur(28px) saturate(160%);
+    border-right: 0.5px solid var(--line);
+  }
+
+  /* Boutons primaires : gradient subtle iOS */
+  .btn-ios-primary {
+    background: linear-gradient(180deg, #1D1D1F 0%, #0A1628 100%);
+    box-shadow: 0 0.5px 0 rgba(255,255,255,0.2) inset, 0 4px 12px rgba(10,22,40,0.15);
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+  .btn-ios-primary:hover { transform: translateY(-1px); box-shadow: 0 0.5px 0 rgba(255,255,255,0.2) inset, 0 8px 20px rgba(10,22,40,0.20); }
+
+  /* Sidebar nav item */
+  .nav-ios {
+    transition: background 180ms ease, color 120ms ease;
+    border-radius: 10px;
+  }
+  .nav-ios:hover { background: rgba(0,0,0,0.04); }
+  .nav-ios-active {
+    background: rgba(0,0,0,0.06);
+    color: var(--t1) !important;
+    font-weight: 600;
+  }
+
+  /* Apple-style row dividers */
+  .row-divider { border-top: 0.5px solid var(--line); }
+  tr.row-h:hover { background: rgba(0,0,0,0.025); }
+
+  /* Section heading large */
+  .heading-large { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; color: var(--t1); }
+
+  /* Pill badge */
+  .pill {
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    background: rgba(0,113,227,0.10);
+    color: var(--apple-blue);
+  }
+  .pill-vip {
+    background: linear-gradient(135deg, rgba(201,169,97,0.16), rgba(201,169,97,0.08));
+    color: #8C6F2F;
+    border: 0.5px solid rgba(201,169,97,0.3);
+  }
+
+  /* Logo natif sur fond clair */
+  .logo-img { max-width: 100%; height: auto; }
+</style>
+</head>
+<body class="min-h-screen flex">
+
+  <!-- SIDEBAR : Apple vibrant -->
+  <aside class="w-64 flex-shrink-0 sidebar-vibrant flex flex-col">
+    <div class="px-7 pt-9 pb-7" style="border-bottom: 0.5px solid var(--line)">
+      <img src="entasis-logo.png" alt="Entasis Conseil" class="logo-img" style="width:118px"/>
+      <div class="text-[10px] tracking-[0.18em] mt-3 uppercase font-medium" style="color:var(--t3)">CRM Patrimonial</div>
+    </div>
+
+    <nav class="flex-1 py-4 px-3 space-y-px overflow-y-auto">
+      <div class="text-[10px] tracking-[0.14em] px-4 py-2.5 uppercase font-semibold" style="color:var(--t3)">Navigation</div>
+      <a class="nav-ios flex items-center gap-3 px-3 py-2 text-[14px] font-medium" style="color:var(--t2)">Vue cabinet</a>
+      <a class="nav-ios nav-ios-active flex items-center gap-3 px-3 py-2 text-[14px]">Pipeline</a>
+      <a class="nav-ios flex items-center gap-3 px-3 py-2 text-[14px] font-medium" style="color:var(--t2)">Dossiers</a>
+      <a class="nav-ios flex items-center gap-3 px-3 py-2 text-[14px] font-medium" style="color:var(--t2)">Clients</a>
+      <a class="nav-ios flex items-center gap-3 px-3 py-2 text-[14px] font-medium" style="color:var(--t2)">Leads Live</a>
+      <a class="nav-ios flex items-center gap-3 px-3 py-2 text-[14px] font-medium" style="color:var(--t2)">UCS Produits Structurés</a>
+      <a class="nav-ios flex items-center gap-3 px-3 py-2 text-[14px] font-medium" style="color:var(--t2)">Structureurs</a>
+      <a class="nav-ios flex items-center gap-3 px-3 py-2 text-[14px] font-medium" style="color:var(--t2)">Agenda</a>
+
+      <div class="text-[10px] tracking-[0.14em] px-4 py-2.5 mt-3 uppercase font-semibold" style="color:var(--t3)">Direction</div>
+      <a class="nav-ios flex items-center gap-3 px-3 py-2 text-[14px] font-medium" style="color:var(--t2)">Équipe</a>
+      <a class="nav-ios flex items-center gap-3 px-3 py-2 text-[14px] font-medium" style="color:var(--t2)">Revue hebdo</a>
+    </nav>
+
+    <div class="px-5 py-4" style="border-top: 0.5px solid var(--line)">
+      <div class="flex items-center gap-3 p-2 rounded-xl hover:bg-black/[0.04]">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-semibold text-white"
+             style="background: linear-gradient(135deg, #1D1D1F, #3A3A3D)">LH</div>
+        <div class="min-w-0">
+          <div class="text-[13px] font-semibold truncate" style="color:var(--t1)">Louis Hatton</div>
+          <div class="text-[11px]" style="color:var(--t3)">Direction</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="flex-1 flex flex-col" style="background:var(--bg)">
+    <header class="px-12 py-8 flex items-end justify-between" style="border-bottom: 0.5px solid var(--line); background: rgba(245,245,247,0.85); backdrop-filter: blur(20px)">
+      <div>
+        <div class="text-[12px] font-medium mb-1.5" style="color:var(--t3)">Pipeline</div>
+        <h1 class="heading-large">Pipeline commercial</h1>
+        <div class="text-[14px] mt-1.5" style="color:var(--t2)">19 dossiers actifs · Mai 2026</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="px-4 py-2.5 text-[13px] font-medium rounded-xl"
+                style="color:var(--t1); background:rgba(0,0,0,0.05); border:0.5px solid var(--line)">Exporter</button>
+        <button class="btn-ios-primary px-5 py-2.5 text-[13px] font-semibold text-white rounded-xl">+ Nouveau dossier</button>
+      </div>
+    </header>
+
+    <div class="flex-1 px-12 py-10 space-y-10">
+
+      <!-- KPI CARDS -->
+      <section class="grid grid-cols-4 gap-5">
+        <div class="ios-card p-7">
+          <div class="text-[12px] font-medium uppercase tracking-wider mb-3" style="color:var(--t3)">Pipeline total</div>
+          <div class="text-[40px] font-bold leading-none tracking-tight" style="color:var(--t1)">2,4<span class="text-[20px] font-medium ml-1" style="color:var(--t3)">M€</span></div>
+          <div class="flex items-center gap-1.5 mt-5">
+            <span class="text-[13px] font-semibold" style="color:var(--green)">↑ 12%</span>
+            <span class="text-[13px]" style="color:var(--t2)">vs N-1</span>
+          </div>
+        </div>
+        <div class="ios-card p-7">
+          <div class="text-[12px] font-medium uppercase tracking-wider mb-3" style="color:var(--t3)">RDV ce mois</div>
+          <div class="text-[40px] font-bold leading-none tracking-tight" style="color:var(--t1)">42</div>
+          <div class="text-[13px] mt-5" style="color:var(--t2)">8 cette semaine</div>
+        </div>
+        <div class="ios-card p-7">
+          <div class="text-[12px] font-medium uppercase tracking-wider mb-3" style="color:var(--t3)">Signatures</div>
+          <div class="text-[40px] font-bold leading-none tracking-tight" style="color:var(--t1)">14</div>
+          <div class="text-[13px] mt-5" style="color:var(--t2)">Taux conv. <span class="font-semibold" style="color:var(--t1)">33 %</span></div>
+        </div>
+        <div class="ios-card p-7">
+          <div class="text-[12px] font-medium uppercase tracking-wider mb-3" style="color:var(--t3)">PP nouvelle</div>
+          <div class="text-[40px] font-bold leading-none tracking-tight" style="color:var(--t1)">186<span class="text-[20px] font-medium ml-1" style="color:var(--t3)">k€</span></div>
+          <div class="mt-5 flex items-center gap-2">
+            <div class="flex-1 h-1.5 rounded-full overflow-hidden" style="background:rgba(0,0,0,0.06)">
+              <div class="h-full rounded-full" style="width:93%; background: linear-gradient(90deg, var(--green), #34C759)"></div>
+            </div>
+            <span class="text-[12px] font-semibold" style="color:var(--green)">93%</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- TABLE + FICHE -->
+      <section class="grid grid-cols-3 gap-6">
+        <div class="col-span-2">
+          <div class="flex items-end justify-between mb-5">
+            <div>
+              <h2 class="text-[22px] font-bold tracking-tight" style="color:var(--t1)">Derniers leads</h2>
+              <div class="text-[13px] mt-1" style="color:var(--t2)">5 nouveaux cette semaine</div>
+            </div>
+            <a class="text-[13px] font-medium" style="color:var(--apple-blue)">Voir tout →</a>
+          </div>
+          <div class="ios-card overflow-hidden">
+            <table class="w-full">
+              <thead>
+                <tr>
+                  <th class="text-left text-[11px] uppercase tracking-wider font-semibold px-6 py-4" style="color:var(--t3)">Client</th>
+                  <th class="text-left text-[11px] uppercase tracking-wider font-semibold px-6 py-4" style="color:var(--t3)">Source</th>
+                  <th class="text-left text-[11px] uppercase tracking-wider font-semibold px-6 py-4" style="color:var(--t3)">Conseiller</th>
+                  <th class="text-right text-[11px] uppercase tracking-wider font-semibold px-6 py-4" style="color:var(--t3)">Patrimoine</th>
+                </tr>
+              </thead>
+              <tbody class="text-[14px]">
+                <tr class="row-divider row-h">
+                  <td class="px-6 py-4 font-medium" style="color:var(--t1)">Jean-Charles Beaumont</td>
+                  <td class="px-6 py-4" style="color:var(--t2)">Recommandation</td>
+                  <td class="px-6 py-4" style="color:var(--t2)">Paulin De La Fontaine</td>
+                  <td class="px-6 py-4 text-right font-semibold tabular-nums" style="color:var(--t1)">450 k€</td>
+                </tr>
+                <tr class="row-divider row-h">
+                  <td class="px-6 py-4 font-medium" style="color:var(--t1)">Aurélie Mercier-Lambert</td>
+                  <td class="px-6 py-4" style="color:var(--t2)">Site web</td>
+                  <td class="px-6 py-4" style="color:var(--t2)">Quentin Vialle</td>
+                  <td class="px-6 py-4 text-right font-semibold tabular-nums" style="color:var(--t1)">280 k€</td>
+                </tr>
+                <tr class="row-divider row-h">
+                  <td class="px-6 py-4 font-medium flex items-center gap-2" style="color:var(--t1)">
+                    Philippe d'Arboussier
+                    <span class="pill pill-vip">VIP</span>
+                  </td>
+                  <td class="px-6 py-4" style="color:var(--t2)">Facebook Ads</td>
+                  <td class="px-6 py-4" style="color:var(--t2)">Gianni Rossi</td>
+                  <td class="px-6 py-4 text-right font-bold tabular-nums" style="color:var(--t1)">1,2 M€</td>
+                </tr>
+                <tr class="row-divider row-h">
+                  <td class="px-6 py-4 font-medium" style="color:var(--t1)">Marie-Hélène Dubois</td>
+                  <td class="px-6 py-4" style="color:var(--t2)">LinkedIn</td>
+                  <td class="px-6 py-4" style="color:var(--t2)">Dany Lebrun</td>
+                  <td class="px-6 py-4 text-right font-semibold tabular-nums" style="color:var(--t1)">680 k€</td>
+                </tr>
+                <tr class="row-divider row-h">
+                  <td class="px-6 py-4 font-medium" style="color:var(--t1)">Sébastien Romieu</td>
+                  <td class="px-6 py-4" style="color:var(--t2)">Recommandation</td>
+                  <td class="px-6 py-4" style="color:var(--t2)">Paulin De La Fontaine</td>
+                  <td class="px-6 py-4 text-right font-semibold tabular-nums" style="color:var(--t1)">320 k€</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <aside class="ios-card-elev p-7">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-2 h-2 rounded-full" style="background:var(--gold)"></div>
+            <div class="text-[11px] uppercase tracking-wider font-semibold" style="color:var(--gold)">Client en vue</div>
+          </div>
+          <h3 class="text-[22px] font-bold tracking-tight leading-tight" style="color:var(--t1)">Jean-Charles Beaumont</h3>
+          <div class="text-[12.5px] mt-1.5" style="color:var(--t2)">Recommandation · Paulin De La Fontaine</div>
+
+          <div class="mt-6 space-y-4">
+            <div class="flex justify-between items-baseline pb-3 row-divider">
+              <span class="uppercase tracking-wider text-[11px] font-semibold" style="color:var(--t3)">Âge</span>
+              <span class="font-semibold tabular-nums" style="color:var(--t1)">58 ans</span>
+            </div>
+            <div class="flex justify-between items-baseline pb-3 row-divider">
+              <span class="uppercase tracking-wider text-[11px] font-semibold" style="color:var(--t3)">Patrimoine</span>
+              <span class="font-bold text-[18px] tabular-nums" style="color:var(--t1)">450 k€</span>
+            </div>
+            <div class="flex justify-between items-baseline pb-3 row-divider">
+              <span class="uppercase tracking-wider text-[11px] font-semibold" style="color:var(--t3)">TMI</span>
+              <span class="font-semibold tabular-nums" style="color:var(--t1)">41 %</span>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <span class="uppercase tracking-wider text-[11px] font-semibold" style="color:var(--t3)">Objectif</span>
+              <span class="text-[13.5px] font-medium text-right" style="color:var(--t1)">Retraite + transmission</span>
+            </div>
+          </div>
+
+          <button class="btn-ios-primary w-full mt-7 px-5 py-3 text-[14px] font-semibold text-white rounded-xl">
+            Ouvrir la fiche
+          </button>
+        </aside>
+      </section>
+    </div>
+  </main>
+
+  <!-- MODALE iOS-style sheet -->
+  <div class="fixed inset-0 flex items-center justify-center p-8" style="display:none; background:rgba(0,0,0,0.35); backdrop-filter:blur(20px)" id="modal">
+    <div class="ios-card-elev w-[520px] overflow-hidden" style="border-radius:24px">
+      <div class="px-8 py-6" style="border-bottom: 0.5px solid var(--line)">
+        <h3 class="text-[20px] font-bold tracking-tight" style="color:var(--t1)">Nouveau dossier</h3>
+        <div class="text-[13px] mt-1" style="color:var(--t2)">Remplissez les informations du client</div>
+      </div>
+      <div class="p-8 space-y-5">
+        <div>
+          <label class="text-[13px] font-medium block mb-2" style="color:var(--t1)">Client</label>
+          <input class="w-full px-4 py-3 text-[14px] rounded-xl focus:outline-none focus:ring-2 transition"
+                 placeholder="Nom du client"
+                 style="background:rgba(0,0,0,0.04); border:0.5px solid var(--line); color:var(--t1)"/>
+        </div>
+        <div>
+          <label class="text-[13px] font-medium block mb-2" style="color:var(--t1)">Produit</label>
+          <select class="w-full px-4 py-3 text-[14px] rounded-xl focus:outline-none transition"
+                  style="background:rgba(0,0,0,0.04); border:0.5px solid var(--line); color:var(--t1)"><option>PER Individuel</option></select>
+        </div>
+        <div class="flex gap-3 pt-4">
+          <button class="flex-1 px-5 py-3 text-[14px] font-semibold rounded-xl" style="color:var(--t1); background:rgba(0,0,0,0.05); border:0.5px solid var(--line)">Annuler</button>
+          <button class="btn-ios-primary flex-1 px-5 py-3 text-[14px] font-semibold text-white rounded-xl">Créer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-ios-primary fixed bottom-6 right-6 px-5 py-3 text-[13px] font-semibold text-white rounded-xl" onclick="document.getElementById('modal').style.display='flex'">Voir la modale</button>
+</body>
+</html>

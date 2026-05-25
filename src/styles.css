@@ -1,81 +1,86 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');
+/* Inter chargé via index.html (preconnect Google Fonts pour perf). */
 
 /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    DESIGN TOKENS
 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :root {
-  /* Surface */
-  --bg:            #F4F1EB;
-  --bg-subtle:     #EDE9E1;
+  /* Surface — blanc pur partout (Proposition 2 "Premium minimaliste") */
+  --bg:            #FFFFFF;
+  --bg-subtle:     #FAFAFA;
   --card:          #FFFFFF;
-  --card-hover:    #FDFCFA;
+  --card-hover:    #FAFAFA;
 
-  /* Sidebar — palette ajustée (Louis 2026-05) : texte blanc cassé
-     pour matcher le logo blanc et améliorer la lisibilité globale. */
-  --sb-bg:         #141618;
-  --sb-border:     rgba(255,255,255,0.08);
-  --sb-text:       rgba(255,255,255,0.78);    /* avant : #9099A8, trop pâle */
-  --sb-text-hover: #ffffff;                    /* avant : beige #D5C9B4 */
-  --sb-active:     #C09B5A;                    /* or — accent de l'actif, inchangé */
-  --sb-active-bg:  rgba(192,155,90,0.14);
-  --sb-hover-bg:   rgba(255,255,255,0.06);
+  /* Sidebar — blanche, contraste fort avec content via border 1px */
+  --sb-bg:         #FFFFFF;
+  --sb-border:     #F0F0F0;
+  --sb-text:       #525866;
+  --sb-text-hover: #0A1628;
+  --sb-active:     #0A1628;
+  --sb-active-bg:  #FAFAFA;
+  --sb-hover-bg:   #FAFAFA;
 
-  /* Text */
-  --t1: #18191C;
-  --t2: #4A4F5C;
-  --t3: #8A8F9C;
+  /* Text — navy primaire #0A1628 */
+  --t1: #0A1628;
+  --t2: #525866;
+  --t3: #A0A6AF;
   --t-inv: #FFFFFF;
 
-  /* Gold */
-  --gold:          #C09B5A;
-  --gold-dk:       #9A7B3A;
+  /* Gold — quasi absent en V2 (signature ponctuelle uniquement) */
+  --gold:          #C9A961;
+  --gold-dk:       #A6843F;
   --gold-lt:       #E8D5A8;
-  --gold-subtle:   #FAF5E8;
-  --gold-line:     rgba(192,155,90,0.25);
+  --gold-subtle:   #FBF6EC;
+  --gold-line:     rgba(201,169,97,0.25);
 
-  /* Status */
-  --signed:        #1B6B46;
-  --signed-bg:     #E8F5EE;
-  --signed-bd:     rgba(27,107,70,0.25);
-  --progress:      #7A5520;
-  --progress-bg:   #FDF3E3;
-  --progress-bd:   rgba(122,85,32,0.25);
-  --forecast:      #2A5285;
-  --forecast-bg:   #E8EFF8;
-  --forecast-bd:   rgba(42,82,133,0.25);
-  --cancelled:     #7A2A26;
-  --cancelled-bg:  #FAE9E8;
-  --cancelled-bd:  rgba(122,42,38,0.25);
+  /* Status — neutres modernes peu saturés */
+  --signed:        #15803D;
+  --signed-bg:     #ECFDF3;
+  --signed-bd:     rgba(21,128,61,0.20);
+  --progress:      #B45309;
+  --progress-bg:   #FFFBEB;
+  --progress-bd:   rgba(180,83,9,0.20);
+  --forecast:      #1E40AF;
+  --forecast-bg:   #EFF6FF;
+  --forecast-bd:   rgba(30,64,175,0.20);
+  --cancelled:     #B91C1C;
+  --cancelled-bg:  #FEF2F2;
+  --cancelled-bd:  rgba(185,28,28,0.20);
 
   /* Priority */
-  --urgent-c:  #8A2020;
-  --urgent-bg: #FAE8E8;
-  --high-c:    #7A5520;
-  --high-bg:   #FDF3E3;
+  --urgent-c:  #B91C1C;
+  --urgent-bg: #FEF2F2;
+  --high-c:    #B45309;
+  --high-bg:   #FFFBEB;
 
-  /* Borders */
-  --bd:        #E4E0D8;
-  --bd-strong: #CCCAC2;
-  --bd-focus:  #C09B5A;
+  /* Borders — neutres et fins */
+  --bd:        #F0F0F0;
+  --bd-strong: #E4E4E4;
+  --bd-focus:  #0A1628;
 
-  /* Shadows */
-  --sh-xs: 0 1px 2px rgba(0,0,0,0.04);
-  --sh-sm: 0 2px 8px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  --sh:    0 4px 16px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04);
-  --sh-lg: 0 12px 36px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.05);
-  --sh-gold: 0 4px 20px rgba(192,155,90,0.18);
+  /* Shadows — ultra discrètes, jamais dures */
+  --sh-xs: 0 1px 2px rgba(10,22,40,0.04);
+  --sh-sm: 0 1px 3px rgba(10,22,40,0.06);
+  --sh:    0 4px 12px rgba(10,22,40,0.06), 0 1px 3px rgba(10,22,40,0.04);
+  --sh-lg: 0 16px 32px rgba(10,22,40,0.10), 0 4px 8px rgba(10,22,40,0.05);
+  --sh-gold: 0 4px 20px rgba(201,169,97,0.18);
 
   /* Layout */
-  --sb-w: 228px;
-  --top-h: 56px;
-  --rad-sm: 4px;
+  --sb-w: 240px;
+  --top-h: 64px;
+  --rad-sm: 6px;
   --rad:    8px;
   --rad-lg: 12px;
   --rad-xl: 16px;
 
-  /* Font */
-  --font-serif: 'Playfair Display', Georgia, serif;
-  --font-sans:  'DM Sans', system-ui, sans-serif;
+  /* Font — Inter unique (Linear/Stripe style) */
+  --font-serif: 'Inter', system-ui, sans-serif;
+  --font-sans:  'Inter', system-ui, sans-serif;
+}
+
+/* Active OpenType features for premium feel */
+body, input, button, select, textarea {
+  font-feature-settings: 'cv01', 'cv02', 'cv05', 'cv11', 'ss03';
+  -webkit-font-smoothing: antialiased;
 }
 
 /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -138,35 +143,21 @@ a { color: inherit; text-decoration: none; }
 .sidebar-brand {
   padding: 28px 20px 20px;
   border-bottom: 1px solid var(--sb-border);
-  text-align: center;
 }
-/* Logo en blanc pur via CSS mask :
-   - mask-image utilise l'alpha du PNG (silhouette du texte "Entasis")
-   - background-color: white peint cette silhouette en blanc
-   - Pas de wrapper, pas de fond — le logo se fond directement sur navy.
-   Le PNG fait 1694×1080 → aspect-ratio 1.569:1. */
+/* Sidebar maintenant en BLANC → logo en couleur d'origine direct */
 .brand-logo-mask {
   display: block;
-  width: 140px;
+  width: 130px;
   aspect-ratio: 1694 / 1080;
-  margin: 0 auto 12px;
-  background-color: #ffffff;
-  -webkit-mask-image: url('/entasis-logo.png');
-          mask-image: url('/entasis-logo.png');
-  -webkit-mask-size: contain;
-          mask-size: contain;
-  -webkit-mask-repeat: no-repeat;
-          mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-          mask-position: center;
+  margin: 0 0 10px;
+  background: url('/entasis-logo.png') no-repeat left center / contain;
 }
 .brand-sub {
   font-size: 10px;
-  letter-spacing: 0.18em;
-  color: #ffffff;
-  opacity: 0.85;
+  letter-spacing: 0.16em;
+  color: var(--t3);
   text-transform: uppercase;
-  text-align: center;
+  text-align: left;
   font-weight: 500;
 }
 .sidebar-nav {
@@ -179,10 +170,10 @@ a { color: inherit; text-decoration: none; }
 }
 .nav-section-label {
   font-size: 10px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.55);
-  padding: 12px 10px 6px;
+  color: var(--t3);
+  padding: 16px 12px 6px;
   font-weight: 600;
 }
 .nav-item {
@@ -205,25 +196,29 @@ a { color: inherit; text-decoration: none; }
 .nav-item.active {
   background: var(--sb-active-bg);
   color: var(--sb-active);
-  font-weight: 500;
+  font-weight: 600;
 }
 .nav-item-icon {
   width: 18px;
   height: 18px;
-  opacity: 0.7;
+  opacity: 0.6;
   flex-shrink: 0;
 }
 .nav-item.active .nav-item-icon { opacity: 1; }
 .nav-item-badge {
   margin-left: auto;
-  background: rgba(192,155,90,0.18);
-  color: var(--gold);
+  background: #F0F0F0;
+  color: var(--t2);
   font-size: 10px;
   font-weight: 600;
   padding: 1px 6px;
   border-radius: 99px;
   min-width: 18px;
   text-align: center;
+}
+.nav-item.active .nav-item-badge {
+  background: var(--t1);
+  color: var(--t-inv);
 }
 .sidebar-footer {
   padding: 14px 12px;
@@ -237,10 +232,10 @@ a { color: inherit; text-decoration: none; }
   border-radius: var(--rad);
 }
 .user-avatar {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--gold-dk), var(--gold));
+  background: var(--t1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -249,22 +244,23 @@ a { color: inherit; text-decoration: none; }
   color: #fff;
   flex-shrink: 0;
 }
-.user-name { font-size: 12.5px; font-weight: 500; color: var(--sb-text-hover); line-height: 1.3; }
-.user-role { font-size: 10.5px; color: var(--sb-text); }
+.user-name { font-size: 13px; font-weight: 500; color: var(--t1); line-height: 1.3; }
+.user-role { font-size: 11px; color: var(--t3); }
 .btn-signout {
-  margin-top: 6px;
+  margin-top: 8px;
   width: 100%;
-  background: none;
-  border: 1px solid rgba(255,255,255,0.07);
+  background: var(--bg-subtle);
+  border: 1px solid var(--bd);
   border-radius: var(--rad);
-  color: var(--sb-text);
+  color: var(--t2);
   font-size: 12px;
-  padding: 7px;
+  font-weight: 500;
+  padding: 8px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
   text-align: center;
 }
-.btn-signout:hover { background: rgba(255,255,255,0.05); color: var(--sb-text-hover); }
+.btn-signout:hover { background: var(--bd); color: var(--t1); }
 
 /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    TOP BAR

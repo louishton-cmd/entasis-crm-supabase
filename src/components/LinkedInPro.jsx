@@ -13,8 +13,9 @@ const C = {
   bd: 'rgba(255,255,255,0.08)', bdGold: 'rgba(201,168,76,0.3)',
   inputBg: '#1a1a1a',
 }
-const FONT_SERIF = "'Cormorant Garamond', 'Playfair Display', Georgia, serif"
-const FONT_SANS = "'DM Sans', system-ui, sans-serif"
+// Polices unifiées sur Inter (cohérence design system Proposition 2)
+const FONT_SERIF = "'Inter', system-ui, sans-serif"
+const FONT_SANS = "'Inter', system-ui, sans-serif"
 
 /* ─────────────────────────────────────────────────────────────────────────────
    CONSTANTS
