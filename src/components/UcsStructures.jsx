@@ -239,6 +239,7 @@ export default function UcsStructures({ profile }) {
         isManager={isManager}
         adminMode={adminMode}
         onToggleAdmin={() => setAdminMode(v => !v)}
+        tauxConseiller={tauxConseillerUcs}
       />
 
       {loading && <LoadingState />}
@@ -300,7 +301,7 @@ export default function UcsStructures({ profile }) {
 // Sub-components
 // ─────────────────────────────────────────────────────────────────────────────
 
-function Header({ isManager, adminMode, onToggleAdmin }) {
+function Header({ isManager, adminMode, onToggleAdmin, tauxConseiller = 1.5 }) {
   return (
     <div style={{
       marginBottom: 24,
@@ -324,9 +325,9 @@ function Header({ isManager, adminMode, onToggleAdmin }) {
         <p style={{ fontSize: 13, color: 'var(--t3)', marginTop: 4 }}>
           Catalogue des produits structurés du groupement et simulateur de commission.
           {' '}<strong style={{ color: 'var(--gold)' }}>
-            Ta commission : {String(tauxConseillerUcs).replace('.', ',')} %
+            Ta commission : {String(tauxConseiller).replace('.', ',')} %
           </strong>
-          {isManager && ` · Rétention cabinet = Upfront − ${String(tauxConseillerUcs).replace('.', ',')} %`}
+          {isManager && ` · Rétention cabinet = Upfront − ${String(tauxConseiller).replace('.', ',')} %`}
         </p>
       </div>
       {isManager && (
