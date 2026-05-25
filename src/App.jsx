@@ -1659,14 +1659,26 @@ function AdvisorDashboard({deals,objectifs,month,profile}){
   const priorities=[...m.hotDeals].sort((a,b)=>({'Urgente':0,'Haute':1,'Normale':2}[a.priority]||2)-({'Urgente':0,'Haute':1,'Normale':2}[b.priority]||2))
 
   // Stats cabinet (totaux équipe, transparence + émulation).
-  // Pas de chiffre individuel par conseiller, juste les agrégats du mois.
-  const cabinet = useMemo(() => {
-    const monthDeals = deals.filter(d => d.month === month)
-    const signed = monthDeals.filter(d => d.status === 'Signé')
-    const ppCab = signed.reduce((s, d) => s + annualize(d.pp_m), 0)
-    const puCab = signed.reduce((s, d) => s + Number(d.pu || 0), 0)
-    return { ppCab, puCab, signedCount: signed.length, totalCount: monthDeals.length }
-  }, [deals, month])
+  // On utilise une RPC Postgres (SECURITY DEFINER) car les RLS deals
+  // filtrent par advisor_code → sans RPC, le calcul local ne refléterait
+  // que les deals du conseiller connecté, pas le cabinet entier.
+  const [cabinet, setCabinet] = useState({ ppCab: 0, puCab: 0, signedCount: 0, totalCount: 0 })
+  useEffect(() => {
+    let alive = true
+    supabase.rpc('cabinet_totals_month', { p_month: month })
+      .then(({ data, error }) => {
+        if (!alive || error || !data?.[0]) return
+        const r = data[0]
+        setCabinet({
+          ppCab: Number(r.pp_signee || 0),
+          puCab: Number(r.pu_signee || 0),
+          signedCount: Number(r.signed_count || 0),
+          totalCount: Number(r.total_count || 0),
+        })
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [month])
 
   return (
     <div>
