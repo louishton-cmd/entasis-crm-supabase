@@ -27,9 +27,11 @@
 // Idempotent : peut être rejoué sans créer de doublons (onConflict sur
 // code_isin pour ucs et nom pour structureurs).
 
-const fs = require('node:fs')
-const path = require('node:path')
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CSV_PATH = path.join(__dirname, '..', 'data', 'ucs_initial_seed.csv')
 
 const SUPABASE_URL = process.env.SUPABASE_URL
