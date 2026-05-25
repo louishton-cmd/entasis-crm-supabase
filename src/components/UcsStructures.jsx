@@ -546,11 +546,13 @@ function CatalogueTable({ ucs, selectedId, onSelect, adminMode, onReload, isMana
           <thead>
             <tr style={{ background: 'var(--bg)', borderBottom: '1px solid var(--bd)' }}>
               <Th>État</Th>
-              <Th>Structureur</Th>
+              {/* Structureur : visible managers seulement (info commerciale stratégique) */}
+              {isManager && <Th>Structureur</Th>}
               <Th>Nom UCS</Th>
               <Th>ISIN</Th>
               <Th>Compagnie</Th>
-              <Th align="right">Upfront</Th>
+              {/* Upfront : visible managers seulement (info négociée, ne pas exposer aux conseillers) */}
+              {isManager && <Th align="right">Upfront</Th>}
               <Th align="right">Mini</Th>
               <Th align="right">Coupon/an</Th>
               <Th align="center">SRI</Th>
@@ -645,41 +647,44 @@ function Row({ u, selected, onClick, adminMode, onReload, isManager, onStructure
           letterSpacing: '0.04em',
         }}>{etat?.label || u.etat}</span>
       </Td>
-      {/* CHIP STRUCTUREUR (patch #3) — navy, gras, clic ouvre side panel (manager only) */}
-      <Td>
-        {u.structureur?.nom ? (
-          <button
-            type="button"
-            onClick={e => {
-              e.stopPropagation()
-              if (onStructureurClick) onStructureurClick(u.structureur.id)
-            }}
-            disabled={!onStructureurClick}
-            title={onStructureurClick
-              ? `Voir la fiche ${u.structureur.nom}`
-              : u.structureur.nom}
-            style={{
-              display: 'inline-block',
-              padding: '4px 10px',
-              fontSize: 11,
-              fontWeight: 700,
-              color: '#fff',
-              background: '#0A1F44',
-              border: 'none',
-              borderRadius: 4,
-              cursor: onStructureurClick ? 'pointer' : 'default',
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-              whiteSpace: 'nowrap',
-              fontFamily: 'inherit',
-            }}
-          >
-            {u.structureur.nom}
-          </button>
-        ) : (
-          <span style={{ fontSize: 10, color: 'var(--t3)', fontStyle: 'italic' }}>—</span>
-        )}
-      </Td>
+      {/* CHIP STRUCTUREUR (patch #3) — masqué pour les conseillers (info commerciale stratégique).
+          Affiché seulement aux managers, qui peuvent cliquer pour ouvrir le side panel. */}
+      {isManager && (
+        <Td>
+          {u.structureur?.nom ? (
+            <button
+              type="button"
+              onClick={e => {
+                e.stopPropagation()
+                if (onStructureurClick) onStructureurClick(u.structureur.id)
+              }}
+              disabled={!onStructureurClick}
+              title={onStructureurClick
+                ? `Voir la fiche ${u.structureur.nom}`
+                : u.structureur.nom}
+              style={{
+                display: 'inline-block',
+                padding: '4px 10px',
+                fontSize: 11,
+                fontWeight: 700,
+                color: '#fff',
+                background: '#0A1F44',
+                border: 'none',
+                borderRadius: 4,
+                cursor: onStructureurClick ? 'pointer' : 'default',
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                whiteSpace: 'nowrap',
+                fontFamily: 'inherit',
+              }}
+            >
+              {u.structureur.nom}
+            </button>
+          ) : (
+            <span style={{ fontSize: 10, color: 'var(--t3)', fontStyle: 'italic' }}>—</span>
+          )}
+        </Td>
+      )}
       <Td style={{ maxWidth: 320, whiteSpace: 'normal', lineHeight: 1.3 }}>
         {u.couleur_badge && (
           <span style={{
@@ -712,12 +717,12 @@ function Row({ u, selected, onClick, adminMode, onReload, isManager, onStructure
           letterSpacing: '0.03em',
         }}>{u.compagnie}</span>
       </Td>
-      {/* Upfront avec gestion NULL + warning si <1.5% (cabinet en perte) */}
+      {/* Upfront : visible managers seulement. Les conseillers n'ont pas
+          besoin de cette info négociée — leur commission est 1,5% fixe. */}
+      {isManager && (
       <Td align="right" title={
         hasUpfront
-          ? (isManager
-              ? `Cabinet : ${fmtPct(upfrontVal - 1.5)} (conseiller fixe 1,5%)`
-              : 'Upfront négocié avec le structureur')
+          ? `Cabinet : ${fmtPct(upfrontVal - 1.5)} (conseiller fixe 1,5%)`
           : 'Upfront non renseigné — circulaire SwissLine ou à demander au structureur'
       }>
         {hasUpfront ? (
@@ -732,6 +737,7 @@ function Row({ u, selected, onClick, adminMode, onReload, isManager, onStructure
           <span style={{ fontSize: 10, color: 'var(--t3)', fontStyle: 'italic' }}>n/a</span>
         )}
       </Td>
+      )}
       <Td align="right" title={u.maximum_autorise ? `Max ${fmtEuro(u.maximum_autorise)}` : undefined}>
         {fmtEuro(u.minimum_requis)}
       </Td>
@@ -1015,7 +1021,10 @@ function Simulator({ ucs, profile, isManager }) {
         fontSize: 11,
       }}>
         <CharRow label="Compagnie" value={ucs.compagnie} />
-        <CharRow label="Upfront" value={fmtPct(ucs.upfront)} highlight />
+        {/* Upfront : carte caractéristiques visible managers seulement */}
+        {isManager && (
+          <CharRow label="Upfront" value={fmtPct(ucs.upfront)} highlight />
+        )}
         <CharRow label="Coupon/an" value={couponAnnuelPct != null ? fmtPct(couponAnnuelPct) : '—'} />
         <CharRow label="Mini ticket" value={fmtEuro(ucs.minimum_requis)} />
         <CharRow label="SRI" value={ucs.sri ?? '—'} />
@@ -1107,11 +1116,20 @@ function Simulator({ ucs, profile, isManager }) {
           color: '#92400e',
           lineHeight: 1.5,
         }}>
-          <strong>⚠ Upfront non renseigné</strong>
+          <strong>⚠ Commission non calculable</strong>
           <br />
-          La commission n'est pas calculable pour cette UCS. Vérifie la circulaire
-          {' '}{ucs?.compagnie === 'SWISSLIFE' ? 'SwissLine' : 'Abeille'} ou demande
-          les conditions au structureur <strong>{ucs?.structureur?.nom || '?'}</strong>.
+          {isManager ? (
+            <>
+              La commission n'est pas calculable pour cette UCS (upfront non renseigné).
+              Vérifie la circulaire {ucs?.compagnie === 'SWISSLIFE' ? 'SwissLine' : 'Abeille'}
+              {' '}ou demande les conditions au structureur <strong>{ucs?.structureur?.nom || '?'}</strong>.
+            </>
+          ) : (
+            <>
+              La commission n'est pas affichée pour cette UCS. Rapproche-toi de la direction
+              pour confirmer le taux applicable.
+            </>
+          )}
         </div>
       )}
 
@@ -1125,8 +1143,14 @@ function Simulator({ ucs, profile, isManager }) {
           borderRadius: 10,
         }}>
           <ResultLine label="Montant placé client" value={fmtEuro(montant)} />
-          <ResultDivider />
-          <ResultLine label={`Upfront total (${fmtPct(ucs.upfront)})`} value={fmtEuro(commission.upfrontTotal)} muted />
+          {/* Upfront total : visible managers seulement (sinon les conseillers
+              peuvent calculer la rétention cabinet par soustraction). */}
+          {isManager && (
+            <>
+              <ResultDivider />
+              <ResultLine label={`Upfront total (${fmtPct(ucs.upfront)})`} value={fmtEuro(commission.upfrontTotal)} muted />
+            </>
+          )}
 
           {/* Ma commission — la ligne hero (or, gras, grand) */}
           <div style={{
