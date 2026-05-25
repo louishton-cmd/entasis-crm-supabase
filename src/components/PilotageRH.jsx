@@ -71,15 +71,60 @@ export default function PilotageRH() {
 
   useEffect(() => { reload() }, [])
 
-  // Profils Supabase non encore reliés à un contrat (= orphelins)
-  // Permet de "rattraper" les comptes créés via invitation avant que
-  // leur contrat soit créé.
+  // Helper : normalisation de nom pour matching (insensible casse / accents)
+  const normNom = (s) => (s || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ').trim()
+
+  // Profils Supabase non encore reliés à un contrat.
+  // Pour chacun, on cherche un contrat existant sans profile_id qui matche
+  // par nom (ou par matricule = advisor_code). Si trouvé → on propose
+  // "Lier au contrat existant" au lieu de "+ Créer son contrat".
+  // Permet de rattraper les contrats seedés sans profile_id.
   const profilsOrphelins = useMemo(() => {
     const linkedIds = new Set(contrats.map(c => c.profile_id).filter(Boolean))
+    const contratsLibres = contrats.filter(c => !c.profile_id)
     return profiles
       .filter(p => p.is_active && !linkedIds.has(p.id))
+      .map(p => {
+        const contratExistant = contratsLibres.find(c =>
+          normNom(c.full_name) === normNom(p.full_name) ||
+          (p.advisor_code && c.matricule && p.advisor_code.toUpperCase() === c.matricule.toUpperCase())
+        )
+        return { ...p, contratExistant }
+      })
       .sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''))
   }, [profiles, contrats])
+
+  // Liaisons automatiques possibles (profil ↔ contrat existant)
+  const liaisonsPossibles = profilsOrphelins.filter(p => p.contratExistant)
+
+  const handleLierAuContrat = async (profilId, contratId) => {
+    try {
+      await service.update(contratId, { profile_id: profilId })
+      toast.success('Contrat lié')
+      reload()
+    } catch (e) {
+      toast.error('Erreur : ' + (e.message || ''))
+    }
+  }
+
+  const handleLierTous = async () => {
+    if (liaisonsPossibles.length === 0) return
+    if (!confirm(`Lier automatiquement ${liaisonsPossibles.length} contrat(s) existant(s) à leur profil ? Les contrats sont matchés par nom ou code.`)) return
+    let ok = 0
+    for (const p of liaisonsPossibles) {
+      try {
+        await service.update(p.contratExistant.id, { profile_id: p.id })
+        ok++
+      } catch (e) {
+        console.error('[PilotageRH] lier tous', e)
+      }
+    }
+    toast.success(`${ok}/${liaisonsPossibles.length} contrat(s) liés`)
+    reload()
+  }
 
   const filtered = useMemo(() => {
     return contrats.filter(c => {
@@ -175,7 +220,7 @@ export default function PilotageRH() {
       {/* Profils Supabase sans contrat (orphelins) */}
       {profilsOrphelins.length > 0 && (
         <div className="card mb-24" style={{ borderTop: '2px solid var(--apple-orange, #FF9500)' }}>
-          <div className="panel-head">
+          <div className="panel-head" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#FF9500' }}>
                 À traiter · {profilsOrphelins.length} profil{profilsOrphelins.length !== 1 ? 's' : ''}
@@ -184,34 +229,69 @@ export default function PilotageRH() {
                 Profils Supabase sans contrat
               </div>
               <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 2 }}>
-                Ces conseillers se sont inscrits via une invitation mais n'ont pas encore de contrat dans Pilotage RH.
+                {liaisonsPossibles.length > 0
+                  ? `${liaisonsPossibles.length} profil(s) matchent un contrat existant non lié — peut être rattaché en 1 clic.`
+                  : "Ces conseillers se sont inscrits via une invitation mais n'ont pas encore de contrat."}
               </div>
             </div>
+            {liaisonsPossibles.length > 0 && (
+              <button className="btn btn-primary btn-sm" onClick={handleLierTous}>
+                ↪ Lier auto les {liaisonsPossibles.length} match{liaisonsPossibles.length !== 1 ? 's' : ''}
+              </button>
+            )}
           </div>
           <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {profilsOrphelins.map(p => (
-              <div key={p.id} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 14px', background: 'rgba(0,0,0,0.025)',
-                border: '0.5px solid var(--bd)', borderRadius: 12,
-              }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>
-                    {p.full_name || '(sans nom)'}
+            {profilsOrphelins.map(p => {
+              const hasMatch = !!p.contratExistant
+              return (
+                <div key={p.id} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  background: hasMatch ? 'rgba(52,199,89,0.05)' : 'rgba(0,0,0,0.025)',
+                  border: `0.5px solid ${hasMatch ? 'rgba(52,199,89,0.25)' : 'var(--bd)'}`,
+                  borderRadius: 12,
+                }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>
+                      {p.full_name || '(sans nom)'}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--t3)' }}>
+                      {p.email} · {p.advisor_code ? `Code ${p.advisor_code}` : 'Sans code'} · {p.role === 'manager' ? 'Manager' : 'Conseiller'}
+                    </div>
+                    {hasMatch && (
+                      <div style={{ fontSize: 11, color: 'var(--signed)', marginTop: 4, fontWeight: 500 }}>
+                        ✓ Contrat trouvé : {p.contratExistant.full_name}
+                        {p.contratExistant.matricule ? ` (mat. ${p.contratExistant.matricule})` : ''}
+                      </div>
+                    )}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--t3)' }}>
-                    {p.email} · {p.advisor_code ? `Code ${p.advisor_code}` : 'Sans code'} · {p.role === 'manager' ? 'Manager' : 'Conseiller'}
-                  </div>
+                  {hasMatch ? (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => handleLierAuContrat(p.id, p.contratExistant.id)}
+                      >↪ Lier au contrat existant</button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => {
+                          setPrefillProfile(p)
+                          setCreating(true)
+                        }}
+                        title="Créer un nouveau contrat (ignorer le match)"
+                      >+ Créer</button>
+                    </div>
+                  ) : (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => {
+                        setPrefillProfile(p)
+                        setCreating(true)
+                      }}
+                    >+ Créer son contrat</button>
+                  )}
                 </div>
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => {
-                    setPrefillProfile(p)
-                    setCreating(true)
-                  }}
-                >+ Créer son contrat</button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
