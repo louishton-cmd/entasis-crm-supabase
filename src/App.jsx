@@ -207,7 +207,7 @@ function ConfigMissing() {
   return (
     <div className="auth-shell">
       <div className="auth-card">
-        <div className="auth-brand">ENTASIS</div>
+        <img src="/entasis-logo.png" alt="Entasis Conseil" className="auth-brand-img" />
         <div className="auth-brand-sub">Configuration requise</div>
         <p style={{fontSize:14,color:'var(--t2)',marginBottom:16}}>
           Ajoute les variables d'environnement dans <span className="code">.env</span> ou Vercel :
@@ -420,7 +420,7 @@ function AuthScreen() {
   return (
     <div className="auth-shell">
       <div className="auth-card">
-        <div className="auth-brand">ENTASIS</div>
+        <img src="/entasis-logo.png" alt="Entasis Conseil" className="auth-brand-img" />
         <div className="auth-brand-sub">CRM Patrimonial · Équipe interne</div>
 
         {mode === 'login' ? (
@@ -645,7 +645,13 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,prospects
       {mobileOpen && <div className="sidebar-overlay" onClick={onCloseMobile} aria-hidden />}
       <nav className={`sidebar${mobileOpen?' sidebar--mobile-open':''}`}>
         <div className="sidebar-brand">
-          <div className="brand-wordmark">ENTASIS</div>
+          <div className="brand-logo-wrap">
+            <img
+              src="/entasis-logo.png"
+              alt="Entasis Conseil"
+              className="brand-logo-img"
+            />
+          </div>
           <div className="brand-sub">CRM Patrimonial</div>
           {onCloseMobile && (
             <button className="sidebar-close-mobile" onClick={onCloseMobile} aria-label="Fermer le menu">×</button>
@@ -4216,7 +4222,7 @@ export default function App(){
 
   if(loading)return(
     <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16,background:'var(--bg)'}}>
-      <div style={{fontFamily:'var(--font-serif)',fontSize:22,fontWeight:500,color:'var(--t1)',letterSpacing:'0.05em'}}>ENTASIS</div>
+      <img src="/entasis-logo.png" alt="Entasis Conseil" style={{maxWidth:200,height:'auto'}} />
       <div className="loading-spinner"/>
       <div className="text-sm text-muted">Chargement…</div>
     </div>
