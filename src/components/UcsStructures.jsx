@@ -14,7 +14,14 @@ import * as clientsService from '../services/clients'
 import * as structureursService from '../services/structureurs'
 import * as contratsService from '../services/conseillerContrats'
 import * as dealsService from '../services/deals'
-import { evaluerRentabilite, dealsDuConseiller, codesContrat } from '../lib/calcul-commission'
+import {
+  dealsDuConseiller,
+  codesContrat,
+  dealsDuMois,
+  partDeal,
+  mapProduitDeal,
+} from '../lib/calcul-commission'
+import { BAREME_PRODUITS } from '../lib/bareme-entasis'
 
 const ETATS = [
   { value: 'EN_COURS',   label: 'En cours',   color: '#15803d' },
@@ -87,7 +94,7 @@ function saveFilters(filters) {
 // Composant principal
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function UcsStructures({ profile }) {
+export default function UcsStructures({ profile, month }) {
   const isManager = profile?.role === 'manager'
   const [ucs, setUcs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -141,22 +148,41 @@ export default function UcsStructures({ profile }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id, profile?.advisor_code])
 
-  // Taux conseiller UCS : politique interne Entasis
-  //   • Mandataire / Gérant : 1,5 % (toujours)
-  //   • CDI/Alternant/… non rentabilisé : 1,5 % (booster motivation)
-  //   • CDI/Alternant/… rentabilisé : 0,75 % (taux CDI standard)
-  //   • Sans contrat connu : on garde 1,5 % par défaut (cas legacy)
+  // Taux conseiller UCS — règle Louis (2026-05-25, simplifiée) :
+  //   • Pour TOUT LE MONDE : 1,5 % tant que le palier mensuel PP n'est
+  //     pas franchi. 0,75 % une fois franchi.
+  //   • Mandataire (palier_pp = 0) : pas de palier à franchir → reste à
+  //     1,5 % en permanence (taux mandataire historique préservé).
+  //   • Sans contrat connu : 1,5 % par défaut (cas legacy).
   const tauxConseillerUcs = useMemo(() => {
     try {
       if (!contratPerso) return 1.5
-      if (['MANDATAIRE', 'GERANT'].includes(contratPerso.type_contrat)) return 1.5
-      const rentab = evaluerRentabilite(contratPerso, dealsHistorique, profile)
-      return rentab.rentabilise ? 0.75 : 1.5
+      const palierPp = Number(contratPerso.palier_pp_mensuel || 0)
+      // Mandataire : pas de palier → 1,5 % toujours
+      if (palierPp <= 0) return 1.5
+
+      // CDI / Alternant / Stagiaire / CDD : calcul du palier mensuel
+      // à partir des deals PP signés ce mois (PER + AV, en tenant compte
+      // du split co-conseiller à 50/50 le cas échéant).
+      const codes = codesContrat(contratPerso, profile)
+      const dealsCeMois = dealsDuMois(dealsHistorique, month)
+      let ppRealisee = 0
+      for (const deal of dealsCeMois) {
+        const part = partDeal(deal, codes)
+        if (!part) continue
+        const produitKey = mapProduitDeal(deal)
+        if (!produitKey) continue
+        const produit = BAREME_PRODUITS[produitKey]
+        if (produit.assiette === 'pp' && !produit.horsPalier) {
+          ppRealisee += Number(deal.pp_m || 0) * 12 * part
+        }
+      }
+      return ppRealisee >= palierPp ? 0.75 : 1.5
     } catch (e) {
       logger.warn('[UCS] calcul taux', e)
       return 1.5
     }
-  }, [contratPerso, dealsHistorique, profile])
+  }, [contratPerso, dealsHistorique, profile, month])
 
   // Charge le catalogue (refetch si on change de mode pour rafraîchir après édition admin)
   const reload = () => {

@@ -4417,7 +4417,7 @@ export default function App(){
           {activeTab==='market'&&<MarketView/>}
           {activeTab==='team'&&isManager&&<TeamView deals={deals} objectifs={objectifs} teamProfiles={teamProfiles} month={month} profile={profile}/>}
           {activeTab==='weekly-review'&&isManager&&<WeeklyReview deals={deals} teamProfiles={teamProfiles} supabase={supabase}/>}
-          {activeTab==='ucs-structures'&&<UcsStructures profile={profile}/>}
+          {activeTab==='ucs-structures'&&<UcsStructures profile={profile} month={month}/>}
           {activeTab==='structureurs'&&<Structureurs profile={profile}/>}
           {activeTab==='prospection'&&<ProspectionView prospects={prospects} profile={profile} teamProfiles={teamProfiles} onRefresh={fetchProspects} onProspectsChange={setProspects}/>}
           {activeTab==='immo-dashboard'&&<VueImmobilier profile={profile} setActiveTab={setActiveTab}/>}
