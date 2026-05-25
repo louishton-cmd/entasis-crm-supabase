@@ -330,9 +330,7 @@ function SectionDetail({ comm, month }) {
                 </td>
                 <td>
                   {sousPalier ? (
-                    <span className="badge badge-normal" title="Sous le palier mensuel : la commission revient 100 % au cabinet">
-                      Cabinet 100 %
-                    </span>
+                    <span style={{ color: 'var(--t3)' }}>—</span>
                   ) : d.horsPalier ? (
                     <span className="badge badge-forecast">Hors palier</span>
                   ) : (
