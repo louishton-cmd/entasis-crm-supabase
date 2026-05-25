@@ -14,7 +14,7 @@ import * as clientsService from '../services/clients'
 import * as structureursService from '../services/structureurs'
 import * as contratsService from '../services/conseillerContrats'
 import * as dealsService from '../services/deals'
-import { evaluerRentabilite } from '../lib/calcul-commission'
+import { evaluerRentabilite, dealsDuConseiller, codesContrat } from '../lib/calcul-commission'
 
 const ETATS = [
   { value: 'EN_COURS',   label: 'En cours',   color: '#15803d' },
@@ -115,15 +115,16 @@ export default function UcsStructures({ profile }) {
         ])
         if (!alive) return
         setContratPerso(own)
-        const code = own?.matricule || own?.full_name
-        const hist = code ? allDeals.filter(d => d.advisor_code === code) : []
+        // Deals où le conseiller intervient (principal ou co-conseiller)
+        const codes = codesContrat(own, profile)
+        const hist = codes.length ? dealsDuConseiller(allDeals, codes) : []
         setDealsHistorique(hist)
       } catch (e) {
         logger.warn('[UCS] fetch contrat/deals', e)
       }
     })()
     return () => { alive = false }
-  }, [profile?.id])
+  }, [profile?.id, profile?.advisor_code])
 
   // Taux conseiller UCS : politique interne Entasis
   //   • Mandataire / Gérant : 1,5 % (toujours)

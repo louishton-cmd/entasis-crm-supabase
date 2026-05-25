@@ -100,14 +100,20 @@ export function assietteDeal(deal, produitKey) {
  * Calcule la commission brute d'un deal pour un contrat donné, en supposant
  * que le seuil de rentabilité a déjà été évalué (`contrat.rentabilise`).
  *
- * @param {Object} deal     - { produit, compagnie, pp_m, pu, frais_entree_pct }
+ * Si le deal a un co-conseiller, la commission est divisée par 2. Le caller
+ * doit indiquer la `part` (0.5 si co-conseiller présent, 1 sinon) — calculée
+ * via partDeal() ci-dessous.
+ *
+ * @param {Object} deal     - { produit, compagnie, pp_m, pu, frais_entree_pct,
+ *                              advisor_code, co_advisor_code }
  * @param {Object} contrat  - { type_contrat, rentabilise }
- * @returns {{ produitKey, assiette, taux, montant, horsPalier }}
+ * @param {number} part     - 0.5 si co-conseiller, 1 sinon (default: 1)
+ * @returns {{ produitKey, assiette, taux, montantPlein, montant, horsPalier, part }}
  */
-export function commissionBruteDeal(deal, contrat) {
+export function commissionBruteDeal(deal, contrat, part = 1) {
   const produitKey = mapProduitDeal(deal)
   if (!produitKey) {
-    return { produitKey: null, assiette: 0, taux: 0, montant: 0, horsPalier: false }
+    return { produitKey: null, assiette: 0, taux: 0, montantPlein: 0, montant: 0, horsPalier: false, part }
   }
   const produit = BAREME_PRODUITS[produitKey]
   const assiette = assietteDeal(deal, produitKey)
@@ -125,30 +131,73 @@ export function commissionBruteDeal(deal, contrat) {
     taux = produit.mandataire(frais)
   }
 
-  const montant = (assiette * taux) / 100
+  const montantPlein = (assiette * taux) / 100
+  const montant = montantPlein * part
 
   return {
     produitKey,
     assiette,
     taux,
-    montant,
+    montantPlein,            // commission qu'aurait reçu un seul conseiller
+    montant,                 // commission effective après split co-conseiller
     horsPalier: produit.horsPalier,
+    part,
   }
+}
+
+/**
+ * Détermine la part de commission qui revient à un conseiller donné sur
+ * un deal. Règle : si un co-conseiller est renseigné, la commission est
+ * divisée 50/50 entre le conseiller principal et le co. Sinon le principal
+ * touche 100 %.
+ *
+ * Le code passé peut matcher soit le matricule, soit le full_name du
+ * contrat (résilience face aux conventions de saisie).
+ *
+ * @param {Object} deal
+ * @param {string|string[]} codes - code(s) à tester (advisor_code ou full_name)
+ * @returns {number} 0 (pas concerné), 0.5 (split) ou 1 (seul)
+ */
+export function partDeal(deal, codes) {
+  const list = Array.isArray(codes) ? codes : [codes]
+  const norm = (s) => (s || '').toString().trim().toUpperCase()
+  const codesNorm = list.map(norm).filter(Boolean)
+  const principal = norm(deal.advisor_code)
+  const co = norm(deal.co_advisor_code)
+  const isPrincipal = codesNorm.includes(principal)
+  const isCo = co && codesNorm.includes(co)
+  if (!isPrincipal && !isCo) return 0
+  if (co) return 0.5
+  return 1
+}
+
+/**
+ * Codes potentiels d'un contrat (matricule + full_name + advisor_code éventuel
+ * stocké dans le profile). Sert au matching avec deal.advisor_code /
+ * deal.co_advisor_code.
+ */
+export function codesContrat(contrat, profile) {
+  const out = []
+  if (contrat?.matricule) out.push(contrat.matricule)
+  if (contrat?.full_name) out.push(contrat.full_name)
+  if (profile?.advisor_code) out.push(profile.advisor_code)
+  return out
 }
 
 /**
  * "Valeur cabinet" d'un deal : ce qu'il rapporterait au cabinet si le
  * conseiller était mandataire (= taux maximum). Sert au calcul du seuil
- * de rentabilité.
+ * de rentabilité. Multiplié par `part` (0.5 si co-conseiller, 1 sinon)
+ * pour évaluer la contribution réelle d'un conseiller donné.
  */
-export function valeurCabinetDeal(deal) {
+export function valeurCabinetDeal(deal, part = 1) {
   const produitKey = mapProduitDeal(deal)
   if (!produitKey) return 0
   const produit = BAREME_PRODUITS[produitKey]
   const assiette = assietteDeal(deal, produitKey)
   const frais = Number(deal.frais_entree_pct ?? FRAIS_ENTREE_DEFAUT_PCT)
   const taux = produit.mandataire(frais)
-  return (assiette * taux) / 100
+  return (assiette * taux * part) / 100
 }
 
 /**
@@ -161,12 +210,17 @@ export function valeurCabinetDeal(deal) {
  * Les mandataires et gérants sont toujours considérés "rentabilisés"
  * (ils n'ont pas de seuil applicable).
  *
+ * Les deals avec co-conseiller comptent à 50 % pour la valeur cabinet
+ * de chaque conseiller (split commission).
+ *
  * @param {Object} contrat
- * @param {Array}  dealsHistoriques  - Tous les deals signés du conseiller
+ * @param {Array}  dealsHistoriques  - Deals signés où le conseiller est
+ *                                     principal OU co
+ * @param {Object} profile           - Profile Supabase (pour advisor_code)
  * @param {Date}   dateRef           - Date de référence (default: maintenant)
  * @returns {{ rentabilise: boolean, brutCumule, valeurCumulee, ecart }}
  */
-export function evaluerRentabilite(contrat, dealsHistoriques = [], dateRef = new Date()) {
+export function evaluerRentabilite(contrat, dealsHistoriques = [], profile = null, dateRef = new Date()) {
   if (!contrat) {
     return { rentabilise: false, brutCumule: 0, valeurCumulee: 0, ecart: 0 }
   }
@@ -180,12 +234,15 @@ export function evaluerRentabilite(contrat, dealsHistoriques = [], dateRef = new
 
   const brut = brutCumule(contrat, dateRef)
   const debut = new Date(contrat.date_debut)
+  const codes = codesContrat(contrat, profile)
   const valeur = dealsHistoriques.reduce((sum, deal) => {
     if (!deal.date_signed) return sum
     const ds = new Date(deal.date_signed)
     if (ds < debut || ds > dateRef) return sum
     if (deal.status !== 'Signé') return sum
-    return sum + valeurCabinetDeal(deal)
+    const part = partDeal(deal, codes)
+    if (!part) return sum
+    return sum + valeurCabinetDeal(deal, part)
   }, 0)
 
   return {
@@ -209,15 +266,19 @@ export function evaluerRentabilite(contrat, dealsHistoriques = [], dateRef = new
  *   3. PU : pareil avec palier_pu
  *   4. Hors palier : commission dès le 1er € quoi qu'il arrive
  *
+ * Co-conseiller : si un deal en a un, l'assiette et la commission sont
+ * comptées à 50 % pour chacun des deux conseillers (split équitable).
+ *
  * Pour les mandataires (palier=0), tout est traité comme hors palier.
  *
- * @param {Array}  dealsMois         - Deals signés du mois en cours
+ * @param {Array}  dealsMois         - Deals signés du mois (principal OU co)
  * @param {Object} contrat           - { type_contrat, palier_pp_mensuel, … }
  * @param {Boolean} rentabilise      - Pré-calculé par evaluerRentabilite()
+ * @param {Object} profile           - Profile Supabase (pour codes matching)
  * @returns {{ variablePp, variablePu, variableHorsPalier, total,
- *             ppRealisee, puRealisee, palierPpAtteint, palierPuAtteint }}
+ *             ppRealisee, puRealisee, palierPpAtteint, palierPuAtteint, detail }}
  */
-export function commissionsMois(dealsMois = [], contrat, rentabilise) {
+export function commissionsMois(dealsMois = [], contrat, rentabilise, profile = null) {
   if (!contrat) {
     return {
       variablePp: 0, variablePu: 0, variableHorsPalier: 0, total: 0,
@@ -229,26 +290,33 @@ export function commissionsMois(dealsMois = [], contrat, rentabilise) {
   const ctx = { ...contrat, rentabilise }
   const palierPp = Number(contrat.palier_pp_mensuel || 0)
   const palierPu = Number(contrat.palier_pu_mensuel || 0)
+  const codes = codesContrat(contrat, profile)
 
-  // 1. Agrégation par catégorie
+  // 1. Agrégation par catégorie. L'assiette retenue pour évaluer le palier
+  //    est elle aussi divisée par 2 en cas de co-conseiller (sinon Alexis
+  //    et Paulin "ensemble" toucheraient chacun le palier full après 17 k
+  //    de PP, ce qui doublerait la production reconnue).
   let ppRealisee = 0
   let puRealisee = 0
   let variableHorsPalier = 0
   const detail = []
 
   for (const deal of dealsMois) {
-    const calc = commissionBruteDeal(deal, ctx)
+    const part = partDeal(deal, codes)
+    if (!part) continue
+    const calc = commissionBruteDeal(deal, ctx, part)
     if (!calc.produitKey) continue
     const produit = BAREME_PRODUITS[calc.produitKey]
+    const assietteEffective = calc.assiette * part
     if (produit.assiette === 'pp' && !produit.horsPalier) {
-      ppRealisee += calc.assiette
+      ppRealisee += assietteEffective
     } else if (produit.assiette === 'pu' && !produit.horsPalier) {
-      puRealisee += calc.assiette
+      puRealisee += assietteEffective
     } else {
       // Hors palier : commission immédiate
       variableHorsPalier += calc.montant
     }
-    detail.push({ deal, ...calc })
+    detail.push({ deal, ...calc, assietteEffective })
   }
 
   // 2. Variable PP : sur l'excédent au-dessus du palier
@@ -307,9 +375,22 @@ export function dealsDuMois(deals, monthStr) {
 }
 
 /**
- * Filtre les deals signés appartenant à un conseiller donné (advisor_code).
+ * Filtre les deals concernant un conseiller, soit en tant que principal,
+ * soit en tant que co-conseiller. Le matching est insensible à la casse.
+ *
+ * @param {Array} deals
+ * @param {string|string[]} codes - code(s) du conseiller (matricule, full_name,
+ *                                  advisor_code...)
  */
-export function dealsDuConseiller(deals, advisorCode) {
-  if (!deals || !advisorCode) return []
-  return deals.filter(d => d.advisor_code === advisorCode)
+export function dealsDuConseiller(deals, codes) {
+  if (!deals || !codes) return []
+  const list = Array.isArray(codes) ? codes : [codes]
+  const norm = (s) => (s || '').toString().trim().toUpperCase()
+  const codesNorm = list.map(norm).filter(Boolean)
+  if (codesNorm.length === 0) return []
+  return deals.filter(d => {
+    const a = norm(d.advisor_code)
+    const c = norm(d.co_advisor_code)
+    return codesNorm.includes(a) || (c && codesNorm.includes(c))
+  })
 }

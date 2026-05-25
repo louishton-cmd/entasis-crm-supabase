@@ -24,6 +24,7 @@ import {
   evaluerRentabilite,
   dealsDuMois,
   dealsDuConseiller,
+  codesContrat,
 } from '../lib/calcul-commission'
 
 const fmtEur = (v) => Number(v || 0).toLocaleString('fr-FR', {
@@ -137,18 +138,15 @@ function VueConseiller({ contrat, deals, month, isManager }) {
     )
   }
 
-  const code = contrat.matricule || contrat.full_name
-  // Tous les deals du conseiller (toute l'historique pour le seuil de rentab.)
-  const dealsConseiller = useMemo(() => {
-    // Si advisor_code disponible sur le profile, on filtre. Sinon on prend
-    // tous les deals (cas manager qui se regarde lui-même).
-    return deals.filter(d => {
-      // Match par advisor_code si présent côté contrat
-      return d.advisor_code === code ||
-             d.advisor_code === contrat.matricule ||
-             d.advisor_code === contrat.full_name
-    })
-  }, [deals, code, contrat.matricule, contrat.full_name])
+  // Codes de matching : matricule + full_name + advisor_code Supabase.
+  // Permet d'identifier ce conseiller dans les deals (principal OU co).
+  const codesConseiller = useMemo(() => codesContrat(contrat, /* profile */ null), [contrat])
+
+  // Deals où le conseiller intervient (principal OU co)
+  const dealsConseiller = useMemo(
+    () => dealsDuConseiller(deals, codesConseiller),
+    [deals, codesConseiller]
+  )
 
   const dealsMois = useMemo(
     () => dealsDuMois(dealsConseiller, month),
@@ -403,8 +401,8 @@ function VueManager({ contrats, deals, month }) {
     return contrats
       .filter(c => c.actif && c.type_contrat !== 'GERANT')
       .map(c => {
-        const code = c.matricule || c.full_name
-        const dealsConseiller = dealsDuConseiller(deals, code)
+        const codes = codesContrat(c, null)
+        const dealsConseiller = dealsDuConseiller(deals, codes)
         const dealsMois = dealsDuMois(dealsConseiller, month)
         const rentab = evaluerRentabilite(c, dealsConseiller)
         const comm = commissionsMois(dealsMois, c, rentab.rentabilise)

@@ -3035,7 +3035,7 @@ function TeamView({deals,objectifs,teamProfiles,month,profile}){
 /* ─────────────────────────────────────────────────────────────────────────────
    DEAL MODAL
 ───────────────────────────────────────────────────────────────────────────── */
-function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
+function DealModal({open,initialDeal,profile,supabase,teamProfiles=[],onClose,onSave}){
   const [deal,setDeal]=useState(initialDeal)
   const [clientSearch,setClientSearch]=useState('')
   const [clientResults,setClientResults]=useState([])
@@ -3525,9 +3525,57 @@ function DealModal({open,initialDeal,profile,supabase,onClose,onSave}){
             <div>
               <div className="form-section-title mb-16">Équipe & suivi</div>
               <div className="form-row form-row-3">
-                <div className="form-group"><label className="form-label">Conseiller principal *</label><input className="form-input" value={deal.advisor_code||''} onChange={e=>set('advisor_code',e.target.value.toUpperCase())} placeholder={profile?.advisor_code||'CODE'} required={isManager} disabled={!isManager}/></div>
-                <div className="form-group"><label className="form-label">Co-conseiller</label><input className="form-input" value={deal.co_advisor_code||''} onChange={e=>set('co_advisor_code',e.target.value.toUpperCase())} placeholder="CODE"/></div>
-                <div className="form-group"><label className="form-label">Priorité</label><select className="form-select" value={deal.priority} onChange={e=>set('priority',e.target.value)}>{PRIORITY_OPTIONS.map(p=><option key={p}>{p}</option>)}</select></div>
+                <div className="form-group">
+                  <label className="form-label">Conseiller principal *</label>
+                  <select
+                    className="form-select"
+                    value={deal.advisor_code || ''}
+                    onChange={e => set('advisor_code', e.target.value || null)}
+                    required={isManager}
+                    disabled={!isManager}
+                    title={!isManager ? 'Seul un manager peut changer le conseiller principal' : ''}
+                  >
+                    <option value="">— Choisir —</option>
+                    {(teamProfiles || [])
+                      .filter(t => t.is_active && t.advisor_code)
+                      .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
+                      .map(t => (
+                        <option key={t.id} value={t.advisor_code}>
+                          {t.full_name || t.advisor_code} ({t.advisor_code})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Co-conseiller</label>
+                  <select
+                    className="form-select"
+                    value={deal.co_advisor_code || ''}
+                    onChange={e => set('co_advisor_code', e.target.value || null)}
+                    title="Commission divisée par 2 si un co-conseiller est sélectionné"
+                  >
+                    <option value="">— Aucun —</option>
+                    {(teamProfiles || [])
+                      .filter(t => t.is_active && t.advisor_code && t.advisor_code !== deal.advisor_code)
+                      .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
+                      .map(t => (
+                        <option key={t.id} value={t.advisor_code}>
+                          {t.full_name || t.advisor_code} ({t.advisor_code})
+                        </option>
+                      ))}
+                  </select>
+                  {deal.co_advisor_code && (
+                    <div className="form-hint" style={{ color: 'var(--gold)' }}>
+                      ⚠ Commission divisée par 2 entre les 2 conseillers
+                    </div>
+                  )}
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Priorité</label>
+                  <select className="form-select" value={deal.priority} onChange={e=>set('priority',e.target.value)}>
+                    {PRIORITY_OPTIONS.map(p=><option key={p}>{p}</option>)}
+                  </select>
+                </div>
               </div>
               <div className="form-group mt-16"><label className="form-label">Source</label><select className="form-select" value={deal.source||''} onChange={e=>set('source',e.target.value)}>{SOURCES.map(s=><option key={s}>{s}</option>)}</select></div>
             </div>
@@ -4385,6 +4433,7 @@ export default function App(){
         initialDeal={editingDeal}
         profile={profile}
         supabase={supabase}
+        teamProfiles={teamProfiles}
         onClose={()=>{setModalOpen(false);setEditingDeal(null)}}
         onSave={saveDeal}
       />
