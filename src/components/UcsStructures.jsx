@@ -108,22 +108,37 @@ export default function UcsStructures({ profile }) {
   useEffect(() => {
     let alive = true
     ;(async () => {
+      // Bloc 100 % défensif : aucune des deux requêtes ne doit jamais
+      // faire planter la page UCS. Si quelque chose foire (RLS, réseau,
+      // pas de contrat lié…), on log et on continue avec les valeurs
+      // par défaut (tauxConseillerUcs = 1,5 %).
       try {
-        const [own, allDeals] = await Promise.all([
-          contratsService.getOwn().catch(() => null),
-          dealsService.listAll().catch(() => []),
-        ])
+        const own = await contratsService.getOwn().catch(err => {
+          logger.warn('[UCS] getOwn contrat échoue', err)
+          return null
+        })
         if (!alive) return
         setContratPerso(own)
-        // Deals où le conseiller intervient (principal ou co-conseiller)
-        const codes = codesContrat(own, profile)
+      } catch (e) {
+        logger.warn('[UCS] fetch contrat', e)
+      }
+      try {
+        const allDeals = await dealsService.listAll().catch(err => {
+          logger.warn('[UCS] listAll deals échoue', err)
+          return []
+        })
+        if (!alive) return
+        const codes = codesContrat(contratPerso, profile)
         const hist = codes.length ? dealsDuConseiller(allDeals, codes) : []
         setDealsHistorique(hist)
       } catch (e) {
-        logger.warn('[UCS] fetch contrat/deals', e)
+        logger.warn('[UCS] fetch deals', e)
       }
     })()
     return () => { alive = false }
+    // contratPerso volontairement absent des deps pour éviter une boucle
+    // (on dépend juste du profil connecté)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id, profile?.advisor_code])
 
   // Taux conseiller UCS : politique interne Entasis
@@ -132,11 +147,16 @@ export default function UcsStructures({ profile }) {
   //   • CDI/Alternant/… rentabilisé : 0,75 % (taux CDI standard)
   //   • Sans contrat connu : on garde 1,5 % par défaut (cas legacy)
   const tauxConseillerUcs = useMemo(() => {
-    if (!contratPerso) return 1.5
-    if (['MANDATAIRE', 'GERANT'].includes(contratPerso.type_contrat)) return 1.5
-    const rentab = evaluerRentabilite(contratPerso, dealsHistorique)
-    return rentab.rentabilise ? 0.75 : 1.5
-  }, [contratPerso, dealsHistorique])
+    try {
+      if (!contratPerso) return 1.5
+      if (['MANDATAIRE', 'GERANT'].includes(contratPerso.type_contrat)) return 1.5
+      const rentab = evaluerRentabilite(contratPerso, dealsHistorique, profile)
+      return rentab.rentabilise ? 0.75 : 1.5
+    } catch (e) {
+      logger.warn('[UCS] calcul taux', e)
+      return 1.5
+    }
+  }, [contratPerso, dealsHistorique, profile])
 
   // Charge le catalogue (refetch si on change de mode pour rafraîchir après édition admin)
   const reload = () => {
