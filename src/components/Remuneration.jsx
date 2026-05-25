@@ -217,10 +217,10 @@ function VueConseiller({ contrat, profile, deals, month, isManager }) {
         )}
       </div>
 
-      {/* PHASE 1 — Seuil de rentabilité (priorité : tous les produits comptent) */}
+      {/* PHASE 1 — Seuil de déclenchement (tous les produits comptent) */}
       {!rentab.rentabilise && salaireFixe > 0 && (
         <PalierCard
-          titre="Seuil de rentabilité du mois"
+          titre="Seuil de déclenchement du variable"
           realise={rentab.valeurCumulee}
           cible={rentab.brutCumule}
           pct={rentab.brutCumule > 0
@@ -229,7 +229,7 @@ function VueConseiller({ contrat, profile, deals, month, isManager }) {
           reste={Math.max(0, rentab.brutCumule - rentab.valeurCumulee)}
           atteint={false}
           variable={0}
-          hint={`Plus que ${fmtEur(Math.max(0, rentab.brutCumule - rentab.valeurCumulee))} avant de débloquer ton variable. Tous les produits comptent : PP, PU, SCPI, UCS, MH, Girardin, PE, Prévoyance, Mutuelle (au taux mandataire).`}
+          hint={`Plus que ${fmtEur(Math.max(0, rentab.brutCumule - rentab.valeurCumulee))} avant le déclenchement de ton variable. Tous les produits comptent dans ce seuil : PP, PU, SCPI, UCS, MH, Girardin, PE, Prévoyance, Mutuelle.`}
         />
       )}
 
@@ -347,9 +347,9 @@ function SectionDetail({ comm, month }) {
             const clientName = d.deal.clients
               ? `${d.deal.clients.prenom || ''} ${d.deal.clients.nom || ''}`.trim()
               : (d.deal.client_id || '—')
-            // Phase 1 (rembourse salaire) : 0 € versé au conseiller, la
-            //   commission théorique sert à rembourser le salaire cumulé.
-            // Sous palier : 0 € versé (le fixe couvre), masque taux & montant.
+            // Phase 1 (avant seuil) : aucun variable versé tant que le
+            //   seuil mensuel de déclenchement n'est pas franchi.
+            // Sous palier : pareil pour les produits soumis au palier.
             const phase1 = d.remboursementSalaire
             const sousPalier = d.sousPalier
             const masqueValeurs = phase1 || sousPalier
@@ -369,8 +369,8 @@ function SectionDetail({ comm, month }) {
                 </td>
                 <td>
                   {phase1 ? (
-                    <span className="badge badge-progress" title="Tous les deals servent à rembourser le salaire cumulé jusqu'à rentabilisation">
-                      Rembourse salaire
+                    <span className="badge badge-progress" title="Sous le seuil mensuel de déclenchement du variable">
+                      Sous seuil
                     </span>
                   ) : sousPalier ? (
                     <span style={{ color: 'var(--t3)' }}>—</span>
