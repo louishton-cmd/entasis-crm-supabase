@@ -4348,7 +4348,7 @@ export default function App(){
         onClose={()=>{setModalOpen(false);setEditingDeal(null)}}
         onSave={saveDeal}
       />
-      <Toaster position="top-right" toastOptions={{style:{background:'#242424',color:'#f5f0e8',border:'1px solid rgba(201,168,76,0.2)',borderRadius:12,fontSize:13,fontFamily:'DM Sans, sans-serif'}}}/>
+      <Toaster position="top-right" toastOptions={{style:{background:'#0A1628',color:'#F5F7FA',border:'1px solid rgba(255,255,255,0.08)',borderRadius:10,fontSize:13,fontFamily:"'Inter', system-ui, sans-serif"}}}/>
     </div>
   )
 }
