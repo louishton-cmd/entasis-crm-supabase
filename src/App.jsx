@@ -637,10 +637,13 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,prospects
     {key:'immo-pipeline', label:'Pipeline VEFA', Icon:Icon.Kanban},
   ]
 
-  // Rémunération : manager only tant que le module n'est pas finalisé
-  // (consigne Louis, pas exposer aux conseillers avant validation).
+  // Rémunération : manager + 1 conseiller beta-testeur (Louis Test, AUTOP)
+  // tant que le module n'est pas finalisé. Pour ouvrir à toute l'équipe :
+  // supprimer la whitelist isRemunerationBeta ci-dessous et garder isManager.
+  const REMUNERATION_BETA_CODES = ['AUTOP']
+  const isRemunerationBeta = REMUNERATION_BETA_CODES.includes(profile?.advisor_code)
   const outilsItems = [
-    ...(isManager ? [{key:'remuneration', label:'Rémunération', Icon:Icon.Outils, manager:true}] : []),
+    ...((isManager || isRemunerationBeta) ? [{key:'remuneration', label:'Rémunération', Icon:Icon.Outils}] : []),
     {key:'outils', label:'Outils CGP', Icon:Icon.Outils},
   ]
 
@@ -4425,7 +4428,7 @@ export default function App(){
           {activeTab==='immo-dossiers'&&<MesDossiersImmo profile={profile} teamProfiles={teamProfiles} setActiveTab={setActiveTab}/>}
           {activeTab==='immo-pipeline'&&<PipelineVEFA profile={profile} teamProfiles={teamProfiles}/>}
           {activeTab==='linkedin-pro'&&<LinkedInPro profile={profile}/>}
-          {activeTab==='remuneration'&&isManager&&<Remuneration profile={profile} deals={deals} month={month}/>}
+          {activeTab==='remuneration'&&(isManager||isRemunerationBeta)&&<Remuneration profile={profile} deals={deals} month={month}/>}
           {activeTab==='outils'&&<OutilsCGP/>}
         </div>
       </div>
