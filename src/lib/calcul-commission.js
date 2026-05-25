@@ -259,24 +259,20 @@ export function evaluerRentabilite(contrat, dealsHistoriques = [], profile = nul
 /**
  * Calcule la commission totale d'un mois pour un conseiller.
  *
- * Règle Louis (2026-05-25) : TOUS les produits sont soumis au palier PP,
- * sauf les mandataires qui sont indépendants. Pour un CDI/CDD/Alternant/
- * Stagiaire, si le palier PP n'est pas franchi → AUCUNE commission, peu
- * importe le produit (PER, AV, SCPI, UCS, MH, Girardin, PE, Prévoyance,
- * Mutuelle, PU). Pour les mandataires, palier_pp_mensuel = 0 →
- * palierPpAtteint=true par défaut → comportement historique (tout
- * commissionné dès le 1er €).
+ * Règle barème BAREME-CDI-2026 (revue 2026-05-25 par Louis après audit) :
+ *   • PP (PER, AV) → soumise au palier PP mensuel (17 k€ CDI, individualisé)
+ *   • PU (Versement libre, Transfert) → soumise au palier PU mensuel (200 k€)
+ *   • HORS PALIER (SCPI, MH, Girardin, PE, UCS, Prévoyance, Mutuelle)
+ *     → commissionnés DÈS LE 1er EURO, indépendamment des paliers
+ *   • Mandataires : palier_pp=0 et palier_pu=0 → tout est immédiatement
+ *     commissionné (palierPp/PuAtteint=true par défaut)
  *
  * Calcul :
- *   1. Agrégation : ppRealisee (assiette PP), puRealisee (assiette PU)
- *   2. palierPpAtteint = (palierPp <= 0) || (ppRealisee >= palierPp)
- *   3. Si palier PP non atteint → tous les deals sont en "sous palier"
- *      → montantEffectif = 0 pour tous (100 % cabinet)
- *   4. Si palier PP atteint :
- *      - PP soumis palier : variable sur l'excédent (ratio)
- *      - PU soumis palier : idem avec palier PU
- *      - "Hors palier" (SCPI, UCS, MH, Girardin, PE, Prév., Mutuelle) :
- *        commission pleine
+ *   1. Agrégation : ppRealisee (PP soumise palier), puRealisee (PU soumise palier),
+ *      variableHorsPalier (commission immédiate sur SCPI/UCS/etc.)
+ *   2. PP soumis palier : si ppRealisee >= palierPp, variable sur l'excédent.
+ *      Sinon 0 € (le fixe couvre).
+ *   3. PU soumis palier : pareil avec palierPu (indépendant du palier PP).
  *
  * Co-conseiller : assiette + commission divisées par 2.
  *
@@ -301,8 +297,9 @@ export function commissionsMois(dealsMois = [], contrat, rentabilise, profile = 
   const palierPu = Number(contrat.palier_pu_mensuel || 0)
   const codes = codesContrat(contrat, profile)
 
-  // 1. Agrégation par catégorie pour évaluer les paliers. Assiette divisée
-  //    par 2 en cas de co-conseiller (sinon la prod serait comptée double).
+  // 1. Première passe : agréger PP/PU soumis palier pour évaluer les seuils.
+  //    Les deals hors palier ne contribuent pas à ces agrégats — ils ont
+  //    leur propre logique de commission immédiate.
   let ppRealisee = 0
   let puRealisee = 0
   const detail = []
@@ -322,7 +319,7 @@ export function commissionsMois(dealsMois = [], contrat, rentabilise, profile = 
     detail.push({ deal, ...calc, assietteEffective })
   }
 
-  // 2. Évaluation des paliers
+  // 2. Évaluation des paliers (indépendants : PP et PU)
   const palierPpAtteint = palierPp <= 0 || ppRealisee >= palierPp
   const palierPuAtteint = palierPu <= 0 || puRealisee >= palierPu
   const ratioPp = (palierPpAtteint && ppRealisee > palierPp)
@@ -332,36 +329,29 @@ export function commissionsMois(dealsMois = [], contrat, rentabilise, profile = 
     ? (palierPu > 0 ? (puRealisee - palierPu) / puRealisee : 1)
     : 0
 
-  // 3. Calcul de la commission EFFECTIVE deal par deal.
-  //    PALIER PP est le gardien général : si non franchi, aucun produit
-  //    n'est commissionné (règle Louis). Pour les mandataires, palier=0
-  //    donc palierPpAtteint=true → comportement historique préservé.
+  // 3. Commission EFFECTIVE deal par deal, selon le barème officiel :
+  //    • Hors palier (SCPI, MH, Girardin, PE, UCS, Prév., Mutuelle) :
+  //      commissionnés à 100 % dès le 1er euro, peu importe le palier
+  //    • PP soumis palier : commission sur l'excédent au-dessus du palier PP
+  //    • PU soumis palier : commission sur l'excédent au-dessus du palier PU
   let variablePp = 0
   let variablePu = 0
   let variableHorsPalier = 0
 
   for (const d of detail) {
     const produit = BAREME_PRODUITS[d.produitKey]
-    // Si le palier PP n'est pas franchi, tout est en sous palier (cabinet 100 %)
-    if (!palierPpAtteint) {
-      d.montantEffectif = 0
-      d.sousPalier = true
-      continue
-    }
-    // Palier PP franchi → on commissionne selon le type de produit
     if (produit.horsPalier) {
-      // Produits hors palier (SCPI, UCS, MH, Girardin, PE, Prév., Mutuelle)
-      // commissionnés à 100 % dès lors que le palier PP est franchi.
+      // Commission immédiate (SCPI, MH, Girardin, PE, UCS, Prév., Mutuelle)
       d.montantEffectif = d.montant
       d.sousPalier = false
       variableHorsPalier += d.montant
     } else if (produit.assiette === 'pp') {
-      // PP soumis palier : commission sur l'excédent au-dessus du palier PP
+      // PP soumis palier (PER, AV)
       d.montantEffectif = d.montant * ratioPp
-      d.sousPalier = false
+      d.sousPalier = !palierPpAtteint
       variablePp += d.montantEffectif
     } else if (produit.assiette === 'pu') {
-      // PU soumis palier : commission sur l'excédent au-dessus du palier PU
+      // PU soumis palier (Versement libre, Transfert)
       d.montantEffectif = d.montant * ratioPu
       d.sousPalier = !palierPuAtteint
       variablePu += d.montantEffectif

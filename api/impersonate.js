@@ -28,20 +28,9 @@ export default async function handler(req, res) {
   const { targetUserId, reason } = req.body || {}
   if (!targetUserId) return res.status(400).json({ error: 'targetUserId requis' })
 
-  // 2. Vérifier que l'appelant est manager + récup son email
-  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
-  const { data: callerProfile, error: callerErr } = await supabase
-    .from('profiles')
-    .select('id, email, role')
-    .eq('id', caller.id)
-    .single()
-
-  if (callerErr || !callerProfile) return res.status(403).json({ error: 'Profil introuvable' })
-  if (callerProfile.role !== 'manager') {
-    return res.status(403).json({ error: 'Réservé aux managers' })
-  }
-
-  // 3. Récupérer l'email de la cible
+  // 2. Client admin (service_role) pour bypass RLS sur profiles côté serveur.
+  //    L'ANON_KEY ne marche pas ici car on n'a pas de session côté serveur
+  //    pour propager auth.uid() dans les policies.
   const adminKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!adminKey) {
     return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY non configuré côté serveur' })
@@ -50,6 +39,22 @@ export default async function handler(req, res) {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
+  // 3. Vérifier que l'appelant est manager
+  const { data: callerProfile, error: callerErr } = await admin
+    .from('profiles')
+    .select('id, email, full_name, role')
+    .eq('id', caller.id)
+    .single()
+
+  if (callerErr || !callerProfile) {
+    console.error('[impersonate] caller profile lookup', callerErr, 'caller.id=', caller.id)
+    return res.status(403).json({ error: 'Profil appelant introuvable' })
+  }
+  if (callerProfile.role !== 'manager') {
+    return res.status(403).json({ error: 'Réservé aux managers' })
+  }
+
+  // 4. Récupérer la cible
   const { data: targetProfile, error: targetErr } = await admin
     .from('profiles')
     .select('id, email, full_name, role')
