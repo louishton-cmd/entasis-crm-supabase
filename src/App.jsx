@@ -583,7 +583,7 @@ function AuthScreen() {
 /* ─────────────────────────────────────────────────────────────────────────────
    SIDEBAR
 ───────────────────────────────────────────────────────────────────────────── */
-function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,leadsAvailable,prospectsNew,dossiersImmoCount,mobileOpen,onCloseMobile}){
+function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,prospectsNew,dossiersImmoCount,mobileOpen,onCloseMobile}){
   // Au clic d'une entrée nav en mobile, on ferme le drawer après navigation
   const handleNavClick = (key) => {
     setActiveTab(key)
@@ -601,7 +601,14 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,leadsAvai
 
   const navItems = [
     {key:'dashboard', label: isManager?'Vue cabinet':'Mon mois', Icon:Icon.Dashboard},
-    {key:'leads',     label:'Leads Live',  Icon:Icon.Leads, badge:leadsAvailable||0, badgeGold:true},
+    // Badge volontairement absent : la Lead Room est un projet Supabase
+    // séparé (mtqowhjshvgkpkhnpilb) avec sa propre table `leads` et ses
+    // propres statuts ('pending'/'taken'/...). La table `leads` du CRM
+    // ici (statuts 'available'/'released'/...) est un vestige legacy non
+    // synchronisé → le compteur 'leadsAvailable' donnait un chiffre faux
+    // qui ne correspondait pas à ce que les conseillers voient dans
+    // l'iframe Lead Room. On retire le badge plutôt que d'afficher faux.
+    {key:'leads',     label:'Leads Live',  Icon:Icon.Leads, badgeGold:true},
     {key:'pipeline',  label:'Pipeline',  Icon:Icon.Pipeline,  badge:isManager?pipelineCount:hotCount},
     {key:'dossiers',  label:'Dossiers',  Icon:Icon.Dossiers},
     {key:'clients',   label:'Clients',   Icon:Icon.Team},
@@ -4213,7 +4220,6 @@ export default function App(){
   if(!session)return<AuthScreen/>
 
   const isManager=profile?.role==='manager'
-  const leadsAvailable=leads.filter(l=>l.status==='available'||l.status==='released').length
 
   return (
     <div className="app-shell">
@@ -4224,7 +4230,6 @@ export default function App(){
         onSignOut={signOut}
         deals={deals}
         month={month}
-        leadsAvailable={leadsAvailable}
         prospectsNew={prospectsNew}
         dossiersImmoCount={dossiersImmoCount}
         mobileOpen={mobileMenuOpen}
