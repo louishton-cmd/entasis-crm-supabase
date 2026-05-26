@@ -24,6 +24,13 @@ export async function getById(userId) {
  * Liste tous les profils (cols réduites pour le team affichage).
  */
 export async function listTeam() {
+  // On utilise la RPC team_directory (SECURITY DEFINER) qui bypass les RLS
+  // profiles. Sans ça, un conseiller voit une liste vide quand il veut
+  // ajouter un co-conseiller sur un deal (les RLS profiles le restreignent
+  // à sa propre ligne).
+  const { data: rpcData, error: rpcError } = await supabase.rpc('team_directory')
+  if (!rpcError && Array.isArray(rpcData)) return rpcData
+  // Fallback : query directe (utile si la RPC n'est pas encore déployée)
   const { data, error } = await supabase
     .from('profiles')
     .select('id,email,full_name,role,advisor_code,is_active')
