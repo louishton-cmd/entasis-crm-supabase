@@ -45,9 +45,12 @@ export default function ClientsView({ supabase, onSelectClient, profile }) {
         if (clientsError) throw clientsError
 
         // Requête 2 : deals liés
+        // advisor_code + co_advisor_code nécessaires pour le filtre "Mes clients"
+        // afin de prendre en compte les clients où l'utilisateur est co-conseiller
+        // sur un deal (cas signalé par Gianni Pichon — co-conseiller de Clément).
         const { data: dealsData, error: dealsError } = await supabase
           .from('deals')
-          .select('id, client_id, product, status, pp_m, pu, co_advisor_code')
+          .select('id, client_id, product, status, pp_m, pu, advisor_code, co_advisor_code')
           .not('client_id', 'is', null)
 
         if (dealsError) throw dealsError
@@ -100,11 +103,18 @@ export default function ClientsView({ supabase, onSelectClient, profile }) {
   const filteredClients = useMemo(() => {
     let filtered = clients
 
-    // Filtre par ownership
+    // Filtre par ownership — un client m'appartient si :
+    //   - je suis l'advisor_code principal du client (créateur)
+    //   - OU j'apparais sur au moins un de ses deals comme advisor_code
+    //   - OU j'apparais sur au moins un de ses deals comme co_advisor_code
+    // (La table clients elle-même n'a pas de co_advisor_code — c'est sur les
+    // deals. Avant ce fix, le filtre ignorait les clients où l'utilisateur
+    // n'était que co-conseiller sur un deal, signalé par Gianni 26/05.)
     if (!isManager && filterType === 'Mes clients') {
+      const myCode = profile?.advisor_code
       filtered = filtered.filter(c =>
-        c.advisor_code === profile?.advisor_code ||
-        c.co_advisor_code === profile?.advisor_code
+        c.advisor_code === myCode ||
+        (c.deals || []).some(d => d.advisor_code === myCode || d.co_advisor_code === myCode)
       )
     }
 
