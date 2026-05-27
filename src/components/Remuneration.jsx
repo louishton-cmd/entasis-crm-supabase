@@ -356,11 +356,22 @@ function SectionDetail({ comm, month }) {
             const phase1 = d.remboursementSalaire
             const sousPalier = d.sousPalier
             const masqueValeurs = phase1 || sousPalier
+            // Suffixe pour distinguer la ligne PU d'un deal qui a aussi
+            // une PP (ex : PER Individuel avec versement initial + mensuel).
+            const isLignePu = d.produitKey === 'pu_versement_libre'
+            const produitLabel = d.deal.product || d.deal.produit || '—'
             return (
-              <tr key={d.deal.id || i}>
+              <tr key={`${d.deal.id || i}-${d.produitKey || 'main'}`}>
                 <td className="cell-primary">{clientName || '—'}</td>
                 <td>
-                  <div>{d.deal.product || d.deal.produit || '—'}</div>
+                  <div>
+                    {produitLabel}
+                    {isLignePu && (
+                      <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: 'rgba(139,92,246,0.12)', color: '#7C3AED', letterSpacing: '0.04em' }}>
+                        PU
+                      </span>
+                    )}
+                  </div>
                   <div className="cell-sub">{d.deal.company || d.deal.compagnie || ''}</div>
                 </td>
                 <td className="cell-mono" style={{ textAlign: 'right' }}>{fmtEur(d.assiette)}</td>

@@ -150,6 +150,66 @@ export function commissionBruteDeal(deal, contrat, part = 1) {
 }
 
 /**
+ * Helper interne : calcule le taux applicable pour un produit donné selon
+ * le contrat (factorise la logique mandataire / CDI / rentabilisé).
+ */
+function tauxPourProduit(produit, contrat, frais) {
+  if (!produit) return 0
+  if (!TYPES_AVEC_SEUIL_RENTABILITE.includes(contrat?.type_contrat)) {
+    return produit.mandataire(frais)
+  }
+  if (contrat?.rentabilise) {
+    return produit.cdi(frais)
+  }
+  return produit.mandataire(frais)
+}
+
+/**
+ * Calcule TOUTES les commissions générées par un deal — gère le cas où un
+ * deal a à la fois une PP mensuelle ET un versement unique (PU) — typiquement
+ * un PER ou une AV où le client met un capital initial + des versements
+ * réguliers. Dans ce cas, on retourne 2 lignes :
+ *   1. Commission PP sur le produit principal (PER swisslife, AV, ...)
+ *   2. Commission PU sur pu_versement_libre
+ *
+ * Pour les produits dont l'assiette est déjà PU (SCPI, UCS, MH, etc.), on
+ * retourne juste la commission principale, pas de double calcul.
+ *
+ * @returns {Array} un tableau de calcs (1 ou 2 éléments)
+ */
+export function commissionsDeal(deal, contrat, part = 1) {
+  const main = commissionBruteDeal(deal, contrat, part)
+  if (!main.produitKey) return []
+
+  const out = [main]
+
+  // Si le produit principal a une assiette PP ET que le deal a aussi une PU
+  // renseignée → ajouter une 2e ligne de commission sur la PU via
+  // pu_versement_libre. Sinon une seule ligne.
+  const mainProduit = BAREME_PRODUITS[main.produitKey]
+  const puMontant = Number(deal.pu || 0)
+  if (mainProduit?.assiette === 'pp' && puMontant > 0) {
+    const puProduit = BAREME_PRODUITS['pu_versement_libre']
+    if (puProduit) {
+      const frais = Number(deal.frais_entree_pct ?? FRAIS_ENTREE_DEFAUT_PCT)
+      const taux = tauxPourProduit(puProduit, contrat, frais)
+      const montantPlein = (puMontant * taux) / 100
+      out.push({
+        produitKey: 'pu_versement_libre',
+        assiette: puMontant,
+        taux,
+        montantPlein,
+        montant: montantPlein * part,
+        horsPalier: puProduit.horsPalier,
+        part,
+      })
+    }
+  }
+
+  return out
+}
+
+/**
  * Détermine la part de commission qui revient à un conseiller donné sur
  * un deal. Règle : si un co-conseiller est renseigné, la commission est
  * divisée 50/50 entre le conseiller principal et le co. Sinon le principal
@@ -201,7 +261,21 @@ export function valeurCabinetDeal(deal, part = 1) {
   const assiette = assietteDeal(deal, produitKey)
   const frais = Number(deal.frais_entree_pct ?? FRAIS_ENTREE_DEFAUT_PCT)
   const taux = produit.mandataire(frais)
-  return (assiette * taux * part) / 100
+  let total = (assiette * taux * part) / 100
+
+  // Si le produit principal est PP (PER, AV) et que le deal a aussi une PU,
+  // ajouter la valeur cabinet du versement unique via pu_versement_libre
+  // (sinon le seuil de rentabilité ignorerait des sommes parfois importantes).
+  const puMontant = Number(deal.pu || 0)
+  if (produit.assiette === 'pp' && puMontant > 0) {
+    const puProduit = BAREME_PRODUITS['pu_versement_libre']
+    if (puProduit) {
+      const tauxPu = puProduit.mandataire(frais)
+      total += (puMontant * tauxPu * part) / 100
+    }
+  }
+
+  return total
 }
 
 /**
@@ -329,16 +403,20 @@ export function commissionsMois(dealsMois = [], contrat, rentabilise, profile = 
   for (const deal of dealsMois) {
     const part = partDeal(deal, codes)
     if (!part) continue
-    const calc = commissionBruteDeal(deal, ctx, part)
-    if (!calc.produitKey) continue
-    const produit = BAREME_PRODUITS[calc.produitKey]
-    const assietteEffective = calc.assiette * part
-    if (produit.assiette === 'pp' && !produit.horsPalier) {
-      ppRealisee += assietteEffective
-    } else if (produit.assiette === 'pu' && !produit.horsPalier) {
-      puRealisee += assietteEffective
+    // commissionsDeal retourne 1 ligne (cas standard) ou 2 lignes (deal PP
+    // avec PU non nulle → on calcule la commission PP + la commission PU).
+    const calcs = commissionsDeal(deal, ctx, part)
+    for (const calc of calcs) {
+      if (!calc.produitKey) continue
+      const produit = BAREME_PRODUITS[calc.produitKey]
+      const assietteEffective = calc.assiette * part
+      if (produit.assiette === 'pp' && !produit.horsPalier) {
+        ppRealisee += assietteEffective
+      } else if (produit.assiette === 'pu' && !produit.horsPalier) {
+        puRealisee += assietteEffective
+      }
+      detail.push({ deal, ...calc, assietteEffective })
     }
-    detail.push({ deal, ...calc, assietteEffective })
   }
 
   // 2. PHASE 1 : si pas rentabilisé, toute la prod sert à rembourser le salaire.
