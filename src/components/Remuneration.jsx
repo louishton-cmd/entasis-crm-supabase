@@ -25,12 +25,7 @@ import {
   dealsDuMois,
   dealsDuConseiller,
   codesContrat,
-  valeurCabinetDeal,
-  commissionsDeal,
-  mapProduitDeal,
-  partDeal,
 } from '../lib/calcul-commission'
-import { BAREME_PRODUITS, DATE_REMISE_A_ZERO_RENTABILITE } from '../lib/bareme-entasis'
 
 const fmtEur = (v) => Number(v || 0).toLocaleString('fr-FR', {
   style: 'currency', currency: 'EUR', maximumFractionDigits: 0,
@@ -248,16 +243,6 @@ function VueConseiller({ contrat, profile, deals, month, isManager }) {
           taux propre. Le détail des deals ci-dessous montre la ventilation
           par produit (PP, PU, SCPI, UCS, MH, Girardin, PE, Prév., Mutuelle). */}
 
-      {/* Frise : tous les deals comptés dans le seuil + leur taux */}
-      {salaireFixe > 0 && (
-        <FriseSeuilRentabilite
-          contrat={contrat}
-          dealsConseiller={dealsConseiller}
-          rentab={rentab}
-          profile={profile}
-        />
-      )}
-
       {/* Détail des deals du mois */}
       <SectionDetail comm={comm} month={month} />
     </div>
@@ -298,183 +283,6 @@ function PalierCard({ titre, realise, cible, pct, reste, atteint, variable, hint
       </div>
     </div>
   )
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Frise du seuil de rentabilité : montre la production cumulée depuis
-// l'embauche, avec une barre de progression empilée et le détail de
-// chaque deal (date, client, valeur cabinet, taux applicable une fois
-// rentabilisé). Visible pour les conseillers salariés (pas mandataires).
-// ─────────────────────────────────────────────────────────────────────────
-function FriseSeuilRentabilite({ contrat, dealsConseiller, rentab, profile }) {
-  const codes = useMemo(() => codesContrat(contrat, profile), [contrat, profile])
-
-  // Liste enrichie des deals signés depuis le point de référence du seuil
-  // (= max(date_debut contrat, DATE_REMISE_A_ZERO)). On affiche dans
-  // l'ordre chronologique pour bien voir l'historique d'accumulation.
-  const lignes = useMemo(() => {
-    const debutContrat = contrat?.date_debut ? new Date(contrat.date_debut) : null
-    const remiseZero = new Date(DATE_REMISE_A_ZERO_RENTABILITE)
-    const debut = debutContrat && debutContrat > remiseZero ? debutContrat : remiseZero
-    const out = []
-    let cumul = 0
-    for (const deal of dealsConseiller || []) {
-      if (deal.status !== 'Signé' || !deal.date_signed) continue
-      const ds = new Date(deal.date_signed)
-      if (ds < debut) continue
-      const part = partDeal(deal, codes)
-      if (!part) continue
-      const valeur = valeurCabinetDeal(deal, part)
-      if (valeur <= 0) continue
-      cumul += valeur
-      // Récupère les taux pour info pédagogique : taux mandataire (utilisé
-      // pour la valeur cabinet et le seuil) + taux CDI (qui s'appliquera
-      // après franchissement du seuil).
-      const calcs = commissionsDeal(deal, { ...contrat, rentabilise: false }, part)  // taux mandataire
-      const calcsCdi = commissionsDeal(deal, { ...contrat, rentabilise: true }, part)
-      out.push({
-        deal,
-        date: ds,
-        client: deal.clients
-          ? `${deal.clients.prenom || ''} ${deal.clients.nom || ''}`.trim() || (deal.client_id || '—')
-          : (deal.client_id || '—'),
-        produit: deal.product || deal.produit || '—',
-        compagnie: deal.company || deal.compagnie || '',
-        coConseiller: part < 1,
-        valeur,
-        cumul,
-        calcs,        // taux mandataire (= ce qui compte pour le seuil)
-        calcsCdi,     // taux CDI (= ce qu'il touchera une fois rentabilisé)
-      })
-    }
-    return out.sort((a, b) => a.date - b.date)
-  }, [dealsConseiller, codes, contrat])
-
-  // Si pas de deal du tout, on cache le bloc
-  if (lignes.length === 0) return null
-
-  const cible = Number(rentab?.brutCumule || 0)
-  const realise = Number(rentab?.valeurCumulee || 0)
-  const ecartCible = Math.max(0, cible - realise)
-
-  // Construit les segments de la barre empilée (1 segment par deal)
-  const total = Math.max(cible, realise)
-  const segments = lignes.map((l) => ({
-    pct: total > 0 ? (l.valeur / total) * 100 : 0,
-    color: colorForProduit(l.produit),
-    l,
-  }))
-
-  return (
-    <div className="card mb-24" style={{ overflow: 'hidden' }}>
-      <div className="panel-head">
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--gold)' }}>
-            Détail du seuil de rentabilité
-          </div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--t1)', marginTop: 4 }}>
-            Production cumulée depuis ton embauche · {lignes.length} dossier{lignes.length !== 1 ? 's' : ''}
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 2 }}>
-            Chaque segment = un dossier qui contribue au remboursement du salaire (valeur cabinet, taux mandataire).
-          </div>
-        </div>
-      </div>
-      <div className="panel-body" style={{ padding: '12px 20px 20px' }}>
-        {/* Barre empilée multi-deals */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{
-            display: 'flex', height: 14, borderRadius: 999, overflow: 'hidden',
-            background: 'rgba(0,0,0,0.04)', border: '1px solid var(--bd)',
-          }}>
-            {segments.map((s, i) => (
-              <div key={i}
-                style={{
-                  width: `${s.pct}%`, height: '100%', background: s.color,
-                  borderRight: i < segments.length - 1 ? '1px solid rgba(255,255,255,0.6)' : 'none',
-                }}
-                title={`${s.l.client} · ${s.l.produit} · ${fmtEur(s.l.valeur)} valeur cabinet`}
-              />
-            ))}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12 }}>
-            <span style={{ color: 'var(--t2)' }}>
-              <strong style={{ color: 'var(--t1)', fontVariantNumeric: 'tabular-nums' }}>{fmtEur(realise)}</strong> de valeur cabinet cumulée
-            </span>
-            <span style={{ color: 'var(--t3)', fontVariantNumeric: 'tabular-nums' }}>
-              Objectif : {fmtEur(cible)}{ecartCible > 0 ? ` · reste ${fmtEur(ecartCible)}` : ' · ✅ rentabilisé'}
-            </span>
-          </div>
-        </div>
-
-        {/* Tableau détaillé */}
-        <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 12 }}>
-          <table className="data-table" style={{ width: '100%' }}>
-            <thead>
-              <tr>
-                <th style={{ width: 90 }}>Date</th>
-                <th>Dossier</th>
-                <th style={{ textAlign: 'right' }}>Valeur cabinet</th>
-                <th style={{ textAlign: 'right' }}>Cumul</th>
-                <th style={{ textAlign: 'right' }}>Taux une fois rentabilisé</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lignes.map((l, i) => {
-                const passe = l.cumul <= cible
-                return (
-                  <tr key={l.deal.id || i}>
-                    <td className="cell-mono" style={{ fontSize: 12 }}>
-                      {l.date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: colorForProduit(l.produit), flexShrink: 0 }} />
-                        <span className="cell-primary">{l.client}</span>
-                      </div>
-                      <div className="cell-sub" style={{ marginLeft: 14 }}>
-                        {l.produit}{l.compagnie ? ` · ${l.compagnie}` : ''}
-                        {l.coConseiller && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--gold-dk)', fontWeight: 700 }}>50 % co</span>}
-                      </div>
-                    </td>
-                    <td className="cell-mono" style={{ textAlign: 'right', fontWeight: 600 }}>
-                      {fmtEur(l.valeur)}
-                    </td>
-                    <td className="cell-mono" style={{ textAlign: 'right', color: passe ? 'var(--t2)' : 'var(--signed, #2A9847)', fontVariantNumeric: 'tabular-nums' }}>
-                      {fmtEur(l.cumul)}
-                    </td>
-                    <td className="cell-mono" style={{ textAlign: 'right', fontSize: 12, color: 'var(--t2)' }}>
-                      {l.calcsCdi.map((c, j) => (
-                        <div key={j}>
-                          {c.produitKey === 'pu_versement_libre' && <span style={{ fontSize: 9, fontWeight: 700, padding: '0 4px', borderRadius: 3, background: 'rgba(139,92,246,0.12)', color: '#7C3AED', marginRight: 4 }}>PU</span>}
-                          {fmtPct(c.taux)}
-                        </div>
-                      ))}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Couleur stable par catégorie de produit (cohérent avec FUND_COLORS)
-function colorForProduit(produit) {
-  const p = (produit || '').toLowerCase()
-  if (p.includes('per')) return '#7C3AED'
-  if (p.includes('assurance vie') || p === 'av') return '#0EA5E9'
-  if (p.includes('scpi')) return '#10B981'
-  if (p.includes('ucs') || p.includes('structur')) return '#F59E0B'
-  if (p.includes('pe') || p.includes('private')) return '#EC4899'
-  if (p.includes('prévoyance') || p.includes('prevoyance')) return '#EF4444'
-  if (p.includes('mutuelle') || p.includes('santé')) return '#06B6D4'
-  if (p.includes('girardin')) return '#84CC16'
-  if (p.includes('monument') || p === 'mh') return '#A6843F'
-  return '#86868B'
 }
 
 // ─────────────────────────────────────────────────────────────────────────
