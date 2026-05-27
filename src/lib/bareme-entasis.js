@@ -90,10 +90,13 @@ export const BAREME_PRODUITS = {
   },
 
   // PU (Prime Unique) — palier PU séparé
+  // Décision Louis 27/05 : on divise les frais par 2 (CDI touche la moitié
+  // du frais d'entrée, mandataire touche tout le frais). Plus simple que
+  // l'ancienne formule frais/4+0.5 / frais/2+1.
   pu_versement_libre: {
     libelle: 'PU Versement libre', categorie: 'pu', assiette: 'pu', horsPalier: false,
-    cdi: (frais) => frais / 4 + 0.5,
-    mandataire: (frais) => frais / 2 + 1,
+    cdi: (frais) => frais / 2,
+    mandataire: (frais) => frais,
   },
   pu_transfert: {
     libelle: 'PU Transfert', categorie: 'pu', assiette: 'pu', horsPalier: false,
