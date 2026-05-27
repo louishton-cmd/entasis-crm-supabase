@@ -430,48 +430,37 @@ export function commissionsMois(dealsMois = [], contrat, rentab, profile = null)
   const palierPu = aucunSalaire ? 0 : Number(contrat.palier_pu_mensuel || 0)
   const codes = codesContrat(contrat, profile)
 
-  // 1. Première passe : agréger PP/PU soumis palier pour évaluer les seuils.
   let ppRealisee = 0
   let puRealisee = 0
   const detail = []
 
-  for (const deal of dealsMois) {
-    const part = partDeal(deal, codes)
-    if (!part) continue
-    // commissionsDeal retourne 1 ligne (cas standard) ou 2 lignes (deal PP
-    // avec PU non nulle → on calcule la commission PP + la commission PU).
-    const calcs = commissionsDeal(deal, ctx, part)
-    for (const calc of calcs) {
-      if (!calc.produitKey) continue
-      const produit = BAREME_PRODUITS[calc.produitKey]
-      const assietteEffective = calc.assiette * part
-      if (produit.assiette === 'pp' && !produit.horsPalier) {
-        ppRealisee += assietteEffective
-      } else if (produit.assiette === 'pu' && !produit.horsPalier) {
-        puRealisee += assietteEffective
-      }
-      detail.push({ deal, ...calc, assietteEffective })
-    }
-  }
-
-  // 2. PHASE 1 : si pas rentabilisé, toute la prod sert à rembourser le salaire.
-  //    Aucun variable versé au conseiller. Tous les deals → montantEffectif = 0,
-  //    statut "rembourse salaire" exposé pour l'UI.
+  // PHASE 1 : si pas rentabilisé, toute la prod sert à rembourser le salaire.
+  // Aucun variable versé. Toutes les commissions calculées au taux mandataire
+  // (= taux qui sert à la valeur cabinet), montantEffectif = 0.
   if (!rentabilise) {
-    for (const d of detail) {
-      d.montantEffectif = 0
-      d.sousPalier = false      // pas la même sémantique
-      d.remboursementSalaire = true   // flag UI : "rembourse salaire"
+    for (const deal of dealsMois) {
+      const part = partDeal(deal, codes)
+      if (!part) continue
+      // ctx avec rentabilise=false → mandataire automatiquement
+      const calcs = commissionsDeal(deal, { ...contrat, rentabilise: false }, part)
+      for (const calc of calcs) {
+        if (!calc.produitKey) continue
+        const produit = BAREME_PRODUITS[calc.produitKey]
+        const assietteEffective = calc.assiette * part
+        if (produit.assiette === 'pp' && !produit.horsPalier) ppRealisee += assietteEffective
+        else if (produit.assiette === 'pu' && !produit.horsPalier) puRealisee += assietteEffective
+        detail.push({
+          deal, ...calc, assietteEffective,
+          montantEffectif: 0,
+          sousPalier: false,
+          remboursementSalaire: true,
+        })
+      }
     }
     return {
-      variablePp: 0,
-      variablePu: 0,
-      variableHorsPalier: 0,
-      total: 0,
-      ppRealisee,
-      puRealisee,
-      palierPpAtteint: false,
-      palierPuAtteint: false,
+      variablePp: 0, variablePu: 0, variableHorsPalier: 0, total: 0,
+      ppRealisee, puRealisee,
+      palierPpAtteint: false, palierPuAtteint: false,
       rentabilise: false,
       detail,
     }
@@ -492,40 +481,79 @@ export function commissionsMois(dealsMois = [], contrat, rentab, profile = null)
   // rentabilisé avant ce mois) → ratio = 1 → 100% du variable versé.
   // Si l'ecart < valeurMoisTotale (le conseiller vient de passer le
   // seuil ce mois) → seule la fraction excédentaire est commissionnée.
-  // Pour les mandataires / gérants : pas de seuil de rentabilité du tout.
-  // ecart = 0 par construction (evaluerRentabilite renvoie 0 pour eux),
-  // donc le calcul ratio = ecart / valeurMois donnerait 0 → annulerait
-  // toutes leurs commissions. On force ratio = 1 pour les contrats sans
-  // seuil (mandataires, gérants). Pour les salariés rentabilisés, la
-  // logique ratio = ecart / valeurMois reste appliquée.
+  // PHASE 2 — Logique deal-par-deal chronologique (décision Louis 27/05) :
+  //
+  //   "normalement c 1% là vu qu'il a mis 2% de frais sur le contrat,
+  //    ensuite sur les prochaines affaires il passe en divisé par deux"
+  //
+  // Pour chaque deal du mois trié par date_signed :
+  //   • Si le seuil cumulé N'ÉTAIT PAS franchi AVANT ce deal → taux
+  //     mandataire (commission non versée, sert au remboursement)
+  //   • Si le seuil ÉTAIT déjà franchi → taux CDI, commission versée 100 %
+  //
+  // Mandataires/gérants : pas de seuil → toujours rentabilisés → taux
+  // mandataire sur tous leurs deals (déjà géré par le contexte ctx initial).
   const sansSeuil = !TYPES_AVEC_SEUIL_RENTABILITE.includes(contrat.type_contrat)
+  const brutCumule = Number(rentabObj.brutCumule || 0)
+  // Valeur cabinet cumulée AVANT le mois courant (= ce qui était déjà
+  // remboursé en début de mois). On la déduit du total - ce qui est sur
+  // le mois courant.
   const valeurMoisTotale = dealsMois.reduce((sum, deal) => {
     const part = partDeal(deal, codes)
     if (!part) return sum
     return sum + valeurCabinetDeal(deal, part)
   }, 0)
-  const ecart = Math.max(0, Number(rentabObj.ecart || 0))
-  const ratio = sansSeuil
-    ? 1
-    : (valeurMoisTotale > 0 ? Math.min(1, ecart / valeurMoisTotale) : 0)
+  const valeurAvantCeMois = Math.max(0, Number(rentabObj.valeurCumulee || 0) - valeurMoisTotale)
 
   let variablePp = 0
   let variablePu = 0
   let variableHorsPalier = 0
 
-  for (const d of detail) {
-    const produit = BAREME_PRODUITS[d.produitKey]
-    d.montantEffectif = d.montant * ratio
-    // Mandataire/gérant : pas de notion "sous seuil" — pleins droits dès le 1er €.
-    d.sousPalier = !sansSeuil && ratio < 1
-    d.remboursementSalaire = false
-    if (produit.horsPalier) {
-      variableHorsPalier += d.montantEffectif
-    } else if (produit.assiette === 'pp') {
-      variablePp += d.montantEffectif
-    } else if (produit.assiette === 'pu') {
-      variablePu += d.montantEffectif
+  // Tri chronologique des deals du mois (les plus anciens en premier).
+  const dealsTries = [...dealsMois].sort((a, b) => {
+    const da = a.date_signed ? new Date(a.date_signed).getTime() : 0
+    const db = b.date_signed ? new Date(b.date_signed).getTime() : 0
+    return da - db
+  })
+
+  let cumulCourant = valeurAvantCeMois   // évolue au fur et à mesure
+  for (const deal of dealsTries) {
+    const part = partDeal(deal, codes)
+    if (!part) continue
+    // Le seuil est-il déjà franchi AVANT ce deal ?
+    const aRembourse = sansSeuil || cumulCourant >= brutCumule
+    // Recalcule les commissions avec le bon contexte (rentabilise = aRembourse)
+    const ctxDeal = { ...contrat, rentabilise: aRembourse }
+    const calcs = commissionsDeal(deal, ctxDeal, part)
+    for (const calc of calcs) {
+      if (!calc.produitKey) continue
+      const produit = BAREME_PRODUITS[calc.produitKey]
+      const assietteEffective = calc.assiette * part
+      if (produit.assiette === 'pp' && !produit.horsPalier) {
+        ppRealisee += assietteEffective
+      } else if (produit.assiette === 'pu' && !produit.horsPalier) {
+        puRealisee += assietteEffective
+      }
+      // Si seuil pas encore franchi → commission non versée (sert au remboursement)
+      // Si franchi → commission versée 100% au taux CDI (ou mandataire si sans seuil)
+      const montantEffectif = aRembourse ? calc.montant : 0
+      const d = {
+        deal,
+        ...calc,
+        assietteEffective,
+        montantEffectif,
+        sousPalier: false,                        // déprécié, plus de notion partielle
+        remboursementSalaire: !aRembourse,        // flag UI : "ce deal rembourse le salaire"
+      }
+      detail.push(d)
+      if (aRembourse) {
+        if (produit.horsPalier) variableHorsPalier += calc.montant
+        else if (produit.assiette === 'pp') variablePp += calc.montant
+        else if (produit.assiette === 'pu') variablePu += calc.montant
+      }
     }
+    // Ce deal a contribué au cumul (au taux mandataire = valeur cabinet)
+    cumulCourant += valeurCabinetDeal(deal, part)
   }
 
   return {
