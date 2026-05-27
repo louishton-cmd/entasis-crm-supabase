@@ -127,6 +127,9 @@ export default function ManagementView({ deals, objectifs, month, profile, teamP
     else { setSortKey(key); setSortDir('desc') }
   }
 
+  // Drill-down : conseiller sélectionné pour vue détaillée
+  const [selectedAdvisor, setSelectedAdvisor] = useState(null)
+
   return (
     <div>
       <div className="section-header">
@@ -213,7 +216,7 @@ export default function ManagementView({ deals, objectifs, month, profile, teamP
             </thead>
             <tbody>
               {sortedRows.map(r => (
-                <RowConseiller key={r.profile.advisor_code} r={r} />
+                <RowConseiller key={r.profile.advisor_code} r={r} onSelect={() => setSelectedAdvisor(r)} />
               ))}
               {sortedRows.length === 0 && (
                 <tr><td colSpan={8} style={{ textAlign: 'center', padding: 32, color: 'var(--t3)' }}>
@@ -224,6 +227,16 @@ export default function ManagementView({ deals, objectifs, month, profile, teamP
           </table>
         </div>
       </div>
+
+      {/* ─── Drill-down conseiller (modal) ──────────────────────────── */}
+      {selectedAdvisor && (
+        <AdvisorDetailModal
+          row={selectedAdvisor}
+          deals={deals}
+          month={month}
+          onClose={() => setSelectedAdvisor(null)}
+        />
+      )}
 
       {/* ─── Objectifs cabinet (en bas, plus compact) ──────────────── */}
       {canEditObjectifs && (
@@ -344,12 +357,184 @@ function SortableTh({ label, col, sortKey, sortDir, onSort, align }) {
   )
 }
 
-function RowConseiller({ r }) {
+// ─────────────────────────────────────────────────────────────────────────
+// Modal drill-down : détail complet d'un conseiller
+// ─────────────────────────────────────────────────────────────────────────
+function AdvisorDetailModal({ row, deals, month, onClose }) {
+  const code = row.profile.advisor_code
+  // Historique 12 mois : pour chaque mois, PP signée + nb deals
+  const history12 = useMemo(() => {
+    const monthIdx = MONTHS.indexOf(month)
+    const last12 = []
+    for (let i = 11; i >= 0; i--) {
+      const idx = monthIdx - i
+      if (idx < 0) continue
+      const mname = MONTHS[idx]
+      const m = advisorMetrics(deals, mname, code)
+      last12.push({ month: mname, pp: m.ppSigned, pu: m.puSigned, count: m.signedCount })
+    }
+    return last12
+  }, [deals, month, code])
+
+  // Derniers deals signés (top 8)
+  const recentDeals = useMemo(() => {
+    return deals
+      .filter(d => d.status === 'Signé' && dealMatchesAdvisor(d, code))
+      .slice()
+      .sort((a, b) => {
+        const da = a.date_signed ? new Date(a.date_signed).getTime() : 0
+        const db = b.date_signed ? new Date(b.date_signed).getTime() : 0
+        return db - da
+      })
+      .slice(0, 8)
+  }, [deals, code])
+
+  const maxPp = Math.max(1, ...history12.map(h => h.pp))
+
+  return (
+    <div className="modal-overlay" onClick={onClose} style={{ background: 'rgba(0,0,0,0.4)' }}>
+      <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 900, maxHeight: '92vh', overflowY: 'auto' }}>
+        <div className="modal-head" style={{ position: 'sticky', top: 0, background: 'white', zIndex: 10, borderBottom: '1px solid var(--bd)' }}>
+          <div>
+            <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: '50%',
+                background: 'linear-gradient(135deg, var(--gold) 0%, var(--gold-dk) 100%)',
+                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 700, fontSize: 16,
+              }}>
+                {(row.profile.full_name || code).split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <div>{row.profile.full_name || code}</div>
+                <div style={{ fontSize: 12, color: 'var(--t3)', fontWeight: 400, marginTop: 2 }}>
+                  {code} · {row.profile.role === 'manager' ? 'Manager' : 'Conseiller'}
+                </div>
+              </div>
+            </div>
+          </div>
+          <button className="btn btn-ghost btn-icon" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-body" style={{ padding: 20 }}>
+          {/* KPIs du mois */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
+            <MiniKpi label="Signés" value={row.m.signedCount.toFixed(0)} color="#10B981" />
+            <MiniKpi label="PP signée" value={fmtEur(row.m.ppSigned)} color="var(--gold)" />
+            <MiniKpi label="PU signée" value={fmtEur(row.m.puSigned)} color="#0071E3" />
+            <MiniKpi label="Pipeline" value={fmtEur(row.m.ppPipeline)} color="#F59E0B" hint={`${row.m.pipelineCount} dossiers`} />
+            <MiniKpi
+              label="Δ vs M-1"
+              value={`${row.dPp >= 0 ? '+' : ''}${fmtEur(row.dPp)}`}
+              color={row.dPp >= 0 ? '#10B981' : '#EF4444'}
+            />
+          </div>
+
+          {/* Histo PP 12 mois */}
+          <div className="card" style={{ marginBottom: 24 }}>
+            <div className="panel-head">
+              <div>
+                <div className="section-kicker">Tendance PP signée · 12 derniers mois</div>
+              </div>
+            </div>
+            <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'flex-end', gap: 6, height: 140 }}>
+              {history12.map(h => {
+                const heightPct = (h.pp / maxPp) * 100
+                const isCurrent = h.month === month
+                return (
+                  <div key={h.month} style={{ flex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%' }}>
+                    <div title={`${h.month} · ${fmtEur(h.pp)} · ${h.count.toFixed(0)} dossiers`}
+                      style={{
+                        height: `${Math.max(2, heightPct)}%`,
+                        background: isCurrent ? 'var(--gold)' : 'rgba(0,0,0,0.15)',
+                        borderRadius: '4px 4px 0 0',
+                        minHeight: 2,
+                        transition: 'height 0.4s',
+                      }} />
+                    <div style={{ fontSize: 10, color: isCurrent ? 'var(--gold-dk)' : 'var(--t3)', fontWeight: isCurrent ? 700 : 500, marginTop: 4 }}>
+                      {h.month.slice(0, 3)}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Derniers deals signés */}
+          <div className="card">
+            <div className="panel-head">
+              <div>
+                <div className="section-kicker">Derniers dossiers signés</div>
+                <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 2 }}>
+                  {recentDeals.length} dossier{recentDeals.length !== 1 ? 's' : ''} récent{recentDeals.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table" style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th>Client</th>
+                    <th>Produit</th>
+                    <th style={{ textAlign: 'right' }}>PP/an</th>
+                    <th style={{ textAlign: 'right' }}>PU</th>
+                    <th>Signé le</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentDeals.length === 0 ? (
+                    <tr><td colSpan={5} style={{ textAlign: 'center', padding: 20, color: 'var(--t3)', fontSize: 13 }}>
+                      Aucun dossier signé pour ce conseiller.
+                    </td></tr>
+                  ) : recentDeals.map(d => (
+                    <tr key={d.id}>
+                      <td className="cell-primary">{d.client || '—'}</td>
+                      <td>
+                        <div>{d.product || '—'}</div>
+                        <div className="cell-sub">{d.company || ''}</div>
+                      </td>
+                      <td className="cell-mono" style={{ textAlign: 'right', fontWeight: 600 }}>
+                        {fmtEur(annualize(d.pp_m))}
+                      </td>
+                      <td className="cell-mono" style={{ textAlign: 'right' }}>
+                        {d.pu > 0 ? fmtEur(d.pu) : '—'}
+                      </td>
+                      <td className="cell-mono" style={{ fontSize: 12, color: 'var(--t2)' }}>
+                        {d.date_signed ? new Date(d.date_signed).toLocaleDateString('fr-FR') : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MiniKpi({ label, value, color, hint }) {
+  return (
+    <div style={{
+      background: 'var(--bg)', padding: '12px 14px', borderRadius: 'var(--rad)',
+      borderTop: `2px solid ${color}`,
+    }}>
+      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--t3)' }}>{label}</div>
+      <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--t1)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+      {hint && <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>{hint}</div>}
+    </div>
+  )
+}
+
+function RowConseiller({ r, onSelect }) {
   const code = r.profile.advisor_code
   const typeContrat = r.profile.role === 'manager' ? 'Manager' : 'Conseiller'
   const isAlerte = r.m.signedCount === 0
   return (
-    <tr style={{ background: isAlerte ? 'rgba(239,68,68,0.03)' : undefined }}>
+    <tr style={{ background: isAlerte ? 'rgba(239,68,68,0.03)' : undefined, cursor: 'pointer' }}
+        onClick={onSelect}
+        title="Clic pour voir le détail">
       <td>
         <div className="cell-primary">{r.profile.full_name || code}</div>
         <div className="cell-sub" style={{ fontFamily: 'monospace' }}>{code}</div>
