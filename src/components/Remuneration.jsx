@@ -399,10 +399,14 @@ function SectionDetail({ comm, month }) {
                     <span className="badge badge-progress" title="Le seuil vient d'être franchi — seule la part excédentaire est commissionnée">
                       Au-dessus du seuil
                     </span>
-                  ) : d.horsPalier ? (
-                    <span className="badge badge-forecast">Hors palier</span>
+                  ) : d.tauxMandataire ? (
+                    <span className="badge badge-signed" title="Mandataire / Gérant — commission versée intégralement au taux mandataire dès le 1er €">
+                      Mandataire
+                    </span>
                   ) : (
-                    <span className="badge badge-signed">Au-dessus palier</span>
+                    <span className="badge badge-signed" title="Commission versée intégralement au taux CDI">
+                      Versé
+                    </span>
                   )}
                 </td>
               </tr>

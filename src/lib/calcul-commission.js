@@ -479,13 +479,22 @@ export function commissionsMois(dealsMois = [], contrat, rentab, profile = null)
   // rentabilisé avant ce mois) → ratio = 1 → 100% du variable versé.
   // Si l'ecart < valeurMoisTotale (le conseiller vient de passer le
   // seuil ce mois) → seule la fraction excédentaire est commissionnée.
+  // Pour les mandataires / gérants : pas de seuil de rentabilité du tout.
+  // ecart = 0 par construction (evaluerRentabilite renvoie 0 pour eux),
+  // donc le calcul ratio = ecart / valeurMois donnerait 0 → annulerait
+  // toutes leurs commissions. On force ratio = 1 pour les contrats sans
+  // seuil (mandataires, gérants). Pour les salariés rentabilisés, la
+  // logique ratio = ecart / valeurMois reste appliquée.
+  const sansSeuil = !TYPES_AVEC_SEUIL_RENTABILITE.includes(contrat.type_contrat)
   const valeurMoisTotale = dealsMois.reduce((sum, deal) => {
     const part = partDeal(deal, codes)
     if (!part) return sum
     return sum + valeurCabinetDeal(deal, part)
   }, 0)
   const ecart = Math.max(0, Number(rentabObj.ecart || 0))
-  const ratio = valeurMoisTotale > 0 ? Math.min(1, ecart / valeurMoisTotale) : 0
+  const ratio = sansSeuil
+    ? 1
+    : (valeurMoisTotale > 0 ? Math.min(1, ecart / valeurMoisTotale) : 0)
 
   let variablePp = 0
   let variablePu = 0
@@ -494,7 +503,8 @@ export function commissionsMois(dealsMois = [], contrat, rentab, profile = null)
   for (const d of detail) {
     const produit = BAREME_PRODUITS[d.produitKey]
     d.montantEffectif = d.montant * ratio
-    d.sousPalier = ratio < 1   // flag UI : ligne "sous seuil" si commission amputée
+    // Mandataire/gérant : pas de notion "sous seuil" — pleins droits dès le 1er €.
+    d.sousPalier = !sansSeuil && ratio < 1
     d.remboursementSalaire = false
     if (produit.horsPalier) {
       variableHorsPalier += d.montantEffectif
