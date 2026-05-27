@@ -18,6 +18,8 @@ import {
   annualize,
   dealMatchesAdvisor,
 } from '../lib/metrics'
+import * as contratsService from '../services/conseillerContrats'
+import { evaluerRentabilite, codesContrat, dealsDuConseiller } from '../lib/calcul-commission'
 
 const fmtEur = (v) => Number(v || 0).toLocaleString('fr-FR', {
   style: 'currency', currency: 'EUR', maximumFractionDigits: 0,
@@ -36,6 +38,16 @@ export default function ManagementView({ deals, objectifs, month, profile, teamP
       pu_target: objectifs?.[month]?.pu_target ?? '',
     })
   }, [objectifs, month])
+
+  // Contrats des conseillers (pour calculer la rentabilité)
+  const [contrats, setContrats] = useState([])
+  useEffect(() => {
+    let alive = true
+    contratsService.list().catch(() => []).then(list => {
+      if (alive) setContrats(list || [])
+    })
+    return () => { alive = false }
+  }, [])
 
   // Cross-référence Lead Room : stats RDV par conseiller (matchées par email)
   const [rdvStats, setRdvStats] = useState({ loading: true, byEmail: {} })
@@ -60,7 +72,7 @@ export default function ManagementView({ deals, objectifs, month, profile, teamP
     [teamProfiles]
   )
 
-  // Calcule les stats du mois courant + delta vs mois précédent pour chaque conseiller
+  // Calcule les stats du mois courant + delta vs mois précédent + rentabilité
   const rows = useMemo(() => {
     const prevIdx = MONTHS.indexOf(month) - 1
     const prevMonth = prevIdx >= 0 ? MONTHS[prevIdx] : null
@@ -70,8 +82,22 @@ export default function ManagementView({ deals, objectifs, month, profile, teamP
       const dPp = prev ? m.ppSigned - prev.ppSigned : 0
       const dPu = prev ? m.puSigned - prev.puSigned : 0
       const dSigned = prev ? m.signedCount - prev.signedCount : 0
+      // Trouve le contrat lié au profile (via profile_id ou advisor_code)
+      const contrat = contrats.find(c =>
+        c.actif && (
+          c.profile_id === p.id ||
+          (c.profile?.advisor_code && c.profile.advisor_code === p.advisor_code)
+        )
+      ) || null
+      // Évalue la rentabilité depuis l'embauche (cumul valeur cabinet vs salaire cumulé)
+      const dealsConseiller = contrat ? dealsDuConseiller(deals, codesContrat(contrat, p)) : []
+      const rentab = contrat
+        ? evaluerRentabilite(contrat, dealsConseiller, p)
+        : { rentabilise: true, brutCumule: 0, valeurCumulee: 0, ecart: 0 }
       return {
         profile: p,
+        contrat,
+        rentab,
         m,
         prev,
         dPp,
@@ -80,7 +106,7 @@ export default function ManagementView({ deals, objectifs, month, profile, teamP
         totalBrut: m.ppSigned + m.puSigned,
       }
     })
-  }, [deals, month, activeAdvisors])
+  }, [deals, month, activeAdvisors, contrats])
 
   const targets = objectifs?.[month] || { pp_target: 0, pu_target: 0 }
 
@@ -231,6 +257,7 @@ export default function ManagementView({ deals, objectifs, month, profile, teamP
                 <SortableTh label="PU signée" col="pu" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
                 <SortableTh label="Pipeline" col="pipeline" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
                 <th style={{ textAlign: 'center' }} title="RDV Lead Room : joints / no-shows / refus">RDV LR</th>
+                <th style={{ textAlign: 'center' }} title="Valeur cabinet cumulée depuis embauche vs salaire à rembourser">Rentable ?</th>
                 <SortableTh label="Δ vs M-1" col="delta" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
                 <th>Statut</th>
               </tr>
@@ -246,7 +273,7 @@ export default function ManagementView({ deals, objectifs, month, profile, teamP
                 />
               ))}
               {sortedRows.length === 0 && (
-                <tr><td colSpan={9} style={{ textAlign: 'center', padding: 32, color: 'var(--t3)' }}>
+                <tr><td colSpan={10} style={{ textAlign: 'center', padding: 32, color: 'var(--t3)' }}>
                   Aucun conseiller actif. Vérifie que les profils ont un <code>advisor_code</code> dans <code>profiles</code>.
                 </td></tr>
               )}
@@ -445,6 +472,45 @@ function AdvisorDetailModal({ row, deals, month, rdv, onClose }) {
         </div>
 
         <div className="modal-body" style={{ padding: 20 }}>
+          {/* Rentabilité (si salarié) */}
+          {row.contrat && Number(row.contrat.salaire_brut_mensuel || 0) > 0 && (
+            <div className="card" style={{ marginBottom: 24, borderTop: `3px solid ${row.rentab.rentabilise ? '#10B981' : '#EF4444'}` }}>
+              <div style={{ padding: '14px 20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: row.rentab.rentabilise ? '#10B981' : '#EF4444', textTransform: 'uppercase' }}>
+                      {row.rentabilise ? 'Rentabilité confirmée' : 'En cours de rentabilisation'}
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--t1)', marginTop: 4 }}>
+                      {row.rentab.rentabilise
+                        ? `✅ Conseiller rentable depuis son embauche`
+                        : `⏳ Manque ${fmtEur(Math.max(0, row.rentab.brutCumule - row.rentab.valeurCumulee))} avant de rentabiliser son salaire`}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--t1)', fontVariantNumeric: 'tabular-nums' }}>
+                      {fmtEur(row.rentab.valeurCumulee)}
+                      <span style={{ fontSize: 14, color: 'var(--t3)', fontWeight: 500 }}> / {fmtEur(row.rentab.brutCumule)}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--t3)' }}>
+                      Valeur cabinet cumulée / Salaire à rembourser
+                    </div>
+                  </div>
+                </div>
+                <div style={{ marginTop: 12, height: 8, background: 'rgba(0,0,0,0.05)', borderRadius: 999, overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${row.rentab.brutCumule > 0 ? Math.min(100, (row.rentab.valeurCumulee / row.rentab.brutCumule) * 100) : 0}%`,
+                    height: '100%',
+                    background: row.rentab.rentabilise
+                      ? 'linear-gradient(90deg, #10B981 0%, #059669 100%)'
+                      : 'linear-gradient(90deg, var(--gold) 0%, var(--gold-dk, #A6843F) 100%)',
+                    transition: 'width 0.5s',
+                  }} />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* KPIs du mois */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
             <MiniKpi label="Signés" value={row.m.signedCount.toFixed(0)} color="#10B981" />
@@ -584,6 +650,45 @@ function AdvisorDetailModal({ row, deals, month, rdv, onClose }) {
   )
 }
 
+function RentabiliteBadge({ contrat, rentab }) {
+  // Pas de contrat → on ne sait pas (souvent un manager sans contrat suivi)
+  if (!contrat) {
+    return <span style={{ fontSize: 10, color: 'var(--t3)' }}>—</span>
+  }
+  // Mandataire / gérant : pas de salaire à rembourser
+  const sansSalaire = !contrat.salaire_brut_mensuel || Number(contrat.salaire_brut_mensuel) <= 0
+  if (sansSalaire) {
+    return (
+      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'rgba(201,169,97,0.15)', color: 'var(--gold-dk, #A6843F)' }}
+        title="Mandataire / sans salaire — pas de seuil applicable">
+        N/A
+      </span>
+    )
+  }
+  const pct = rentab.brutCumule > 0 ? Math.min(100, (rentab.valeurCumulee / rentab.brutCumule) * 100) : 0
+  const isRentable = rentab.rentabilise
+  const ecartLabel = isRentable
+    ? `✅ Rentable (+${Math.round((rentab.ecart / rentab.brutCumule) * 100) || 0}%)`
+    : `${Math.round(pct)}% du seuil`
+  const fmt = (v) => Number(v || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+  return (
+    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}
+      title={`Valeur cabinet cumulée : ${fmt(rentab.valeurCumulee)} / Salaire cumulé : ${fmt(rentab.brutCumule)}`}>
+      <span style={{
+        fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
+        background: isRentable ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.12)',
+        color: isRentable ? '#10B981' : '#EF4444',
+        whiteSpace: 'nowrap',
+      }}>
+        {isRentable ? '✓ OUI' : '✗ NON'}
+      </span>
+      <span style={{ fontSize: 10, color: 'var(--t3)', whiteSpace: 'nowrap' }}>
+        {ecartLabel}
+      </span>
+    </div>
+  )
+}
+
 function RdvOutcomeBadge({ outcome }) {
   const o = (outcome || '').toLowerCase()
   const map = {
@@ -660,6 +765,9 @@ function RowConseiller({ r, rdv, rdvLoading, onSelect }) {
         ) : (
           <span style={{ color: 'var(--t3)' }}>—</span>
         )}
+      </td>
+      <td style={{ textAlign: 'center', fontSize: 11 }}>
+        <RentabiliteBadge contrat={r.contrat} rentab={r.rentab} />
       </td>
       <td className="cell-mono" style={{ textAlign: 'right' }}>
         {r.prev ? (
