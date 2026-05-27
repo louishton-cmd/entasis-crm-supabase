@@ -222,8 +222,9 @@ function VueConseiller({ contrat, profile, deals, month, isManager }) {
         )}
       </div>
 
-      {/* PHASE 1 — Seuil de déclenchement (tous les produits comptent) */}
-      {!rentab.rentabilise && salaireFixe > 0 && (
+      {/* Seuil de déclenchement (toujours visible si salarié) — affiche la
+          progression cumulée et reste visible en phase 2 pour suivi continu */}
+      {salaireFixe > 0 && (
         <PalierCard
           titre="Seuil de déclenchement du variable"
           realise={rentab.valeurCumulee}
@@ -232,9 +233,11 @@ function VueConseiller({ contrat, profile, deals, month, isManager }) {
             ? Math.min(100, (rentab.valeurCumulee / rentab.brutCumule) * 100)
             : 0}
           reste={Math.max(0, rentab.brutCumule - rentab.valeurCumulee)}
-          atteint={false}
-          variable={0}
-          hint={`Plus que ${fmtEur(Math.max(0, rentab.brutCumule - rentab.valeurCumulee))} avant le déclenchement de ton variable. Tous les produits comptent dans ce seuil : PP, PU, SCPI, UCS, MH, Girardin, PE, Prévoyance, Mutuelle.`}
+          atteint={rentab.rentabilise}
+          variable={comm.total}
+          hint={rentab.rentabilise
+            ? `✅ Seuil atteint — tu touches ${fmtEur(comm.total)} de variable ce mois sur la production excédentaire. Tous les produits comptent : PP, PU, SCPI, UCS, MH, Girardin, PE, Prévoyance, Mutuelle.`
+            : `Plus que ${fmtEur(Math.max(0, rentab.brutCumule - rentab.valeurCumulee))} avant le déclenchement de ton variable. Tous les produits comptent dans ce seuil : PP, PU, SCPI, UCS, MH, Girardin, PE, Prévoyance, Mutuelle.`}
         />
       )}
 
