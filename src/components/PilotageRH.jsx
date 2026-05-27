@@ -17,7 +17,6 @@ import * as service from '../services/conseillerContrats'
 import * as profilesService from '../services/profiles'
 import { impersonate } from '../services/impersonation'
 import { TYPES_CONTRAT, LIBELLE_TYPE_CONTRAT } from '../lib/bareme-entasis'
-import CoAdvisorBatchEdit from './CoAdvisorBatchEdit'
 
 const fmtEur = (v) => Number(v || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('fr-FR') : '—')
@@ -366,9 +365,6 @@ export default function PilotageRH() {
 
       {/* Frise chronologique — vue d'ensemble des échéances RH */}
       <TimelineRH contrats={contrats} />
-
-      {/* Réattribution rapide des co-conseillers (édition en masse) */}
-      <CoAdvisorBatchEdit teamProfiles={profiles} />
 
       {/* Toolbar filtres */}
       <div className="table-toolbar mb-16" style={{ marginBottom: 16 }}>
