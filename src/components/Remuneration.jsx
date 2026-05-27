@@ -354,9 +354,21 @@ function SectionDetail({ comm, month }) {
             // une PP (ex : PER Individuel avec versement initial + mensuel).
             const isLignePu = d.produitKey === 'pu_versement_libre'
             const produitLabel = d.deal.product || d.deal.produit || '—'
+            // Co-conseiller : part = 0.5 → l'assiette/commission est divisée
+            // par 2. On le signale visuellement pour éviter la confusion
+            // (l'assiette affichée reste le brut du deal, pas la moitié).
+            const isCoConseiller = d.part && d.part < 1
             return (
               <tr key={`${d.deal.id || i}-${d.produitKey || 'main'}`}>
-                <td className="cell-primary">{clientName || '—'}</td>
+                <td className="cell-primary">
+                  {clientName || '—'}
+                  {isCoConseiller && (
+                    <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: 'rgba(201,169,97,0.15)', color: 'var(--gold-dk, #A6843F)', letterSpacing: '0.04em' }}
+                      title="Co-conseiller : tu touches 50 % de la commission sur ce dossier">
+                      CO 50 %
+                    </span>
+                  )}
+                </td>
                 <td>
                   <div>
                     {produitLabel}
