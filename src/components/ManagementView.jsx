@@ -25,6 +25,8 @@ const fmtEur = (v) => Number(v || 0).toLocaleString('fr-FR', {
 const pctNum = (a, b) => (b > 0 ? Math.round((Number(a || 0) / Number(b)) * 100) : 0)
 const safeDiv = (a, b) => (b > 0 ? a / b : 0)
 
+const LEADROOM_API = import.meta.env.VITE_LEADROOM_URL || 'https://entasis-leadroom.vercel.app'
+
 export default function ManagementView({ deals, objectifs, month, profile, teamProfiles, canEditObjectifs, onSaveObjectif }) {
   const isManager = profile?.role === 'manager'
   const [formObj, setFormObj] = useState({ pp_target: '', pu_target: '' })
@@ -34,6 +36,24 @@ export default function ManagementView({ deals, objectifs, month, profile, teamP
       pu_target: objectifs?.[month]?.pu_target ?? '',
     })
   }, [objectifs, month])
+
+  // Cross-référence Lead Room : stats RDV par conseiller (matchées par email)
+  const [rdvStats, setRdvStats] = useState({ loading: true, byEmail: {} })
+  useEffect(() => {
+    let cancelled = false
+    fetch(`${LEADROOM_API}/api/admin/advisor-rdv-stats`)
+      .then(r => r.ok ? r.json() : null)
+      .then(json => {
+        if (cancelled || !json) return
+        const byEmail = {}
+        for (const s of json.stats || []) {
+          if (s.email) byEmail[s.email.toLowerCase()] = s
+        }
+        setRdvStats({ loading: false, byEmail })
+      })
+      .catch(() => { if (!cancelled) setRdvStats({ loading: false, byEmail: {} }) })
+    return () => { cancelled = true }
+  }, [])
 
   const activeAdvisors = useMemo(
     () => (teamProfiles || []).filter(p => p?.is_active && p?.advisor_code),
@@ -210,16 +230,23 @@ export default function ManagementView({ deals, objectifs, month, profile, teamP
                 <SortableTh label="PP signée" col="pp" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
                 <SortableTh label="PU signée" col="pu" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
                 <SortableTh label="Pipeline" col="pipeline" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                <th style={{ textAlign: 'center' }} title="RDV Lead Room : joints / no-shows / refus">RDV LR</th>
                 <SortableTh label="Δ vs M-1" col="delta" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
                 <th>Statut</th>
               </tr>
             </thead>
             <tbody>
               {sortedRows.map(r => (
-                <RowConseiller key={r.profile.advisor_code} r={r} onSelect={() => setSelectedAdvisor(r)} />
+                <RowConseiller
+                  key={r.profile.advisor_code}
+                  r={r}
+                  rdv={rdvStats.byEmail[(r.profile.email || '').toLowerCase()]}
+                  rdvLoading={rdvStats.loading}
+                  onSelect={() => setSelectedAdvisor(r)}
+                />
               ))}
               {sortedRows.length === 0 && (
-                <tr><td colSpan={8} style={{ textAlign: 'center', padding: 32, color: 'var(--t3)' }}>
+                <tr><td colSpan={9} style={{ textAlign: 'center', padding: 32, color: 'var(--t3)' }}>
                   Aucun conseiller actif. Vérifie que les profils ont un <code>advisor_code</code> dans <code>profiles</code>.
                 </td></tr>
               )}
@@ -234,6 +261,7 @@ export default function ManagementView({ deals, objectifs, month, profile, teamP
           row={selectedAdvisor}
           deals={deals}
           month={month}
+          rdv={rdvStats.byEmail[(selectedAdvisor.profile.email || '').toLowerCase()]}
           onClose={() => setSelectedAdvisor(null)}
         />
       )}
@@ -360,7 +388,7 @@ function SortableTh({ label, col, sortKey, sortDir, onSort, align }) {
 // ─────────────────────────────────────────────────────────────────────────
 // Modal drill-down : détail complet d'un conseiller
 // ─────────────────────────────────────────────────────────────────────────
-function AdvisorDetailModal({ row, deals, month, onClose }) {
+function AdvisorDetailModal({ row, deals, month, rdv, onClose }) {
   const code = row.profile.advisor_code
   // Historique 12 mois : pour chaque mois, PP signée + nb deals
   const history12 = useMemo(() => {
@@ -460,6 +488,48 @@ function AdvisorDetailModal({ row, deals, month, onClose }) {
             </div>
           </div>
 
+          {/* RDV Lead Room — outcomes */}
+          {rdv && (rdv.total_rdv_passes > 0 || rdv.upcoming > 0) && (
+            <div className="card" style={{ marginBottom: 24 }}>
+              <div className="panel-head">
+                <div>
+                  <div className="section-kicker">RDV Lead Room</div>
+                  <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 2 }}>
+                    {rdv.total_rdv_passes} RDV passés · {rdv.upcoming} à venir
+                  </div>
+                </div>
+              </div>
+              <div style={{ padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 10 }}>
+                <MiniKpi label="Joints" value={rdv.joined} color="#10B981" />
+                <MiniKpi label="No-shows" value={rdv.no_show} color="#EF4444" />
+                <MiniKpi label="Refus" value={rdv.refused} color="var(--t2)" />
+                <MiniKpi label="Signés" value={rdv.signed} color="var(--gold)" />
+                <MiniKpi label="À venir" value={rdv.upcoming} color="#0071E3" />
+              </div>
+              {rdv.recent_rdvs && rdv.recent_rdvs.length > 0 && (
+                <div style={{ borderTop: '1px solid var(--bd)', padding: '12px 20px' }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+                    Derniers RDV
+                  </div>
+                  {rdv.recent_rdvs.map(r => (
+                    <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', fontSize: 13 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: 'var(--t1)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {r.name}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--t3)' }}>{r.campaign || '—'}</div>
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--t2)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                        {new Date(r.rdv_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })}
+                      </div>
+                      <RdvOutcomeBadge outcome={r.outcome} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Derniers deals signés */}
           <div className="card">
             <div className="panel-head">
@@ -514,6 +584,26 @@ function AdvisorDetailModal({ row, deals, month, onClose }) {
   )
 }
 
+function RdvOutcomeBadge({ outcome }) {
+  const o = (outcome || '').toLowerCase()
+  const map = {
+    joined: { label: 'Joint', bg: 'rgba(16,185,129,0.12)', color: '#10B981' },
+    joint: { label: 'Joint', bg: 'rgba(16,185,129,0.12)', color: '#10B981' },
+    no_show: { label: 'No-show', bg: 'rgba(239,68,68,0.12)', color: '#EF4444' },
+    noshow: { label: 'No-show', bg: 'rgba(239,68,68,0.12)', color: '#EF4444' },
+    'no-show': { label: 'No-show', bg: 'rgba(239,68,68,0.12)', color: '#EF4444' },
+    refused: { label: 'Refus', bg: 'rgba(0,0,0,0.06)', color: 'var(--t2)' },
+    refus: { label: 'Refus', bg: 'rgba(0,0,0,0.06)', color: 'var(--t2)' },
+    signed: { label: 'Signé', bg: 'rgba(201,169,97,0.15)', color: 'var(--gold-dk)' },
+    signé: { label: 'Signé', bg: 'rgba(201,169,97,0.15)', color: 'var(--gold-dk)' },
+  }
+  const v = map[o]
+  if (!v) {
+    return <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: 'rgba(0,0,0,0.04)', color: 'var(--t3)' }}>—</span>
+  }
+  return <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: v.bg, color: v.color, letterSpacing: '0.02em' }}>{v.label}</span>
+}
+
 function MiniKpi({ label, value, color, hint }) {
   return (
     <div style={{
@@ -527,7 +617,7 @@ function MiniKpi({ label, value, color, hint }) {
   )
 }
 
-function RowConseiller({ r, onSelect }) {
+function RowConseiller({ r, rdv, rdvLoading, onSelect }) {
   const code = r.profile.advisor_code
   const typeContrat = r.profile.role === 'manager' ? 'Manager' : 'Conseiller'
   const isAlerte = r.m.signedCount === 0
@@ -551,6 +641,26 @@ function RowConseiller({ r, onSelect }) {
       <td className="cell-mono" style={{ textAlign: 'right', fontWeight: 600 }}>{fmtEur(r.m.ppSigned)}</td>
       <td className="cell-mono" style={{ textAlign: 'right', fontWeight: 600 }}>{fmtEur(r.m.puSigned)}</td>
       <td className="cell-mono" style={{ textAlign: 'right', color: 'var(--t3)' }}>{fmtEur(r.m.ppPipeline)}</td>
+      <td style={{ textAlign: 'center', fontSize: 11 }}>
+        {rdvLoading ? (
+          <span style={{ color: 'var(--t3)' }}>…</span>
+        ) : rdv ? (
+          <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center', flexWrap: 'nowrap' }}>
+            <span title="Joints" style={{ color: '#10B981', fontWeight: 700 }}>{rdv.joined}</span>
+            <span style={{ color: 'var(--t3)' }}>·</span>
+            <span title="No-shows" style={{ color: '#EF4444', fontWeight: 700 }}>{rdv.no_show}</span>
+            <span style={{ color: 'var(--t3)' }}>·</span>
+            <span title="Refus" style={{ color: 'var(--t3)', fontWeight: 600 }}>{rdv.refused}</span>
+            {rdv.upcoming > 0 && (
+              <span title={`${rdv.upcoming} RDV à venir`} style={{ marginLeft: 4, padding: '1px 5px', borderRadius: 3, background: 'rgba(0,113,227,0.10)', color: '#0071E3', fontWeight: 600, fontSize: 10 }}>
+                +{rdv.upcoming}
+              </span>
+            )}
+          </div>
+        ) : (
+          <span style={{ color: 'var(--t3)' }}>—</span>
+        )}
+      </td>
       <td className="cell-mono" style={{ textAlign: 'right' }}>
         {r.prev ? (
           <span style={{
