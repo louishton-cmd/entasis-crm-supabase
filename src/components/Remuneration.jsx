@@ -225,20 +225,35 @@ function VueConseiller({ contrat, profile, deals, month, isManager }) {
       {/* Seuil de déclenchement (toujours visible si salarié) — affiche la
           progression cumulée et reste visible en phase 2 pour suivi continu */}
       {salaireFixe > 0 && (
-        <PalierCard
-          titre="Seuil de déclenchement du variable"
-          realise={rentab.valeurCumulee}
-          cible={rentab.brutCumule}
-          pct={rentab.brutCumule > 0
-            ? Math.min(100, (rentab.valeurCumulee / rentab.brutCumule) * 100)
-            : 0}
-          reste={Math.max(0, rentab.brutCumule - rentab.valeurCumulee)}
-          atteint={rentab.rentabilise}
-          variable={comm.total}
-          hint={rentab.rentabilise
-            ? `✅ Seuil atteint — tu touches ${fmtEur(comm.total)} de variable ce mois sur la production excédentaire. Tous les produits comptent : PP, PU, SCPI, UCS, MH, Girardin, PE, Prévoyance, Mutuelle.`
-            : `Plus que ${fmtEur(Math.max(0, rentab.brutCumule - rentab.valeurCumulee))} avant le déclenchement de ton variable. Tous les produits comptent dans ce seuil : PP, PU, SCPI, UCS, MH, Girardin, PE, Prévoyance, Mutuelle.`}
-        />
+        <>
+          <PalierCard
+            titre="Seuil de déclenchement du variable"
+            realise={rentab.valeurCumulee}
+            cible={rentab.brutCumule}
+            pct={rentab.brutCumule > 0
+              ? Math.min(100, (rentab.valeurCumulee / rentab.brutCumule) * 100)
+              : 0}
+            reste={Math.max(0, rentab.brutCumule - rentab.valeurCumulee)}
+            atteint={rentab.rentabilise}
+            variable={comm.total}
+            hint={rentab.rentabilise
+              ? `✅ Seuil atteint — tu touches ${fmtEur(comm.total)} de variable ce mois sur la production excédentaire. Tous les produits comptent : PP, PU, SCPI, UCS, MH, Girardin, PE, Prévoyance, Mutuelle.`
+              : `Plus que ${fmtEur(Math.max(0, rentab.brutCumule - rentab.valeurCumulee))} avant le déclenchement de ton variable. Tous les produits comptent dans ce seuil : PP, PU, SCPI, UCS, MH, Girardin, PE, Prévoyance, Mutuelle.`}
+          />
+          {/* Bloc pédagogique : explique le mécanisme mandataire → CDI ÷ 2 */}
+          <div className="card card-p mb-24" style={{ background: 'var(--gold-subtle, #FBF6EC)', border: '1px solid var(--gold-line, rgba(201,169,97,0.30))', padding: '14px 18px' }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <div style={{ fontSize: 20, lineHeight: 1, marginTop: 2 }}>💡</div>
+              <div style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 1.55 }}>
+                <strong style={{ color: 'var(--t1)' }}>Comment ça marche :</strong>{' '}
+                Tant que tu n'as pas remboursé ton salaire, tes dossiers comptent au{' '}
+                <strong style={{ color: 'var(--t1)' }}>taux mandataire</strong> (= taux plein) pour évaluer ce qui rembourse ton salaire.
+                Une fois le seuil atteint, ton variable est calculé sur la production excédentaire au{' '}
+                <strong style={{ color: 'var(--t1)' }}>taux CDI = mandataire ÷ 2</strong>.
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {/* PHASE 2 — pas de palier mensuel : une fois le seuil cumulatif
