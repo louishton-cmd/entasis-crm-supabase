@@ -3375,6 +3375,11 @@ function DealModal({open,initialDeal,profile,supabase,teamProfiles=[],onClose,on
 
       // Créer un deal pour chaque produit avec les infos communes.
       // On strip _localId (utilisé seulement comme React key, n'existe pas en DB).
+      // ⚠ Bug Jean 28/05/2026 : `...prod` écrasait date_signed/date_expected
+      // avec la string vide '' initialisée à la création du produit, alors
+      // que ces dates sont saisies au NIVEAU DOSSIER (deal.date_signed).
+      // Fix, fallback explicite sur deal.date_signed / deal.date_expected
+      // si la valeur produit est vide.
       const deals = validProducts.map(({ _localId, ...prod }) => {
         const newDeal = {
           ...deal,           // Infos communes (client_id, client, advisor_code, month)
@@ -3384,6 +3389,11 @@ function DealModal({open,initialDeal,profile,supabase,teamProfiles=[],onClose,on
           pu: prod.pu,
           company: prod.company,
           status: prod.status,
+          // Préserver les dates du niveau dossier — il n'y a pas d'inputs
+          // de date par produit, donc prod.date_* est toujours '' (ou la
+          // valeur héritée à l'init). On reprend la valeur niveau dossier.
+          date_signed: prod.date_signed || deal.date_signed || '',
+          date_expected: prod.date_expected || deal.date_expected || '',
           id: undefined,
           created_at: undefined
         };
