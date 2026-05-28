@@ -6,7 +6,7 @@
 export const MONTHS = ['JANVIER','FÉVRIER','MARS','AVRIL','MAI','JUIN','JUILLET','AOÛT','SEPTEMBRE','OCTOBRE','NOVEMBRE','DÉCEMBRE'];
 export const STATUS_OPTIONS = ['Signé','En cours','Prévu','Annulé'];
 export const PRIORITY_OPTIONS = ['Normale','Haute','Urgente'];
-export const PRODUCTS = ['PER Individuel','Assurance Vie Française','SCPI','Produits Structurés','Private Equity','Prévoyance TNS','Mutuelle Santé','Autre'];
+export const PRODUCTS = ['PER Individuel','PERO','Assurance Vie Française','SCPI','Produits Structurés','Private Equity','Prévoyance TNS','Mutuelle Santé','Autre'];
 export const COMPANIES = ['SwissLife','Abeille Assurances','Generali','Cardif (BNP Paribas)','Spirica','Autre'];
 export const SOURCES = ['Téléprospection','Leads Facebook','Parrainage Client','Réseau Personnel','Site Web Entasis','LinkedIn','Autre'];
 

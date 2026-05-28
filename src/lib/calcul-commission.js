@@ -36,8 +36,10 @@ export function mapProduitDeal(deal) {
   const produit = (deal.product || deal.produit || '').toLowerCase()
   const compagnie = (deal.company || deal.compagnie || '').toLowerCase()
 
-  // PER
-  if (produit.includes('per')) {
+  // PER (Individuel ET Obligatoire / PERO — Louis 28/05/2026)
+  // Le PERO se rémunère au même taux que le PER Individuel côté Entasis.
+  // Le check 'per' attrape déjà 'PER Individuel' et 'PERO' (commence par "per").
+  if (produit.includes('per') || produit === 'pero') {
     // On prend par défaut SwissLife / Abeille N+4 (taux le plus généreux)
     // Faute de tracking explicite N+3 vs N+4 sur les deals existants.
     return 'per_swisslife_abeille_n4'
