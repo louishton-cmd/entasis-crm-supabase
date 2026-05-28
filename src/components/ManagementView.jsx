@@ -882,9 +882,9 @@ function RowConseiller({ r, rdv, rdvLoading, onSelect }) {
 // past_7d / upcoming + total_rdv_passes.
 // ─────────────────────────────────────────────────────────────────────────
 function RdvLeadRoomSection({ rdvStats, activeAdvisors, onSelectAdvisor }) {
-  // Drill-down sur le KPI "Tenus", ouvre une modal listant les leads joined
-  // (avec age + actions Programmer rappel / Marquer signé / Marquer perdu).
-  const [showJoinedDetail, setShowJoinedDetail] = useState(false)
+  // Drill-down sur les KPIs RDV. State = bucket courant (null = fermée).
+  // Buckets, passes / tenus / absents / signes / a_noter / pipe_perdus / a_venir
+  const [drilldownBucket, setDrilldownBucket] = useState(null)
 
   const rdvRows = useMemo(() => {
     return (activeAdvisors || [])
@@ -967,37 +967,43 @@ function RdvLeadRoomSection({ rdvStats, activeAdvisors, onSelectAdvisor }) {
         </div>
       </div>
 
-      {/* ─── KPIs cabinet RDV ─────────────────────────────── */}
+      {/* ─── KPIs cabinet RDV (tous cliquables pour drill-down) ─────── */}
       <div style={{ padding: '12px 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, borderBottom: '1px solid var(--bd)' }}>
-        <RdvMiniKpi label="RDV passés" value={cabinet.past} color="var(--t1)" hint={`${cabinet.futur} à venir`} />
-        <div onClick={() => cabinet.tenus > 0 && setShowJoinedDetail(true)}
-             style={{ cursor: cabinet.tenus > 0 ? 'pointer' : 'default' }}
-             title={cabinet.tenus > 0 ? "Clique pour voir le détail des RDV tenus" : ""}>
-          <RdvMiniKpi label="✓ Tenus" value={cabinet.tenus} color="#10B981"
-            hint={cabinet.tenus > 0 ? "🔍 Clique pour drill-down" : null} />
-        </div>
-        <RdvMiniKpi label="✗ Absents" value={cabinet.absents} color="#EF4444"
-          hint={cabinet.pctAbsent > 0 ? `${cabinet.pctAbsent}% de no-show` : null}
-          alert={cabinet.pctAbsent >= 40} />
-        <RdvMiniKpi label="💎 Signés" value={cabinet.signes} color="var(--gold-dk, #A6843F)"
-          hint={cabinet.pctConv > 0 ? `${cabinet.pctConv}% conversion` : null} />
-        <RdvMiniKpi label="⚠ À noter" value={cabinet.aNoter} color="#F59E0B"
+        <ClickableRdvKpi label="RDV passés" value={cabinet.past} color="var(--t1)"
+          hint={`${cabinet.futur} à venir`}
+          onClick={() => setDrilldownBucket('passes')} />
+        <ClickableRdvKpi label="✓ Tenus" value={cabinet.tenus} color="#10B981"
+          hint="Clique pour la liste"
+          onClick={() => setDrilldownBucket('tenus')} />
+        <ClickableRdvKpi label="✗ Absents" value={cabinet.absents} color="#EF4444"
+          hint={cabinet.pctAbsent > 0 ? `${cabinet.pctAbsent}% de no-show` : 'Aucun'}
+          alert={cabinet.pctAbsent >= 40}
+          onClick={() => setDrilldownBucket('absents')} />
+        <ClickableRdvKpi label="💎 Signés" value={cabinet.signes} color="var(--gold-dk, #A6843F)"
+          hint={cabinet.pctConv > 0 ? `${cabinet.pctConv}% conversion` : 'Aucun'}
+          onClick={() => setDrilldownBucket('signes')} />
+        <ClickableRdvKpi label="⚠ À noter" value={cabinet.aNoter} color="#F59E0B"
           hint="Saisie manquante"
-          alert={cabinet.aNoter > 0} />
+          alert={cabinet.aNoter > 0}
+          onClick={() => setDrilldownBucket('a_noter')} />
+        {/* % Notation, pas drillable (c'est un dérivé), pas de onClick */}
         <RdvMiniKpi label="% Notation" value={`${cabinet.pctNoted}%`}
           color={cabinet.pctNoted === 100 ? '#10B981' : cabinet.pctNoted >= 80 ? '#F59E0B' : '#EF4444'}
           hint={cabinet.pctNoted < 100 ? 'Objectif 100 %' : 'Parfait'} />
-        <RdvMiniKpi label="📞 Pipe rappel" value={cabinet.absentsCovered}
+        <ClickableRdvKpi label="📞 Pipe rappel" value={cabinet.absentsCovered}
           color="#0071E3"
           hint={cabinet.absentsUncovered > 0
             ? `${cabinet.absentsUncovered} perdu${cabinet.absentsUncovered > 1 ? 's' : ''} sans rappel`
-            : `${cabinet.pctRecovery}% des absents`}
-          alert={cabinet.absentsUncovered > 0} />
+            : 'Tous couverts ✓'}
+          alert={cabinet.absentsUncovered > 0}
+          onClick={() => setDrilldownBucket('pipe_perdus')} />
       </div>
 
-      {/* Modal drill-down RDV tenus */}
-      {showJoinedDetail && (
-        <JoinedLeadsDrilldownModal onClose={() => setShowJoinedDetail(false)} />
+      {/* Modal drill-down universel — selon bucket cliqué */}
+      {drilldownBucket && (
+        <RdvBucketDrilldownModal
+          bucket={drilldownBucket}
+          onClose={() => setDrilldownBucket(null)} />
       )}
 
       {/* ─── Tableau par conseiller ───────────────────────── */}
@@ -1108,6 +1114,35 @@ function RdvLeadRoomSection({ rdvStats, activeAdvisors, onSelectAdvisor }) {
             })}
           </tbody>
         </table>
+      </div>
+    </div>
+  )
+}
+
+// KPI cliquable — variante visuelle du RdvMiniKpi avec hover + curseur
+// pointer + indicateur "🔍 Clic" pour montrer qu'on peut drill-down.
+function ClickableRdvKpi({ label, value, color, hint, alert, onClick }) {
+  const [hover, setHover] = useState(false)
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        background: alert ? 'rgba(245,158,11,0.07)' : hover ? 'rgba(0,113,227,0.05)' : 'var(--bg)',
+        padding: '10px 12px', borderRadius: 'var(--rad)',
+        borderTop: `2px solid ${color}`,
+        cursor: 'pointer',
+        transition: 'all 0.15s',
+        transform: hover ? 'translateY(-1px)' : 'none',
+        boxShadow: hover ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
+        position: 'relative',
+      }}
+      title="Clique pour voir le détail">
+      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--t3)' }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: color, marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+      <div style={{ fontSize: 10, color: hover ? '#0071E3' : 'var(--t3)', marginTop: 2, fontWeight: hover ? 600 : 400 }}>
+        {hover ? '🔍 Clic pour le détail' : (hint || '')}
       </div>
     </div>
   )
@@ -1479,11 +1514,365 @@ function RecyclageRefusesSection() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// MODAL DRILL-DOWN — Détail des RDV tenus avec actions manager
-// Demandée par Louis 28/05/2026, "21 tenus → je veux des infos +
-// actions pour chacun (programmer rappel, marquer signé, marquer perdu)".
+// MODAL DRILL-DOWN UNIVERSELLE — Détail d'un bucket de RDV avec actions
+// adaptées. Remplace l'ancienne JoinedLeadsDrilldownModal.
+//
+// Bucket → comportement,
+//   • passes       (tous les RDV passés)         Lecture + actions par status
+//   • tenus        (RDV s'est tenu)              Rappel / Signé / Perdu
+//   • absents      (no-show)                     Rappel / Réessayer
+//   • signes       (contrat signé)               Lecture seule
+//   • a_noter      (saisie manquante)            Tenu / Absent / Refus / Signé
+//   • pipe_perdus  (absents sans rappel)         Rappel / Archiver
+//   • a_venir      (RDV futurs)                  Lecture seule
+//
+// Demandé par Louis 28/05/2026, "je veux pouvoir cliquer pour détail sur
+// chaque chiffre (65 passes, 28 absents, etc)".
 // ─────────────────────────────────────────────────────────────────────────
+const BUCKET_LABELS = {
+  passes: { title: 'Tous les RDV passés', emoji: '📋', color: 'var(--t1)' },
+  tenus: { title: 'RDV tenus', emoji: '✓', color: '#10B981' },
+  absents: { title: 'Absents (no-show)', emoji: '✗', color: '#EF4444' },
+  signes: { title: 'Contrats signés', emoji: '💎', color: 'var(--gold-dk, #A6843F)' },
+  a_noter: { title: 'RDV à noter (saisie manquante)', emoji: '⚠', color: '#F59E0B' },
+  pipe_perdus: { title: 'Absents sans rappel (pipe en danger)', emoji: '📞', color: '#EF4444' },
+  a_venir: { title: 'RDV à venir', emoji: '📅', color: '#0071E3' },
+}
+
+function RdvBucketDrilldownModal({ bucket, onClose }) {
+  const [leads, setLeads] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [busy, setBusy] = useState({})
+  const [callbackFor, setCallbackFor] = useState(null)
+  const [customDate, setCustomDate] = useState('')
+  // Filtre par conseiller (utile sur passes/tenus/absents)
+  const [advisorFilter, setAdvisorFilter] = useState('all')
+
+  const meta = BUCKET_LABELS[bucket] || { title: bucket, emoji: '🔍', color: 'var(--t1)' }
+
+  async function refresh() {
+    setLoading(true)
+    try {
+      const r = await fetch(`${LEADROOM_API}/api/admin/rdv-bucket-detail?bucket=${bucket}`)
+      const json = await r.json()
+      if (r.ok) setLeads(json.leads || [])
+      else setError(json.error || 'erreur')
+    } catch (e) {
+      setError(e.message || 'réseau')
+    } finally { setLoading(false) }
+  }
+  useEffect(() => { refresh() }, [bucket])
+
+  const advisors = useMemo(() => {
+    const set = new Map()
+    for (const l of leads) {
+      if (l.advisor_id && !set.has(l.advisor_id)) {
+        set.set(l.advisor_id, l.advisor_name)
+      }
+    }
+    return Array.from(set.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+  }, [leads])
+
+  const displayed = useMemo(() => {
+    const filtered = advisorFilter === 'all' ? leads : leads.filter(l => l.advisor_id === advisorFilter)
+    return [...filtered].sort((a, b) => {
+      if (bucket === 'a_venir') {
+        // ordre asc pour les futurs
+        return (a.rdv_date || '').localeCompare(b.rdv_date || '')
+      }
+      // Par défaut, les plus vieux (qui traînent) en premier
+      return (b.days_since_rdv || 0) - (a.days_since_rdv || 0)
+    })
+  }, [leads, advisorFilter, bucket])
+
+  // Breakdown par conseiller pour stats header
+  const byAdvisor = useMemo(() => {
+    const m = new Map()
+    for (const l of leads) {
+      const k = l.advisor_id || 'none'
+      m.set(k, (m.get(k) || 0) + 1)
+    }
+    return m
+  }, [leads])
+
+  async function doAction(leadId, action, callbackAtIso) {
+    setBusy(b => ({ ...b, [leadId]: true }))
+    try {
+      const r = await fetch(`${LEADROOM_API}/api/admin/lead-action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId, action, callbackAtIso }),
+      })
+      const json = await r.json()
+      if (!r.ok) throw new Error(json.error || 'échec action')
+      // Retire localement les leads qui sortent du bucket
+      if (action === 'sign' || action === 'lose') {
+        setLeads(prev => prev.filter(l => l.id !== leadId))
+      } else if (action === 'callback') {
+        setLeads(prev => prev.map(l => l.id === leadId
+          ? { ...l, callback_at: callbackAtIso, has_callback_future: true, is_stale: false }
+          : l))
+        // Sur bucket pipe_perdus, le lead sort
+        if (bucket === 'pipe_perdus') {
+          setLeads(prev => prev.filter(l => l.id !== leadId))
+        }
+      }
+    } catch (e) {
+      alert(`Action impossible, ${e.message}`)
+    } finally {
+      setBusy(b => { const { [leadId]: _, ...rest } = b; return rest })
+    }
+  }
+
+  function isoInDays(n) {
+    const d = new Date()
+    d.setDate(d.getDate() + n)
+    d.setHours(9, 0, 0, 0)
+    return d.toISOString()
+  }
+  function fmtDate(iso) {
+    if (!iso) return '—'
+    try { return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) }
+    catch { return iso }
+  }
+
+  // Détermine quelles actions afficher selon le bucket
+  function getActions(l) {
+    const isBusy = !!busy[l.id]
+    const a = []
+    if (['passes', 'tenus', 'absents', 'a_noter', 'pipe_perdus'].includes(bucket)) {
+      a.push(<button key="cb" className="btn btn-sm" disabled={isBusy}
+        onClick={() => { setCustomDate(''); setCallbackFor(l) }}
+        style={{ background: 'rgba(0,113,227,0.10)', color: '#0071E3', fontSize: 11 }}>
+        📞 Rappel
+      </button>)
+    }
+    if (['passes', 'tenus', 'absents', 'a_noter'].includes(bucket)) {
+      a.push(<button key="sg" className="btn btn-sm" disabled={isBusy}
+        onClick={() => doAction(l.id, 'sign')}
+        style={{ background: 'rgba(201,169,97,0.15)', color: 'var(--gold-dk, #A6843F)', fontSize: 11, fontWeight: 700 }}>
+        💎 Signé
+      </button>)
+    }
+    if (['passes', 'tenus', 'absents', 'pipe_perdus'].includes(bucket)) {
+      a.push(<button key="ls" className="btn btn-sm" disabled={isBusy}
+        onClick={() => { if (confirm(`Marquer "${l.name}" comme perdu ?`)) doAction(l.id, 'lose') }}
+        style={{ background: 'rgba(239,68,68,0.10)', color: '#EF4444', fontSize: 11 }}>
+        ✗ Perdu
+      </button>)
+    }
+    return a
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose} style={{ background: 'rgba(0,0,0,0.5)' }}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}
+        style={{ maxWidth: 1200, maxHeight: '92vh', overflowY: 'auto' }}>
+        <div className="modal-head" style={{ position: 'sticky', top: 0, background: 'white', zIndex: 10, borderBottom: `2px solid ${meta.color}` }}>
+          <div>
+            <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ color: meta.color, fontSize: 22 }}>{meta.emoji}</span>
+              <span>{meta.title}</span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 4 }}>
+              {loading ? 'Chargement…' : `${displayed.length} lead${displayed.length > 1 ? 's' : ''}${advisorFilter !== 'all' ? ` (filtré sur 1 conseiller)` : ''}`}
+            </div>
+          </div>
+          <button className="btn btn-ghost btn-icon" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-body" style={{ padding: 20 }}>
+          {/* Filtre par conseiller */}
+          {advisors.length > 1 && (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, color: 'var(--t2)' }}>Filtrer par conseiller :</span>
+              <button onClick={() => setAdvisorFilter('all')}
+                className={`btn btn-sm ${advisorFilter === 'all' ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ fontSize: 11 }}>
+                Tous ({leads.length})
+              </button>
+              {advisors.map(a => (
+                <button key={a.id} onClick={() => setAdvisorFilter(a.id)}
+                  className={`btn btn-sm ${advisorFilter === a.id ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ fontSize: 11 }}>
+                  {a.name} ({byAdvisor.get(a.id) || 0})
+                </button>
+              ))}
+            </div>
+          )}
+
+          {error && (
+            <div style={{ padding: 16, background: 'rgba(239,68,68,0.1)', color: '#EF4444', borderRadius: 8, marginBottom: 12 }}>
+              Erreur, {error}
+            </div>
+          )}
+
+          {/* Tableau */}
+          {displayed.length === 0 && !loading ? (
+            <div style={{ padding: 40, textAlign: 'center', color: 'var(--t3)' }}>
+              Aucun lead dans cette catégorie 🎉
+            </div>
+          ) : (
+            <table className="data-table" style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th>Client</th>
+                  <th>Conseiller</th>
+                  <th style={{ textAlign: 'right' }}>RDV</th>
+                  <th style={{ textAlign: 'right' }}>{bucket === 'a_venir' ? 'Dans' : 'Âge'}</th>
+                  <th>Statut / Suivi</th>
+                  {bucket !== 'signes' && bucket !== 'a_venir' && <th style={{ textAlign: 'right' }}>Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {displayed.map(l => (
+                  <tr key={l.id} style={{ background: l.is_stale ? 'rgba(239,68,68,0.04)' : undefined }}>
+                    <td>
+                      <div className="cell-primary">{l.name}</div>
+                      <div className="cell-sub" style={{ fontSize: 11 }}>
+                        {l.campaign_slug || '∅'}{l.email ? ` · ${l.email}` : ''}
+                      </div>
+                      {l.notes_excerpt && (
+                        <div style={{ fontSize: 11, fontStyle: 'italic', color: 'var(--t3)', marginTop: 4, lineHeight: 1.4 }}
+                             title={l.notes_excerpt}>
+                          "{l.notes_excerpt.slice(0, 60)}{l.notes_excerpt.length > 60 ? '…' : ''}"
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{l.advisor_name}</div>
+                    </td>
+                    <td className="cell-mono" style={{ textAlign: 'right', fontSize: 12 }}>
+                      {fmtDate(l.rdv_date)}
+                    </td>
+                    <td className="cell-mono" style={{ textAlign: 'right' }}>
+                      {bucket === 'a_venir' ? (
+                        <span style={{
+                          padding: '2px 7px', borderRadius: 4, fontSize: 11, fontWeight: 700,
+                          background: 'rgba(0,113,227,0.15)', color: '#0071E3',
+                        }}>
+                          J{l.days_until_rdv >= 0 ? '+' : ''}{l.days_until_rdv}
+                        </span>
+                      ) : (
+                        <span style={{
+                          padding: '2px 7px', borderRadius: 4, fontSize: 11, fontWeight: 700,
+                          background: l.days_since_rdv > 14 ? 'rgba(239,68,68,0.15)' : l.days_since_rdv > 7 ? 'rgba(245,158,11,0.15)' : 'rgba(16,185,129,0.15)',
+                          color: l.days_since_rdv > 14 ? '#EF4444' : l.days_since_rdv > 7 ? '#B45309' : '#10B981',
+                        }}>
+                          J+{l.days_since_rdv}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ fontSize: 11 }}>
+                      <StatusBadge status={l.status} />
+                      {l.has_callback_future ? (
+                        <div style={{ color: '#0071E3', fontWeight: 600, marginTop: 4 }}>
+                          📞 Rappel {fmtDate(l.callback_at)}
+                        </div>
+                      ) : l.is_stale ? (
+                        <div style={{ color: '#EF4444', fontWeight: 600, marginTop: 4 }}>⚠ À recontacter</div>
+                      ) : null}
+                    </td>
+                    {bucket !== 'signes' && bucket !== 'a_venir' && (
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: 4 }}>
+                          {getActions(l)}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Sub-modal "Quand rappeler ?" */}
+        {callbackFor && (
+          <div className="modal-overlay" onClick={() => setCallbackFor(null)} style={{ background: 'rgba(0,0,0,0.6)', zIndex: 100 }}>
+            <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+              <div className="modal-head">
+                <div>
+                  <div className="modal-title" style={{ fontSize: 16 }}>
+                    Programmer un rappel
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 4 }}>
+                    {callbackFor.name} (conseiller, {callbackFor.advisor_name})
+                  </div>
+                </div>
+              </div>
+              <div className="modal-body" style={{ padding: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+                  {[1, 3, 7].map(d => (
+                    <button key={d} className="btn btn-sm" style={{ fontSize: 12, padding: '10px 4px' }}
+                      onClick={() => { doAction(callbackFor.id, 'callback', isoInDays(d)); setCallbackFor(null) }}>
+                      {d === 1 ? 'Demain' : d === 3 ? 'Dans 3 jours' : 'Semaine pro'}
+                      <div style={{ fontSize: 10, opacity: 0.7, marginTop: 2 }}>{fmtDate(isoInDays(d))}</div>
+                    </button>
+                  ))}
+                </div>
+                <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 12 }}>
+                  <div style={{ fontSize: 12, color: 'var(--t3)', marginBottom: 6 }}>Ou choisir une date,</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input type="datetime-local" value={customDate}
+                      onChange={e => setCustomDate(e.target.value)}
+                      className="form-input" style={{ flex: 1, fontSize: 13 }}
+                      min={new Date().toISOString().slice(0, 16)} />
+                    <button className="btn btn-primary btn-sm" disabled={!customDate}
+                      onClick={() => {
+                        const iso = new Date(customDate).toISOString()
+                        doAction(callbackFor.id, 'callback', iso)
+                        setCallbackFor(null)
+                      }}>
+                      Programmer
+                    </button>
+                  </div>
+                </div>
+                <div style={{ marginTop: 16, textAlign: 'center' }}>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setCallbackFor(null)}
+                    style={{ fontSize: 11, color: 'var(--t3)' }}>
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Badge status d'un lead (réutilisé dans la modal universelle)
+function StatusBadge({ status }) {
+  const map = {
+    joined: { label: '✓ Tenu', bg: 'rgba(16,185,129,0.12)', color: '#10B981' },
+    not_joined: { label: '✗ Absent', bg: 'rgba(239,68,68,0.12)', color: '#EF4444' },
+    refused: { label: 'Refus', bg: 'rgba(0,0,0,0.06)', color: 'var(--t2)' },
+    signed: { label: '💎 Signé', bg: 'rgba(201,169,97,0.15)', color: 'var(--gold-dk, #A6843F)' },
+    rdv: { label: '⚠ À noter', bg: 'rgba(245,158,11,0.15)', color: '#B45309' },
+  }
+  const v = map[status]
+  if (!v) return <span style={{ fontSize: 11, color: 'var(--t3)' }}>{status}</span>
+  return (
+    <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: 4, fontSize: 11, fontWeight: 700, background: v.bg, color: v.color }}>
+      {v.label}
+    </span>
+  )
+}
+
+// Ancien composant gardé pour compat (vide, redirige vers la modal universelle)
 function JoinedLeadsDrilldownModal({ onClose }) {
+  return <RdvBucketDrilldownModal bucket="tenus" onClose={onClose} />
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MODAL DRILL-DOWN — Détail des RDV tenus avec actions manager (legacy)
+// (le contenu ci-dessous est conservé pour ref mais n'est plus utilisé,
+// remplacé par RdvBucketDrilldownModal au-dessus)
+// ─────────────────────────────────────────────────────────────────────────
+function JoinedLeadsDrilldownModal_DEPRECATED({ onClose }) {
   const [leads, setLeads] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
