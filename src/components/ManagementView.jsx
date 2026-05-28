@@ -260,6 +260,16 @@ export default function ManagementView({ deals, objectifs, month, profile, teamP
         />
       </div>
 
+      {/* ─── MODULE DÉDIÉ RDV LEAD ROOM ─────────────────────────────── */}
+      <RdvLeadRoomSection
+        rdvStats={rdvStats}
+        activeAdvisors={activeAdvisors}
+        onSelectAdvisor={(advisorEmail) => {
+          const row = rows.find(r => (r.profile.email || '').toLowerCase() === (advisorEmail || '').toLowerCase())
+          if (row) setSelectedAdvisor(row)
+        }}
+      />
+
       {/* ─── Top performeurs + À booster ───────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 16, marginBottom: 24 }}>
         <PodiumCard
@@ -853,5 +863,241 @@ function RowConseiller({ r, rdv, rdvLoading, onSelect }) {
         )}
       </td>
     </tr>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MODULE RDV LEAD ROOM — Section dédiée demandée par Louis 28/05/2026.
+// Vue manager focalisée sur l'activité RDV des conseillers, taux de
+// notation, taux d'absent, taux de conversion (signés/tenus), RDV à noter.
+//
+// Source des données, /api/admin/advisor-rdv-stats (Lead Room) qui fournit
+// pour chaque advisor, joined / no_show / refused / signed / to_note /
+// past_7d / upcoming + total_rdv_passes.
+// ─────────────────────────────────────────────────────────────────────────
+function RdvLeadRoomSection({ rdvStats, activeAdvisors, onSelectAdvisor }) {
+  const rdvRows = useMemo(() => {
+    return (activeAdvisors || [])
+      .map(p => {
+        const r = rdvStats.byEmail[(p.email || '').toLowerCase()]
+        if (!r) return null
+        const noted = (r.joined || 0) + (r.no_show || 0) + (r.refused || 0) + (r.signed || 0)
+        const total = r.total_rdv_passes || 0
+        const pctNoted = total > 0 ? Math.round((noted / total) * 100) : 0
+        const pctAbsent = total > 0 ? Math.round(((r.no_show || 0) / total) * 100) : 0
+        const pctConv = (r.joined || 0) > 0 ? Math.round(((r.signed || 0) / r.joined) * 100) : 0
+        return {
+          profile: p,
+          stats: r,
+          noted,
+          total,
+          pctNoted,
+          pctAbsent,
+          pctConv,
+        }
+      })
+      .filter(Boolean)
+  }, [rdvStats, activeAdvisors])
+
+  // KPIs cabinet (somme de tous les conseillers actifs visibles)
+  const cabinet = useMemo(() => {
+    const agg = { past: 0, tenus: 0, absents: 0, refus: 0, signes: 0, aNoter: 0, futur: 0 }
+    for (const r of rdvRows) {
+      agg.past += r.total
+      agg.tenus += r.stats.joined || 0
+      agg.absents += r.stats.no_show || 0
+      agg.refus += r.stats.refused || 0
+      agg.signes += r.stats.signed || 0
+      agg.aNoter += r.stats.to_note || 0
+      agg.futur += r.stats.upcoming || 0
+    }
+    const noted = agg.tenus + agg.absents + agg.refus + agg.signes
+    return {
+      ...agg,
+      pctNoted: agg.past > 0 ? Math.round((noted / agg.past) * 100) : 0,
+      pctAbsent: agg.past > 0 ? Math.round((agg.absents / agg.past) * 100) : 0,
+      pctConv: agg.tenus > 0 ? Math.round((agg.signes / agg.tenus) * 100) : 0,
+    }
+  }, [rdvRows])
+
+  // Tri : par à noter desc (priorité manager), puis par RDV passés desc
+  const sortedRows = useMemo(
+    () => [...rdvRows].sort((a, b) => {
+      if (b.stats.to_note !== a.stats.to_note) return (b.stats.to_note || 0) - (a.stats.to_note || 0)
+      return b.total - a.total
+    }),
+    [rdvRows]
+  )
+
+  if (rdvStats.loading) {
+    return (
+      <div className="card mb-24" style={{ padding: 24, textAlign: 'center', color: 'var(--t3)' }}>
+        Chargement des stats RDV Lead Room…
+      </div>
+    )
+  }
+  if (rdvRows.length === 0) {
+    return null
+  }
+
+  return (
+    <div className="card mb-24" style={{ overflow: 'hidden', borderTop: '3px solid #0071E3' }}>
+      <div className="panel-head">
+        <div>
+          <div className="section-kicker" style={{ color: '#0071E3' }}>📞 Module RDV Lead Room</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--t1)' }}>
+            Pilotage activité commerciale & notation
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 2 }}>
+            Vue globale des RDV pris via la Lead Room. Clique sur une ligne pour le détail conseiller.
+          </div>
+        </div>
+      </div>
+
+      {/* ─── KPIs cabinet RDV ─────────────────────────────── */}
+      <div style={{ padding: '12px 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, borderBottom: '1px solid var(--bd)' }}>
+        <RdvMiniKpi label="RDV passés" value={cabinet.past} color="var(--t1)" hint={`${cabinet.futur} à venir`} />
+        <RdvMiniKpi label="✓ Tenus" value={cabinet.tenus} color="#10B981" />
+        <RdvMiniKpi label="✗ Absents" value={cabinet.absents} color="#EF4444"
+          hint={cabinet.pctAbsent > 0 ? `${cabinet.pctAbsent}% de no-show` : null}
+          alert={cabinet.pctAbsent >= 40} />
+        <RdvMiniKpi label="💎 Signés" value={cabinet.signes} color="var(--gold-dk, #A6843F)"
+          hint={cabinet.pctConv > 0 ? `${cabinet.pctConv}% conversion` : null} />
+        <RdvMiniKpi label="⚠ À noter" value={cabinet.aNoter} color="#F59E0B"
+          hint="Saisie manquante"
+          alert={cabinet.aNoter > 0} />
+        <RdvMiniKpi label="% Notation" value={`${cabinet.pctNoted}%`}
+          color={cabinet.pctNoted === 100 ? '#10B981' : cabinet.pctNoted >= 80 ? '#F59E0B' : '#EF4444'}
+          hint={cabinet.pctNoted < 100 ? 'Objectif 100 %' : 'Parfait'} />
+      </div>
+
+      {/* ─── Tableau par conseiller ───────────────────────── */}
+      <div style={{ overflowX: 'auto' }}>
+        <table className="data-table" style={{ width: '100%', minWidth: 900 }}>
+          <thead>
+            <tr>
+              <th>Conseiller</th>
+              <th style={{ textAlign: 'right' }} title="RDV passés (total)">Passés</th>
+              <th style={{ textAlign: 'right', color: '#10B981' }} title="RDV où le client s'est présenté">✓ Tenus</th>
+              <th style={{ textAlign: 'right', color: '#EF4444' }} title="Client absent (no-show)">✗ Absents</th>
+              <th style={{ textAlign: 'right' }} title="Refus client">Refus</th>
+              <th style={{ textAlign: 'right', color: 'var(--gold-dk, #A6843F)' }} title="Contrat signé suite au RDV">💎 Signés</th>
+              <th style={{ textAlign: 'right', color: '#F59E0B' }} title="RDV passés non notés (saisie manquante)">⚠ À noter</th>
+              <th style={{ textAlign: 'right' }} title="Saisie correcte / total — Objectif 100 %">% Not.</th>
+              <th style={{ textAlign: 'right' }} title="Taux de présence client (tenus / passés)">% Prés.</th>
+              <th style={{ textAlign: 'right' }} title="Conversion Signés / Tenus">% Conv.</th>
+              <th style={{ textAlign: 'right' }} title="RDV à venir (futur)">À venir</th>
+              <th>Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedRows.map(r => {
+              const pctPresence = r.total > 0 ? Math.round(((r.stats.joined || 0) / r.total) * 100) : 0
+              const isAlerte = (r.stats.to_note || 0) > 0
+              const isAbsentChronique = r.total >= 5 && r.pctAbsent >= 50
+              return (
+                <tr key={r.profile.id} style={{ cursor: 'pointer', background: isAlerte ? 'rgba(245,158,11,0.05)' : undefined }}
+                    onClick={() => onSelectAdvisor && onSelectAdvisor(r.profile.email)}
+                    title="Clic pour voir le détail conseiller">
+                  <td>
+                    <div className="cell-primary">{r.profile.full_name || r.profile.advisor_code}</div>
+                    <div className="cell-sub" style={{ fontFamily: 'monospace' }}>{r.profile.advisor_code}</div>
+                  </td>
+                  <td className="cell-mono" style={{ textAlign: 'right', fontWeight: 600 }}>{r.total}</td>
+                  <td className="cell-mono" style={{ textAlign: 'right', color: '#10B981', fontWeight: 600 }}>{r.stats.joined || 0}</td>
+                  <td className="cell-mono" style={{ textAlign: 'right', color: '#EF4444', fontWeight: 600 }}>{r.stats.no_show || 0}</td>
+                  <td className="cell-mono" style={{ textAlign: 'right', color: 'var(--t3)' }}>{r.stats.refused || 0}</td>
+                  <td className="cell-mono" style={{ textAlign: 'right', color: 'var(--gold-dk, #A6843F)', fontWeight: 700 }}>{r.stats.signed || 0}</td>
+                  <td className="cell-mono" style={{ textAlign: 'right' }}>
+                    {r.stats.to_note > 0 ? (
+                      <span style={{
+                        padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700,
+                        background: 'rgba(245,158,11,0.15)', color: '#B45309',
+                      }}>
+                        {r.stats.to_note}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--t3)' }}>0</span>
+                    )}
+                  </td>
+                  <td className="cell-mono" style={{ textAlign: 'right' }}>
+                    <PctBadge value={r.pctNoted} reverseColor={false} />
+                  </td>
+                  <td className="cell-mono" style={{ textAlign: 'right' }}>
+                    <PctBadge value={pctPresence} reverseColor={false} />
+                  </td>
+                  <td className="cell-mono" style={{ textAlign: 'right', fontWeight: 600 }}>
+                    {(r.stats.joined || 0) > 0 ? (
+                      <span style={{ color: r.pctConv >= 30 ? '#10B981' : r.pctConv > 0 ? 'var(--t1)' : 'var(--t3)' }}>
+                        {r.pctConv}%
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--t3)' }}>—</span>
+                    )}
+                  </td>
+                  <td className="cell-mono" style={{ textAlign: 'right' }}>
+                    {(r.stats.upcoming || 0) > 0 ? (
+                      <span style={{
+                        padding: '1px 6px', borderRadius: 3, fontSize: 11,
+                        background: 'rgba(0,113,227,0.10)', color: '#0071E3', fontWeight: 600,
+                      }}>
+                        +{r.stats.upcoming}
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td>
+                    {isAlerte ? (
+                      <span className="badge" style={{ background: 'rgba(245,158,11,0.15)', color: '#B45309' }}>
+                        Saisie KO
+                      </span>
+                    ) : isAbsentChronique ? (
+                      <span className="badge" style={{ background: 'rgba(239,68,68,0.12)', color: '#EF4444' }}>
+                        No-show élevé
+                      </span>
+                    ) : r.pctConv >= 30 ? (
+                      <span className="badge badge-signed">Convertit</span>
+                    ) : (
+                      <span className="badge" style={{ background: 'var(--bg)', color: 'var(--t2)' }}>RAS</span>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// Mini-KPI dédié au module RDV (style légèrement différent des autres
+// pour bien distinguer la section)
+function RdvMiniKpi({ label, value, color, hint, alert }) {
+  return (
+    <div style={{
+      background: alert ? 'rgba(245,158,11,0.07)' : 'var(--bg)',
+      padding: '10px 12px', borderRadius: 'var(--rad)',
+      borderTop: `2px solid ${color}`,
+    }}>
+      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--t3)' }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: color, marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+      {hint && <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2 }}>{hint}</div>}
+    </div>
+  )
+}
+
+// Badge pourcentage avec code couleur (vert=bon, orange=moyen, rouge=mauvais)
+function PctBadge({ value, reverseColor = false }) {
+  const v = Number(value || 0)
+  const isGood = reverseColor ? v <= 30 : v >= 80
+  const isMid = reverseColor ? v <= 60 : v >= 50
+  const color = isGood ? '#10B981' : isMid ? '#F59E0B' : '#EF4444'
+  return (
+    <span style={{
+      padding: '2px 7px', borderRadius: 4, fontSize: 11, fontWeight: 700,
+      background: `${color}1A`, color,
+    }}>
+      {v}%
+    </span>
   )
 }
