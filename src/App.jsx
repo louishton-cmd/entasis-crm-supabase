@@ -18,6 +18,7 @@ import PipelineVEFA from './components/PipelineVEFA'
 import OutilsCGP from './components/OutilsCGP'
 import LinkedInPro from './components/LinkedInPro'
 import PilotageRH from './components/PilotageRH'
+import Recrutement from './components/Recrutement'
 import Remuneration from './components/Remuneration'
 import ManagementView from './components/ManagementView'
 import MissionDuMois from './components/MissionDuMois'
@@ -688,7 +689,8 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,prospects
       {key:'structureurs', label:'Structureurs', Icon:Icon.Ucs, manager:true},
       {key:'team', label:'Équipe', Icon:Icon.Team},
       {key:'weekly-review', label:'Revue hebdo', Icon:Icon.Forecast},
-      {key:'pilotage-rh', label:'Pilotage RH', Icon:Icon.Team, manager:true}
+      {key:'pilotage-rh', label:'Pilotage RH', Icon:Icon.Team, manager:true},
+      {key:'recrutement', label:'Recrutement', Icon:Icon.Team, manager:true}
     ]:[]),
   ]
 
@@ -774,7 +776,7 @@ function Sidebar({profile,activeTab,setActiveTab,onSignOut,deals,month,prospects
 /* ─────────────────────────────────────────────────────────────────────────────
    TOP BAR
 ───────────────────────────────────────────────────────────────────────────── */
-const PAGE_TITLES={dashboard:'Vue d\'ensemble',pipeline:'Pipeline commercial',dossiers:'Dossiers clients',forecast:'Management / Prévisionnel',agenda:'Agenda & Relances',market:'Marchés financiers 📈',team:'Équipe',leads:'Leads Live ⚡','ucs-structures':'UCS Produits Structurés',structureurs:'Structureurs',prospection:'Prospection LinkedIn','immo-dashboard':'Immobilier Neuf','immo-programmes':'Catalogue Programmes','immo-dossiers':'Mes Dossiers Immobilier','immo-pipeline':'Pipeline VEFA',remuneration:'Rémunération',outils:'Outils CGP','pilotage-rh':'Pilotage RH 👥'}
+const PAGE_TITLES={dashboard:'Vue d\'ensemble',pipeline:'Pipeline commercial',dossiers:'Dossiers clients',forecast:'Management / Prévisionnel',agenda:'Agenda & Relances',market:'Marchés financiers 📈',team:'Équipe',leads:'Leads Live ⚡','ucs-structures':'UCS Produits Structurés',structureurs:'Structureurs',prospection:'Prospection LinkedIn','immo-dashboard':'Immobilier Neuf','immo-programmes':'Catalogue Programmes','immo-dossiers':'Mes Dossiers Immobilier','immo-pipeline':'Pipeline VEFA',remuneration:'Rémunération',outils:'Outils CGP','pilotage-rh':'Pilotage RH 👥','recrutement':'Recrutement 🎯'}
 
 function TopBar({activeTab,month,setMonth,onNewDeal,onRefresh,onMobileMenu}){
   return (
@@ -4715,6 +4717,7 @@ export default function App(){
           {activeTab==='dashboard'&&(isManager?<ManagerDashboard deals={deals} objectifs={objectifs} month={month} teamProfiles={teamProfiles}/>:<AdvisorDashboard deals={deals} objectifs={objectifs} month={month} profile={profile}/>)}
           {activeTab==='leads'&&<LeadRoomEmbed/>}
           {activeTab==='pilotage-rh'&&isManager&&<PilotageRH/>}
+          {activeTab==='recrutement'&&isManager&&<Recrutement/>}
           {activeTab==='pipeline'&&<PipelineBoard deals={deals} month={month} profile={profile} onEdit={startEdit}/>}
           {activeTab==='dossiers'&&<DealsTable deals={deals} month={month} profile={profile} onEdit={startEdit} onDelete={deleteDeal} onRefresh={loadAll} onSelectClient={(clientId) => {
             setSelectedClientId(clientId)
